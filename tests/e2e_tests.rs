@@ -90,7 +90,16 @@ mod core_tests {
         // Should detect one of the supported platforms
         assert!(matches!(
             platform,
-            Platform::MacOS | Platform::Windows | Platform::Linux | Platform::IOS | Platform::Android
+            Platform::MacOsArm64
+                | Platform::MacOsX86
+                | Platform::Windows
+                | Platform::LinuxX86
+                | Platform::LinuxArm64
+                | Platform::Ios
+                | Platform::IosSimulator
+                | Platform::AndroidArm64
+                | Platform::AndroidArm32
+                | Platform::Unknown
         ));
     }
 }
