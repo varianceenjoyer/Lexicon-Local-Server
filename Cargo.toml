@@ -2,8 +2,9 @@
 resolver = "2"
 members = [
     "crates/lexicon-core",
-    # "crates/lexicon-server",  # Layer 3: WP-SERVER
-    # "crates/lexicon-cli",     # Layer 3: WP-CLI
+    "crates/lexicon-cli",
+    "crates/lexicon-server",
+    "crates/lexicon-ffi",
 ]
 
 [workspace.package]
@@ -59,6 +60,33 @@ ringbuf = "0.4"
 
 # Speech-to-Text (Whisper)
 whisper-rs = "0.14"
+
+# Text-to-Speech
+ort = { version = "2.0.0-rc.11", default-features = false }
+tts = "0.26"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+indicatif = "0.17"
+
+# Audio file reading
+hound = "3.5"
+
+# Encoding
+base64 = "0.22"
+
+# Web server (Axum)
+axum = { version = "0.7", features = ["ws", "macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "fs"] }
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+
+# Internal crates
+lexicon-core = { path = "crates/lexicon-core" }
+
+# FFI (UniFFI for Swift/Kotlin bindings)
+uniffi = "0.28"
 
 [workspace.lints.rust]
 unsafe_code = "deny"
