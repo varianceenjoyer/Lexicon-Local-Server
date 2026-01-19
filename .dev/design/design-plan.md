@@ -764,6 +764,676 @@ pub struct MockTranscriber {
 
 ---
 
+## Test Plan
+
+This section defines test requirements for each work package, test sequencing, and phase-specific validation gates. All tests must have clear pass/fail criteria and be automatable.
+
+### Test Infrastructure Requirements
+
+**Tooling:**
+
+| Tool | Purpose | Work Package |
+|------|---------|--------------|
+| `cargo test` | Unit and integration tests | All Rust packages |
+| `criterion` | Performance benchmarks | WP-STT, WP-TTS, WP-AUDIO |
+| `cargo-llvm-cov` | Code coverage | All Rust packages |
+| `XCTest` | iOS unit/integration tests | WP-IOS |
+| `JUnit/Espresso` | Android tests | WP-ANDROID |
+| `valgrind/heaptrack` | Memory profiling | Desktop packages |
+| `Instruments` | iOS memory/performance | WP-IOS |
+
+**Test Fixtures Repository:**
+
+Tests require shared audio fixtures managed in `tests/fixtures/`:
+
+```
+tests/
+├── fixtures/
+│   ├── audio/
+│   │   ├── 5_second_english.wav
+│   │   ├── 30_second_multilingual.wav
+│   │   ├── 2_speaker_conversation.wav
+│   │   ├── 30_minute_lecture.wav
+│   │   └── silence_10s.wav
+│   ├── models/
+│   │   └── tiny-q5_1.bin  (CI cache, not in repo)
+│   └── manifests/
+│       ├── valid_signed.json
+│       ├── invalid_signature.json
+│       └── tampered_content.json
+└── integration/
+    └── ...
+```
+
+### Test Requirements by Work Package
+
+---
+
+#### WP-CORE: Core Library Scaffolding
+
+**Test Categories:** Unit
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `config_loads_from_file` | Unit | Config struct populated from TOML |
+| `config_loads_from_env` | Unit | Environment variables override file |
+| `config_validates_paths` | Unit | Invalid paths return error |
+| `error_types_format` | Unit | All error variants have Display impl |
+| `error_types_convert` | Unit | From impls work correctly |
+| `tracing_outputs_json` | Unit | Structured log output |
+| `feature_flags_compile` | Build | Cargo features toggle correctly |
+
+**Coverage Target:** >90% line coverage
+
+**Depends On:** None
+
+**Blocks:** All Layer 2 packages
+
+---
+
+#### WP-AUDIO: Audio Pipeline
+
+**Test Categories:** Unit, Integration, Performance
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `cpal_lists_devices` | Integration | Returns device list without panic |
+| `cpal_opens_default` | Integration | Default device opens successfully |
+| `resampler_44100_to_16000` | Unit | Output is 16kHz, quality acceptable |
+| `resampler_48000_to_16000` | Unit | Output is 16kHz, quality acceptable |
+| `vad_detects_speech` | Unit | Returns true for speech audio |
+| `vad_detects_silence` | Unit | Returns false for silent audio |
+| `ringbuffer_no_overflow` | Unit | Buffer handles continuous writes |
+| `audio_chunk_timestamps` | Unit | Monotonically increasing timestamps |
+| `device_disconnect_graceful` | Integration | No panic, error returned |
+| `bluetooth_hfp_sample_rate` | Integration | 16kHz when HFP 1.6 supported |
+| `route_change_recovery` | Integration | Stream rebuilds after route change |
+| `bench_vad_latency` | Performance | p95 < 100ms |
+
+**Coverage Target:** >85% line coverage
+
+**Mock:** `MockAudioSource` for downstream testing
+
+**Depends On:** WP-CORE
+
+**Blocks:** WP-STT
+
+---
+
+#### WP-DB: Storage Layer
+
+**Test Categories:** Unit, Integration
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `db_creates_schema` | Unit | All tables exist after open |
+| `db_migrations_idempotent` | Unit | Running migrations twice succeeds |
+| `session_crud` | Unit | Create, read, update, delete work |
+| `segment_crud` | Unit | Create, read, update, delete work |
+| `segment_cascade_delete` | Unit | Deleting session deletes segments |
+| `fts5_indexes_text` | Integration | Text is searchable after insert |
+| `fts5_ranked_results` | Integration | Results ordered by relevance |
+| `fts5_unicode_search` | Integration | Non-ASCII characters searchable |
+| `export_srt_format` | Unit | Output validates against SRT spec |
+| `export_srt_timestamps` | Unit | Timestamps are millisecond-accurate |
+| `wal_mode_enabled` | Unit | PRAGMA returns wal mode |
+| `concurrent_reads` | Integration | 10 parallel readers, no blocking |
+| `blob_storage_threshold` | Unit | >100KB stored as external file |
+
+**Coverage Target:** >90% line coverage
+
+**Mock:** `MockDatabase` with in-memory SQLite for fast tests
+
+**Depends On:** WP-CORE
+
+**Blocks:** WP-FFI, WP-SERVER, WP-CLI
+
+---
+
+#### WP-MODEL: Model Manager
+
+**Test Categories:** Unit, Integration, Security
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `manifest_parses` | Unit | Valid JSON parses to struct |
+| `manifest_signature_valid` | Security | Valid signature accepted |
+| `manifest_signature_invalid` | Security | Invalid signature rejected |
+| `manifest_signature_tampered` | Security | Modified content rejected |
+| `download_streams_hash` | Integration | SHA-256 computed during download |
+| `download_rejects_mismatch` | Security | Bad hash = file deleted, error |
+| `cache_hit_skips_download` | Unit | Cached model returns immediately |
+| `verify_on_load` | Security | Hash re-checked before load |
+| `device_profile_ios` | Unit | Correct tier for iOS constraints |
+| `device_profile_android_low` | Unit | tiny model for <2GB devices |
+| `device_profile_android_mid` | Unit | base model for 2-4GB devices |
+| `device_profile_desktop` | Unit | base/small models selected |
+| `first_launch_flow` | Integration | Profile → download → block until ready |
+| `thermal_headroom_switch` | Unit | headroom < 0.7 triggers downgrade |
+| `thermal_recovery` | Unit | Cooling restores larger model |
+
+**Coverage Target:** >90% line coverage, 100% for security tests
+
+**Mock:** `MockModelRegistry` for tests not requiring real downloads
+
+**Depends On:** WP-CORE
+
+**Blocks:** WP-STT, WP-TTS
+
+---
+
+#### WP-STT: Speech-to-Text Engine
+
+**Test Categories:** Unit, Integration, Performance
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `whisper_context_loads` | Integration | Model loads without error |
+| `transcribes_english_audio` | Integration | WER < 10% on LibriSpeech test set |
+| `transcribes_with_timestamps` | Integration | start_ms < end_ms, reasonable values |
+| `translates_to_english` | Integration | Non-English input → English output |
+| `handles_empty_audio` | Unit | Empty segments returned, no crash |
+| `handles_silence` | Unit | Minimal/empty output, no crash |
+| `chunk_boundary_handling` | Integration | Words not split across chunks |
+| `gpu_acceleration_metal` | Platform | Metal backend executes on macOS |
+| `gpu_acceleration_cuda` | Platform | CUDA backend executes on Linux |
+| `diarization_two_speakers` | Integration | Different speaker_ids assigned |
+| `diarization_disabled` | Unit | speaker_id is None when disabled |
+| `bench_stt_tiny` | Performance | p95 < 500ms for 5s audio |
+| `bench_stt_base` | Performance | p95 < 800ms for 5s audio |
+| `stability_30min` | Integration | No crash, reasonable memory |
+
+**Coverage Target:** >80% line coverage
+
+**Mock:** `MockTranscriber` for downstream packages
+
+**Depends On:** WP-CORE, WP-AUDIO (for live tests), WP-MODEL
+
+**Blocks:** WP-FFI, WP-SERVER, WP-CLI
+
+---
+
+#### WP-TTS: Text-to-Speech Engine
+
+**Test Categories:** Unit, Integration, Performance
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `kokoro_model_loads` | Integration | ONNX model loads via ort |
+| `synthesizes_english` | Integration | Produces non-empty audio |
+| `synthesizes_streaming` | Integration | Multiple chunks returned |
+| `first_chunk_latency` | Performance | First audio < 200ms |
+| `voice_selection` | Unit | Different voices produce different output |
+| `fallback_non_english_auto` | Integration | Platform TTS used for French |
+| `fallback_user_preference` | Unit | Platform TTS when preferred |
+| `fallback_model_failure` | Integration | Platform TTS on Kokoro load fail |
+| `platform_tts_macos` | Platform | AVSpeechSynthesizer works |
+| `platform_tts_windows` | Platform | SAPI works |
+| `platform_tts_linux` | Platform | espeak/festival works |
+| `bench_tts_streaming` | Performance | p95 < 500ms for sentence |
+
+**Coverage Target:** >80% line coverage
+
+**Mock:** `MockSynthesizer` for downstream packages
+
+**Depends On:** WP-CORE, WP-MODEL
+
+**Blocks:** WP-FFI, WP-SERVER, WP-CLI
+
+---
+
+#### WP-FFI: Mobile FFI Bindings
+
+**Test Categories:** Unit, Integration, Platform
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `uniffi_generates_swift` | Build | Swift files compile |
+| `uniffi_generates_kotlin` | Build | Kotlin files compile |
+| `swift_creates_context` | Platform | LexiconContext instantiates |
+| `kotlin_creates_context` | Platform | LexiconContext instantiates |
+| `error_maps_to_exception` | Integration | Rust error → Swift/Kotlin exception |
+| `async_callback_swift` | Platform | Async operations complete |
+| `async_callback_kotlin` | Platform | Async operations complete |
+| `memory_leak_swift` | Platform | No leak after 1000 calls |
+| `memory_leak_kotlin` | Platform | No leak after 1000 calls |
+| `thread_safety` | Integration | Concurrent calls safe |
+| `no_panic_across_ffi` | Security | Panics caught, errors returned |
+
+**Coverage Target:** >75% line coverage on Rust side
+
+**Depends On:** WP-STT, WP-TTS, WP-DB
+
+**Blocks:** WP-IOS, WP-ANDROID
+
+---
+
+#### WP-SERVER: HTTP/WebSocket Server
+
+**Test Categories:** Unit, Integration, E2E
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `server_starts` | Integration | Binds to port, responds to health |
+| `ws_stt_stream` | E2E | Audio in → segments out |
+| `ws_tts_stream` | E2E | Text in → audio out |
+| `rest_models_list` | Integration | Returns JSON array of models |
+| `rest_models_download` | Integration | Initiates download, returns status |
+| `rest_transcribe_batch` | E2E | File upload → segments returned |
+| `rest_sessions_list` | Integration | Returns session array |
+| `rest_sessions_export_srt` | Integration | Valid SRT returned |
+| `cors_headers` | Unit | Correct CORS headers set |
+| `rate_limiting` | Integration | Excessive requests rejected |
+| `concurrent_connections` | Integration | 10 simultaneous clients |
+| `graceful_shutdown` | Integration | Data preserved on shutdown |
+
+**Coverage Target:** >80% line coverage
+
+**Depends On:** WP-STT, WP-TTS, WP-DB
+
+**Blocks:** WP-BUILD
+
+---
+
+#### WP-CLI: Command-Line Interface
+
+**Test Categories:** Unit, Integration, E2E
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `cli_help` | Unit | Help text displays |
+| `cli_version` | Unit | Version displays |
+| `cli_transcribe_file` | E2E | Audio file → SRT output |
+| `cli_transcribe_progress` | Integration | Progress bar updates |
+| `cli_models_list` | Integration | Lists available models |
+| `cli_models_download` | E2E | Downloads model, shows progress |
+| `cli_serve_starts` | Integration | Server starts on default port |
+| `cli_export_srt` | E2E | Session exports to SRT |
+| `cli_config_file` | Unit | Config file overrides defaults |
+| `cli_exit_codes` | Unit | Correct exit codes (0, 1, 2) |
+| `shell_completions` | Build | Bash/Zsh/Fish scripts generate |
+
+**Coverage Target:** >80% line coverage
+
+**Depends On:** WP-STT, WP-TTS, WP-DB
+
+**Blocks:** WP-BUILD
+
+---
+
+#### WP-IOS: iOS Platform Integration
+
+**Test Categories:** Platform, Integration, Performance
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `framework_builds_device` | Build | aarch64-apple-ios compiles |
+| `framework_builds_sim` | Build | aarch64-apple-ios-sim compiles |
+| `swift_api_compiles` | Build | Swift package compiles |
+| `swift_api_documented` | Build | All public APIs have docs |
+| `background_audio` | Platform | Transcription continues backgrounded |
+| `microphone_permission` | Platform | Permission request works |
+| `ane_acceleration` | Platform | CoreML uses ANE |
+| `thermal_state_monitor` | Platform | ThermalState changes detected |
+| `thermal_triggers_switch` | Integration | Model downgrades at serious state |
+| `thermal_user_warning` | Platform | Alert at critical state |
+| `memory_under_1gb` | Performance | Peak RSS < 1GB |
+| `example_app_runs` | E2E | Example app transcribes speech |
+
+**Coverage Target:** >70% coverage on Swift bindings
+
+**Depends On:** WP-FFI
+
+**Blocks:** WP-BUILD
+
+---
+
+#### WP-ANDROID: Android Platform Integration
+
+**Test Categories:** Platform, Integration, Performance
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `library_builds_arm64` | Build | aarch64-linux-android compiles |
+| `library_builds_arm32` | Build | armv7-linux-androideabi compiles |
+| `kotlin_api_compiles` | Build | AAR builds in Gradle |
+| `kotlin_api_documented` | Build | All public APIs have KDoc |
+| `foreground_service` | Platform | Transcription continues backgrounded |
+| `audio_permission` | Platform | RECORD_AUDIO request works |
+| `xnnpack_acceleration` | Platform | XNNPACK executes |
+| `thermal_headroom_api29` | Platform | getThermalHeadroom works |
+| `thermal_triggers_switch` | Integration | Model downgrades at < 0.7 |
+| `thermal_user_warning` | Platform | Toast at < 0.3 headroom |
+| `memory_low_end` | Performance | Peak RSS < 500MB on 2GB device |
+| `example_app_runs` | E2E | Example app transcribes speech |
+
+**Coverage Target:** >70% coverage on Kotlin bindings
+
+**Depends On:** WP-FFI
+
+**Blocks:** WP-BUILD
+
+---
+
+#### WP-BUILD: CI/CD Pipeline
+
+**Test Categories:** Build, Integration
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `ci_workflow_syntax` | Build | GitHub Actions validates |
+| `all_platforms_build` | Build | Matrix builds succeed |
+| `tests_pass_all_platforms` | Integration | CI test matrix green |
+| `release_creates_artifacts` | Build | Binaries created on tag |
+| `ios_signing` | Build | Framework is signed |
+| `android_signing` | Build | AAR is signed |
+| `model_manifest_signing` | Build | Manifest signed with minisign |
+| `coverage_reported` | Build | Coverage uploaded to service |
+
+**Depends On:** All other packages
+
+**Blocks:** None (terminal package)
+
+---
+
+### Test Dependencies and Sequencing
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        TEST DEPENDENCY GRAPH                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Layer 1 Tests (Parallel - No Dependencies)                                 │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐                        │
+│  │ WP-CORE  │ │ WP-AUDIO │ │  WP-DB   │ │ WP-MODEL │                        │
+│  │  Tests   │ │  Tests   │ │  Tests   │ │  Tests   │                        │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘                        │
+│       │            │            │            │                               │
+│       ▼            ▼            ▼            ▼                               │
+│  Layer 2 Tests (Requires Layer 1 Mocks)                                     │
+│  ┌─────────────────────────────┐ ┌─────────────────────────────┐            │
+│  │         WP-STT Tests        │ │         WP-TTS Tests        │            │
+│  │ Uses: MockAudioSource       │ │ Uses: MockModelRegistry     │            │
+│  └──────────────┬──────────────┘ └──────────────┬──────────────┘            │
+│                 │                               │                            │
+│                 ▼                               ▼                            │
+│  Layer 3 Tests (Requires Layer 2 Mocks)                                     │
+│  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐                      │
+│  │  WP-FFI Tests │ │WP-SERVER Tests│ │  WP-CLI Tests │                      │
+│  │Uses: Mock*    │ │Uses: Mock*    │ │Uses: Mock*    │                      │
+│  └───────┬───────┘ └───────┬───────┘ └───────┬───────┘                      │
+│          │                 │                 │                               │
+│          ▼                 ▼                 ▼                               │
+│  Layer 4 Tests (Requires Layer 3)                                           │
+│  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐                      │
+│  │  WP-IOS Tests │ │WP-ANDROID Test│ │ WP-BUILD Tests│                      │
+│  └───────────────┘ └───────────────┘ └───────────────┘                      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Sequencing Rules:**
+
+1. **Within a layer:** Tests run in parallel
+2. **Cross-layer:** Upstream tests must pass before downstream tests
+3. **Mock availability:** Mocks enable parallel development testing
+4. **Integration tests:** Run after unit tests within same package
+5. **E2E tests:** Run last, require all dependencies
+
+---
+
+### Parallel Test Execution Strategy
+
+**CI Job Structure:**
+
+```yaml
+# Parallel test execution in GitHub Actions
+jobs:
+  layer1-tests:
+    strategy:
+      matrix:
+        package: [core, audio, db, model]
+    runs-on: ubuntu-latest
+    steps:
+      - run: cargo test -p lexicon-${{ matrix.package }}
+
+  layer2-tests:
+    needs: layer1-tests
+    strategy:
+      matrix:
+        package: [stt, tts]
+    steps:
+      - run: cargo test -p lexicon-${{ matrix.package }}
+
+  layer3-tests:
+    needs: layer2-tests
+    strategy:
+      matrix:
+        package: [ffi, server, cli]
+    steps:
+      - run: cargo test -p lexicon-${{ matrix.package }}
+
+  platform-tests:
+    needs: layer3-tests
+    strategy:
+      matrix:
+        platform: [ios, android]
+    steps:
+      - run: ./scripts/test-${{ matrix.platform }}.sh
+```
+
+**Local Development Testing:**
+
+```bash
+# Fast feedback: test current package only
+cargo test -p lexicon-stt
+
+# Full test suite with parallelism
+cargo test --workspace --jobs 4
+
+# Performance benchmarks (separate, slow)
+cargo bench
+```
+
+**Test Data Caching:**
+
+- Model files cached in CI (not downloaded per-run)
+- Audio fixtures stored in Git LFS
+- Test databases are ephemeral (in-memory SQLite)
+
+---
+
+### Phase-Specific Validation Gates
+
+#### MVP Gate
+
+**Required Tests:**
+
+| Package | Tests Required | Coverage Minimum |
+|---------|---------------|------------------|
+| WP-CORE | All unit tests pass | 90% |
+| WP-AUDIO | Desktop tests pass | 80% (desktop paths) |
+| WP-DB | All tests pass | 90% |
+| WP-MODEL | All security tests pass | 100% (security) |
+| WP-STT | Core transcription tests | 80% |
+| WP-CLI | `transcribe` and `models` commands | 75% |
+
+**E2E Validation:**
+
+| Scenario | Pass Criteria |
+|----------|---------------|
+| First-launch model download | Downloads before transcription available |
+| Transcribe 10-min file | Completes without error, valid SRT output |
+| FTS5 search | Finds text across multiple sessions |
+| Export SRT | Valid SRT format, correct timestamps |
+
+**Platform Validation:**
+
+| Platform | Required |
+|----------|----------|
+| macOS (arm64) | All MVP tests pass |
+| macOS (x86) | All MVP tests pass |
+| Windows | All MVP tests pass |
+| Linux | All MVP tests pass |
+
+**MVP Exit Criteria Checklist:**
+
+- [ ] All unit tests pass on all desktop platforms
+- [ ] First launch downloads models before allowing transcription (D1)
+- [ ] Transcribe command produces valid SRT
+- [ ] FTS5 search works across sessions
+- [ ] No memory leaks detected in 100-cycle test
+- [ ] Security tests for model verification pass
+
+---
+
+#### Beta Gate
+
+**Required Tests (in addition to MVP):**
+
+| Package | Tests Required | Coverage Minimum |
+|---------|---------------|------------------|
+| WP-AUDIO | Bluetooth HFP tests (D2) | 85% |
+| WP-STT | Diarization tests (D3) | 85% |
+| WP-TTS | All tests including fallback (D4) | 80% |
+| WP-SERVER | All tests | 80% |
+| WP-FFI | All tests | 75% |
+
+**E2E Validation:**
+
+| Scenario | Pass Criteria |
+|----------|---------------|
+| WebSocket STT streaming | Segments arrive in real-time |
+| WebSocket TTS streaming | Audio chunks stream correctly |
+| TTS non-English fallback | Platform TTS used for French text |
+| Diarization 2-speaker | Distinct speaker_ids assigned |
+| Bluetooth 16kHz | HFP 1.6 negotiated when available |
+
+**Performance Validation:**
+
+| Test | Pass Criteria |
+|------|---------------|
+| STT latency (base) | p95 < 800ms |
+| TTS first chunk | p95 < 200ms |
+| Full pipeline (tiny) | p95 < 850ms |
+
+**Beta Exit Criteria Checklist:**
+
+- [ ] All MVP criteria still pass
+- [ ] WebSocket streaming tests pass
+- [ ] TTS produces natural speech (manual QA)
+- [ ] TTS falls back to platform voice for non-English (D4)
+- [ ] Swift/Kotlin bindings compile and pass unit tests
+- [ ] Diarization assigns correct speaker IDs for 2 speakers (D3)
+- [ ] Bluetooth HFP 1.6 verified at 16kHz (D2)
+- [ ] Latency benchmarks meet targets
+
+---
+
+#### Release Gate
+
+**Required Tests (in addition to Beta):**
+
+| Package | Tests Required | Coverage Minimum |
+|---------|---------------|------------------|
+| WP-IOS | All platform tests | 70% |
+| WP-ANDROID | All platform tests | 70% |
+| WP-BUILD | All CI/CD tests | N/A |
+
+**E2E Validation:**
+
+| Scenario | Pass Criteria |
+|----------|---------------|
+| iOS transcription | Real device transcribes speech |
+| Android transcription | Real device transcribes speech |
+| iOS thermal throttling | Model switches at serious thermal state |
+| Android thermal throttling | Model switches at headroom < 0.7 |
+| Full CI pipeline | All platforms build and test |
+
+**Security Validation:**
+
+| Test | Pass Criteria |
+|------|---------------|
+| Model verification suite | 100% pass |
+| FFI boundary tests | No panics, no leaks |
+| Code signing | iOS/Android artifacts signed |
+
+**Release Exit Criteria Checklist:**
+
+- [ ] All Beta criteria still pass
+- [ ] iOS app transcribes on physical device
+- [ ] Android app transcribes on physical device
+- [ ] Thermal throttling triggers model downgrade on both platforms
+- [ ] All platforms pass integration tests
+- [ ] Security test suite 100% pass
+- [ ] Code coverage meets all targets
+- [ ] Signed artifacts produced by CI
+
+---
+
+### Test Coverage Targets
+
+| Package | Unit | Integration | Total |
+|---------|------|-------------|-------|
+| WP-CORE | 95% | N/A | 90% |
+| WP-AUDIO | 85% | 75% | 85% |
+| WP-DB | 95% | 85% | 90% |
+| WP-MODEL | 95% | 90% | 90% |
+| WP-STT | 80% | 75% | 80% |
+| WP-TTS | 80% | 75% | 80% |
+| WP-FFI | 80% | 70% | 75% |
+| WP-SERVER | 85% | 75% | 80% |
+| WP-CLI | 85% | 75% | 80% |
+| WP-IOS | N/A | N/A | 70% |
+| WP-ANDROID | N/A | N/A | 70% |
+| **Overall** | | | **>80%** |
+
+---
+
+### Test Maintenance
+
+**Test Hygiene Rules:**
+
+1. Tests must not depend on network connectivity (except WP-MODEL download tests)
+2. Tests must not depend on wall-clock time (use mocked time)
+3. Tests must clean up resources (files, connections)
+4. Flaky tests must be fixed or quarantined within 1 week
+5. All new code requires accompanying tests before merge
+
+**Test Review Checklist:**
+
+- [ ] Test has clear pass/fail criteria
+- [ ] Test is deterministic (same input → same result)
+- [ ] Test runs in isolation (no shared state)
+- [ ] Test is documented (what it validates)
+- [ ] Test error messages are actionable
+
+---
+
 ## References
 
 - [architecture.md](architecture.md) — System architecture (authoritative)

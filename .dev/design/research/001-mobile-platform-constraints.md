@@ -66,10 +66,10 @@ Rust compiles to static libraries with C ABI, providing first-class Xcode/Swift 
 
 2. **Runtime memory requirements (not just file size):**
 
-   | Model | File Size | Runtime Memory | Mobile Viable? |
-   |-------|-----------|----------------|----------------|
-   | tiny/tiny.en | ~40MB | ~125MB | Yes |
-   | base/base.en | ~140MB | **~506MB** | Marginal |
+   | Model | File Size | Context Memory (Total ~2x) | Mobile Viable? |
+   |-------|-----------|----------------------------|----------------|
+   | tiny/tiny.en | ~40MB | ~125MB (~250MB total) | Yes |
+   | base/base.en | ~140MB | **~506MB** (~1GB total) | Marginal |
    | small | ~460MB | ~1GB+ | Risky |
    | medium | ~1.5GB | **~2610MB** | No |
    | large-v3 | ~3GB | ~3336MB+ | No |

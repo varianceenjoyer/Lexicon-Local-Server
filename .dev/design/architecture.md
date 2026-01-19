@@ -465,6 +465,238 @@ Architectural decisions resolved during design review:
 
 ---
 
+## Testing Strategy
+
+This section defines the validation approach for Lexicon Local Server architecture. All tests must have automated implementations with clear pass/fail criteria.
+
+### Test Categories
+
+| Category | Purpose | Scope | Automation |
+|----------|---------|-------|------------|
+| **Unit Tests** | Verify isolated component behavior | Individual functions/structs | `cargo test` |
+| **Integration Tests** | Verify component interactions | Cross-component data flow | `cargo test --test integration` |
+| **End-to-End Tests** | Validate complete pipelines | Audio-in to text/audio-out | Custom test harness |
+| **Performance Tests** | Enforce latency budgets | Timing-critical paths | Criterion benchmarks |
+| **Security Tests** | Validate threat mitigations | Model verification, FFI | Dedicated security suite |
+| **Platform Tests** | Verify cross-platform behavior | Platform-specific code paths | CI matrix per platform |
+
+### System-Level Test Boundaries
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           SYSTEM BOUNDARY                                    │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                    E2E Test: Full Pipeline                              ││
+│  │  Audio File → STT → Translation → TTS → Audio Output                    ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                              │
+│  ┌──────────────────────────┐  ┌──────────────────────────┐                 │
+│  │ Integration: Audio→STT   │  │ Integration: STT→Storage │                 │
+│  │ AudioSource + Transcriber│  │ Transcriber + Database   │                 │
+│  └──────────────────────────┘  └──────────────────────────┘                 │
+│                                                                              │
+│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐         │
+│  │  Unit  │ │  Unit  │ │  Unit  │ │  Unit  │ │  Unit  │ │  Unit  │         │
+│  │ Audio  │ │  VAD   │ │  STT   │ │  TTS   │ │   DB   │ │ Model  │         │
+│  └────────┘ └────────┘ └────────┘ └────────┘ └────────┘ └────────┘         │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Test Isolation Rules:**
+- Unit tests: No I/O, no network, no model loading (use mocks)
+- Integration tests: May use test fixtures, no network calls
+- E2E tests: May load models, may use test audio files
+- Performance tests: Use production model sizes, realistic audio
+
+### Performance Validation
+
+#### Latency Budget Compliance
+
+Tests must validate against the <800ms end-to-end target (architecture lines 73-100).
+
+| Test | Target | Measurement | Pass Criteria |
+|------|--------|-------------|---------------|
+| VAD latency | 50-100ms | Time from audio chunk to speech detection | p95 < 100ms |
+| STT latency (tiny.en q5_1) | <500ms | Time from VAD trigger to segment output | p95 < 500ms |
+| STT latency (base q5_1) | <800ms | Time from VAD trigger to segment output | p95 < 800ms |
+| TTS latency (first chunk) | <200ms | Time from text input to first audio chunk | p95 < 200ms |
+| TTS latency (streaming) | <500ms | Time to complete utterance | p95 < 500ms |
+| Full pipeline (tiny) | <850ms | Audio input to TTS output start | p95 < 850ms |
+| Full pipeline (base) | <1500ms | Audio input to TTS output start | p95 < 1500ms |
+
+**Benchmark Implementation:**
+```rust
+// Performance test using Criterion
+#[bench]
+fn bench_stt_latency_base_model(b: &mut Bencher) {
+    let audio = load_test_audio("5_second_speech.wav");
+    let transcriber = load_model("base-q5_1");
+
+    b.iter(|| {
+        let start = Instant::now();
+        let _segments = transcriber.transcribe(&audio);
+        start.elapsed()
+    });
+}
+```
+
+**Platform-Specific Latency:**
+
+| Platform | Model | Latency Target | RTF Target |
+|----------|-------|----------------|------------|
+| iOS (A15+) | tiny.en q5_1 | <400ms | <0.3x |
+| iOS (A15+) | base q5_1 | <700ms | <0.4x |
+| Android (Snapdragon 8) | tiny q5_1 | <500ms | <0.35x |
+| Desktop (M1) | base q5_1 | <600ms | <0.3x |
+| Desktop (x86 w/ AVX2) | base q5_1 | <800ms | <0.4x |
+
+#### Memory Budget Compliance
+
+| Platform | Memory Limit | Test Approach |
+|----------|--------------|---------------|
+| iOS | <1GB working set | Instruments profiling in CI |
+| Android (low) | <500MB | Android Profiler checks |
+| Desktop | <4GB | Valgrind/heaptrack |
+
+**Memory Test Implementation:**
+- Track peak RSS during model load + inference
+- Fail if exceeds platform budget
+- Monitor for memory leaks over 100+ inference cycles
+
+### Integration Test Points
+
+Component interfaces must be tested at their contract boundaries.
+
+#### AudioSource Interface Tests
+
+| Test | Input | Expected Output | Validates |
+|------|-------|-----------------|-----------|
+| `audio_capture_starts` | `start()` call | Stream begins, no error | Basic capture |
+| `audio_format_16khz_mono` | Raw capture | 16kHz mono f32 samples | Resampling |
+| `vad_detects_speech` | Audio with speech | `has_speech: true` chunks | VAD integration |
+| `vad_detects_silence` | Silent audio | `has_speech: false` chunks | VAD integration |
+| `handles_disconnect` | Device removal | Graceful error, no crash | Robustness |
+| `bluetooth_hfp_negotiation` | BT device connect | 16kHz sample rate | Decision D2 |
+
+#### Transcriber Interface Tests
+
+| Test | Input | Expected Output | Validates |
+|------|-------|-----------------|-----------|
+| `transcribes_english` | English speech | Text with >90% WER | STT accuracy |
+| `translates_to_english` | Non-English speech | English text | Translation mode |
+| `returns_timestamps` | Speech audio | Segments with ms timestamps | Timing accuracy |
+| `handles_silence` | Silent audio | Empty/minimal output | Edge case |
+| `chunk_boundary_words` | Split word across chunks | Complete words | Streaming |
+| `diarization_two_speakers` | Two-speaker audio | Distinct speaker_ids | Decision D3 |
+
+#### Synthesizer Interface Tests
+
+| Test | Input | Expected Output | Validates |
+|------|-------|-----------------|-----------|
+| `synthesizes_english` | English text | Audio samples | TTS basic |
+| `streams_audio_chunks` | Long text | Multiple AudioChunks | Streaming |
+| `fallback_non_english` | French text | Platform TTS triggered | Decision D4 |
+| `fallback_on_load_failure` | Missing model | Platform TTS used | Error recovery |
+| `voice_selection` | Voice ID | Correct voice used | Voice API |
+
+#### Database Interface Tests
+
+| Test | Input | Expected Output | Validates |
+|------|-------|-----------------|-----------|
+| `creates_session` | Metadata | Valid SessionId | CRUD |
+| `inserts_segments` | Segment data | Persisted, retrievable | CRUD |
+| `fts5_search_exact` | Exact phrase | Matching segments | FTS5 |
+| `fts5_search_partial` | Partial term | Ranked results | FTS5 |
+| `export_srt_format` | Session ID | Valid SRT string | Export |
+| `concurrent_reads` | Parallel queries | No blocking, correct data | WAL mode |
+
+#### ModelRegistry Interface Tests
+
+| Test | Input | Expected Output | Validates |
+|------|-------|-----------------|-----------|
+| `verifies_manifest_signature` | Signed manifest | Parsed manifest | Security |
+| `rejects_invalid_signature` | Tampered manifest | Error, no parse | Security |
+| `downloads_with_hash` | Model URL | File with correct SHA-256 | Integrity |
+| `rejects_hash_mismatch` | Corrupted download | Error, file deleted | Security |
+| `re_verifies_on_load` | Cached model | Hash check passes | Security |
+| `profiles_device` | Platform info | Correct tier models | Decision D1 |
+| `thermal_model_switch` | Headroom < 0.7 | Switches to smaller model | Thermal mgmt |
+
+### Risk Mitigation Validation
+
+Tests directly validating mitigations from the Risk Register (architecture lines 416-424).
+
+| Risk | Test | Pass Criteria |
+|------|------|---------------|
+| ort mobile build complexity | `ort_mobile_builds` | Compiles for iOS/Android targets |
+| whisper-rs long-file stability | `chunk_30min_file` | No crash on 30+ min audio |
+| Kokoro English-only | `tts_fallback_triggered` | Platform TTS used for non-English |
+| Thermal throttling | `thermal_downgrade_test` | Model switches at headroom < 0.7 |
+| Model supply chain | `manifest_signature_validation` | Rejects unsigned/tampered manifests |
+
+### Security Test Suite
+
+Dedicated tests for Security Architecture (lines 292-329).
+
+#### Model Verification Tests
+
+| Test | Attack Vector | Expected Behavior |
+|------|---------------|-------------------|
+| `rejects_unsigned_manifest` | No signature | Manifest rejected |
+| `rejects_wrong_key_manifest` | Wrong private key | Signature verification fails |
+| `rejects_modified_manifest` | Manifest altered post-signing | Signature verification fails |
+| `rejects_hash_mismatch_download` | MITM corruption | Download rejected, file deleted |
+| `rejects_cache_poisoning` | Modified cached file | Load-time verification fails |
+| `https_enforced` | HTTP URL | Rejected or upgraded to HTTPS |
+
+#### FFI Boundary Tests
+
+| Test | Scenario | Expected Behavior |
+|------|----------|-------------------|
+| `no_panic_across_ffi` | Rust panic in FFI call | `catch_unwind`, error code returned |
+| `error_maps_to_exception` | Rust error | Swift/Kotlin exception thrown |
+| `memory_no_leak` | 1000 FFI roundtrips | No memory growth |
+| `thread_safety` | Concurrent FFI calls | No data races, no crashes |
+
+### Platform Test Matrix
+
+CI must run tests on all supported platforms per architecture specification.
+
+| Platform | Min Version | Test Environment | Model for Tests |
+|----------|-------------|------------------|-----------------|
+| iOS (device) | iOS 13+ | Physical device farm or M1 simulator | tiny.en q5_1 |
+| iOS (simulator) | iOS 13+ | Xcode on macOS runner | tiny.en q5_1 |
+| Android (arm64) | API 26+ | Emulator or device farm | tiny q5_1 |
+| macOS (arm64) | 10.15+ | GitHub Actions runner | base q5_1 |
+| macOS (x86) | 10.15+ | GitHub Actions runner | base q5_1 |
+| Windows | Win 10+ | GitHub Actions runner | base q5_1 |
+| Linux | Any | GitHub Actions runner | base q5_1 |
+
+### Test Data Requirements
+
+| Asset | Purpose | Source | Size |
+|-------|---------|--------|------|
+| `5_second_english.wav` | Quick STT validation | LibriSpeech | ~160KB |
+| `30_second_multilingual.wav` | Translation tests | Common Voice | ~960KB |
+| `2_speaker_conversation.wav` | Diarization tests | AMI Corpus | ~5MB |
+| `30_minute_lecture.wav` | Stability tests | Public lectures | ~60MB |
+| `silence_10s.wav` | Edge case testing | Generated | ~320KB |
+| `tiny-q5_1.bin` | Test model | HuggingFace | ~15MB |
+
+### Acceptance Criteria Mapping
+
+Tests trace back to documented acceptance criteria:
+
+| Acceptance Criteria | Test Category | Test Name(s) |
+|--------------------|---------------|--------------|
+| Offline-first | E2E | `works_without_network` |
+| <800ms latency | Performance | `bench_full_pipeline_base` |
+| Cross-platform | Platform | CI matrix all platforms |
+| Privacy-preserving | E2E | `no_network_calls_during_inference` |
+| Adaptive (thermal) | Integration | `thermal_model_switch` |
+
+---
+
 ## References
 
 ### Research Documents

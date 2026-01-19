@@ -127,7 +127,7 @@ Audio → [VAD] → [STT] → [Translation] → [TTS] → Audio Out
 | VAD | 50-100ms | webrtc-vad or silero-vad via ort |
 | STT (streaming) | 1-3 seconds | whisper-rs with chunk streaming |
 | Translation | ~0ms (Whisper) / 100-300ms (separate) | whisper-rs translate mode / reqwest |
-| TTS | 200-500ms | Piper via ort crate |
+| TTS | 200-500ms | Kokoro via ort crate |
 | Audio buffering | 100-200ms | cpal + ringbuffer |
 
 **Pipeline optimization strategies:**
