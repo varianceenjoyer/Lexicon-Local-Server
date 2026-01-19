@@ -213,7 +213,7 @@ pub enum ThermalState {
 - [x] Download streams with SHA-256 hashing
 - [x] Verification fails on hash mismatch
 - [x] Device profiling selects appropriate tier models
-- [ ] First launch downloads all tier models before allowing transcription
+- [x] First launch downloads all tier models before allowing transcription
 - [x] Thermal state triggers model downgrade at headroom < 0.7
 
 **Architecture Refs:** Model Verification, Decisions D1 (Immediate Download), Thermal Management
@@ -481,7 +481,7 @@ OPTIONS:
 - [x] All commands execute successfully
 - [x] Progress bars show during long operations
 - [x] Exit codes follow Unix conventions
-- [ ] Shell completion scripts generated
+- [x] Shell completion scripts generated
 
 ---
 
@@ -693,7 +693,7 @@ cargo build --workspace --all-features
 4. Works on macOS, Windows, Linux
 
 **Exit Criteria:**
-- [ ] First launch downloads models before allowing transcription (D1)
+- [x] First launch downloads models before allowing transcription (D1)
 - [ ] Transcribe 10-minute audio file successfully
 - [ ] Search finds text across sessions
 - [ ] Export produces valid SRT
@@ -1419,7 +1419,7 @@ cargo bench
 **MVP Exit Criteria Checklist:**
 
 - [ ] All unit tests pass on all desktop platforms
-- [ ] First launch downloads models before allowing transcription (D1)
+- [x] First launch downloads models before allowing transcription (D1)
 - [ ] Transcribe command produces valid SRT
 - [ ] FTS5 search works across sessions
 - [ ] No memory leaks detected in 100-cycle test
