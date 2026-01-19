@@ -2,6 +2,11 @@
 /build/
 /dist/
 
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
 */prompts
 .tools.md
 .claude
