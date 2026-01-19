@@ -1,7 +1,7 @@
 //! Tests for the models module.
 
 use super::*;
-use crate::platform::{DeviceProfile, ModelTier, Platform, ThermalState};
+use crate::platform::{ModelTier, ThermalState};
 
 fn sample_manifest_json() -> &'static str {
     r#"{

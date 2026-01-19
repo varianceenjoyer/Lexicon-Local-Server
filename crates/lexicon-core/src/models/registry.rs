@@ -1210,23 +1210,23 @@ mod tests {
         let temp_dir = std::env::temp_dir().join("lexicon-thermal-trans-test");
         let mut registry = ModelRegistry::new(&temp_dir).unwrap();
 
-        // Nominal (headroom > 0.5)
+        // Nominal (headroom >= 0.7)
         let should_switch = registry.update_thermal_state(0.8);
         assert!(!should_switch);
         assert_eq!(registry.thermal_state(), ThermalState::Nominal);
 
-        // Elevated (0.25 < headroom <= 0.5)
-        let should_switch = registry.update_thermal_state(0.4);
+        // Fair (0.5 <= headroom < 0.7)
+        let should_switch = registry.update_thermal_state(0.6);
         assert!(!should_switch);
-        assert_eq!(registry.thermal_state(), ThermalState::Elevated);
+        assert_eq!(registry.thermal_state(), ThermalState::Fair);
 
-        // High (0.1 < headroom <= 0.25) - should trigger throttle
-        let should_switch = registry.update_thermal_state(0.15);
+        // Serious (0.3 <= headroom < 0.5) - should trigger throttle
+        let should_switch = registry.update_thermal_state(0.35);
         assert!(should_switch);
-        assert_eq!(registry.thermal_state(), ThermalState::High);
+        assert_eq!(registry.thermal_state(), ThermalState::Serious);
 
-        // Critical (headroom <= 0.1)
-        let should_switch = registry.update_thermal_state(0.05);
+        // Critical (headroom < 0.3)
+        let should_switch = registry.update_thermal_state(0.1);
         assert!(should_switch);
         assert_eq!(registry.thermal_state(), ThermalState::Critical);
 
