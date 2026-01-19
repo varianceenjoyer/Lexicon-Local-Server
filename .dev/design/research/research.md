@@ -20,35 +20,27 @@ The project will be implemented using Rust libraries instead of Go. This decisio
 | 005-cross-platform-distribution | ✅ Complete | Rust cross-compilation straightforward; cargo-mobile2 for mobile |
 | 006-architecture-decisions | ✅ Complete | Hybrid architecture: embedded Rust lib + optional remote server |
 
-### Implementation Research (Ongoing)
+### Implementation Research (Complete)
 
-| Task ID | Task | Category | Output |
-|---------|------|----------|--------|
-| R-SEC-01 | Model file verification patterns | Security | Best practices doc |
-| R-WRS-01 | Benchmark whisper-rs (latency, memory, stability) | Performance | Benchmark report |
-| R-ORT-01 | ort crate mobile builds (iOS/Android) | Feasibility | Build guide + gotchas |
-| R-AUD-01 | cpal audio capture on mobile platforms | Feasibility | Integration patterns |
-| R-THR-01 | Thermal behavior of sustained inference | Performance | Throttling thresholds |
-| R-ERR-01 | Rust error handling for streaming pipelines | Architecture | Error handling guide |
-| R-BLE-01 | Bluetooth audio latency and disconnection | Edge cases | Compatibility matrix |
-| R-LIC-01 | License audit (whisper-rs, ort, cpal, Piper) | Legal | License compatibility report |
-| R-UX-01 | Offline-first UX for model management | Design | UX recommendations |
-| R-DB-01 | SQLite schema for transcription storage | Architecture | Schema design doc |
+| Task ID | Task | Category | Output | Status |
+|---------|------|----------|--------|--------|
+| R-SEC-01 | Model file verification patterns | Security | Best practices doc | ✅ Complete |
+| R-WRS-01 | Benchmark whisper-rs (latency, memory, stability) | Performance | Benchmark report | ✅ Research Complete |
+| R-ORT-01 | ort crate mobile builds (iOS/Android) | Feasibility | Build guide + gotchas | ✅ Complete |
+| R-AUD-01 | cpal audio capture on mobile platforms | Feasibility | Integration patterns | ✅ Complete |
+| R-THR-01 | Thermal behavior of sustained inference | Performance | Throttling thresholds | ✅ Complete |
+| R-ERR-01 | Rust error handling for streaming pipelines | Architecture | Error handling guide | ✅ Complete |
+| R-BLE-01 | Bluetooth audio latency and disconnection | Edge cases | Compatibility matrix | ✅ Complete |
+| R-TTS-01 | Alternative TTS engines (non-GPL) | Legal | TTS engine recommendation | ✅ Complete |
+| R-LIC-01 | License audit (whisper-rs, ort, cpal, Piper) | Legal | License compatibility report | ✅ Complete |
+| R-UX-01 | Offline-first UX for model management | Design | UX recommendations | ✅ Complete |
+| R-DB-01 | SQLite schema for transcription storage | Architecture | Schema design doc | ✅ Complete |
 
 ---
 
 ## Ongoing
 
-- [ ] [R-SEC-01](R-SEC-01-model-verification.md) - Model File Verification Patterns (Security)
-- [ ] [R-WRS-01](R-WRS-01-whisper-rs-benchmarks.md) - whisper-rs Benchmarking (Performance)
-- [ ] [R-ORT-01](R-ORT-01-ort-mobile-builds.md) - ort Crate Mobile Builds (Feasibility)
-- [ ] [R-AUD-01](R-AUD-01-cpal-mobile-audio.md) - cpal Audio Capture on Mobile (Feasibility)
-- [ ] [R-THR-01](R-THR-01-thermal-profiling.md) - Thermal Behavior Profiling (Performance)
-- [ ] [R-ERR-01](R-ERR-01-error-handling-patterns.md) - Rust Error Handling Patterns (Architecture)
-- [ ] [R-BLE-01](R-BLE-01-bluetooth-audio.md) - Bluetooth Audio Latency (Edge Cases)
-- [ ] [R-LIC-01](R-LIC-01-license-audit.md) - License Audit (Legal)
-- [ ] [R-UX-01](R-UX-01-offline-first-ux.md) - Offline-First UX Patterns (Design)
-- [ ] [R-DB-01](R-DB-01-sqlite-schema.md) - SQLite Schema Design (Architecture)
+*All implementation research complete!*
 
 ## Complete
 
@@ -57,6 +49,17 @@ The project will be implemented using Rust libraries instead of Go. This decisio
 - [x] 004 - Real-Time Performance (Adapted for Rust)
 - [x] 005 - Cross-Platform Build & Distribution (Adapted for Rust)
 - [x] 006 - Architecture Decisions (Adapted for Rust)
+- [x] [R-LIC-01](R-LIC-01-license-audit.md) - License Audit ⚠️ **Critical: espeak-ng GPL dependency in Piper TTS**
+- [x] [R-WRS-01](R-WRS-01-whisper-rs-benchmarks.md) - whisper-rs Benchmarking ✅ **GO recommendation** (empirical testing pending)
+- [x] [R-SEC-01](R-SEC-01-model-verification.md) - Model File Verification Patterns ✅
+- [x] [R-DB-01](R-DB-01-sqlite-schema.md) - SQLite Schema Design — FTS5 patterns, 100KB blob threshold, export formats
+- [x] [R-ORT-01](R-ORT-01-ort-mobile-builds.md) - ort Mobile Builds ✅ **CONDITIONAL GO** (tract fallback available, NNAPI deprecated)
+- [x] [R-ERR-01](R-ERR-01-error-handling-patterns.md) - Error Handling Patterns — thiserror for lib, UniFFI for FFI, tracing for logging
+- [x] [R-AUD-01](R-AUD-01-cpal-mobile-audio.md) - cpal Mobile Audio ✅ **GO** (CoreAudio/AAudio, API 26+ Android, resampling needed)
+- [x] [R-THR-01](R-THR-01-thermal-profiling.md) - Thermal Profiling ✅ **GO** (ANE/NPU 85% power reduction, adaptive throttling strategy)
+- [x] [R-UX-01](R-UX-01-offline-first-ux.md) - Offline-First UX — Immediate download recommended, Material Design patterns
+- [x] [R-BLE-01](R-BLE-01-bluetooth-audio.md) - Bluetooth Audio ✅ **SUPPORT WITH CAVEATS** (HFP 1.6 for 16kHz, LE Audio preferred)
+- [x] [R-TTS-01](R-TTS-01-alternative-tts-engines.md) - Alternative TTS Engines ✅ **Kokoro TTS recommended** (Apache 2.0, Misaki G2P avoids GPL)
 
 ## Archived
 
