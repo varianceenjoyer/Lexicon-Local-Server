@@ -81,7 +81,7 @@ projectName: Lexicon Local Server
 - **App store distribution**: iOS requires signed IPAs, Android requires signed APKs/AABs. What's the CI/CD pipeline for 5 platforms?
 - **Update mechanism**: How do model updates and library updates reach deployed mobile instances?
 
-### Architecture Decisions (RESOLVED)
+### Architecture Decisions
 
 - **Client-server split**: Embedded architecture—core library is linked directly into each client app. On mobile, called via FFI. On desktop, can optionally expose localhost HTTP server for UI separation.
 - **Offline vs connected**: Fully offline. All STT, translation, and TTS processing runs locally on-device with no cloud dependencies. This ensures privacy, eliminates network latency, and enables use in disconnected environments.
