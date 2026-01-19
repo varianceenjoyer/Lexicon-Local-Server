@@ -73,7 +73,7 @@ pub async fn health_check(State(state): State<Arc<AppState>>) -> Json<HealthResp
     let tts_ready = None;
 
     #[cfg(feature = "storage")]
-    let db_ready = Some(state.database.read().await.is_some());
+    let db_ready = Some(state.database.lock().await.is_some());
     #[cfg(not(feature = "storage"))]
     let db_ready = None;
 
@@ -471,7 +471,7 @@ pub async fn list_sessions(
 ) -> Result<Json<Vec<SessionResponse>>, ApiError> {
     use lexicon_core::storage::SessionId;
 
-    let db = state.database.read().await;
+    let db = state.database.lock().await;
     let db = db
         .as_ref()
         .ok_or_else(|| ApiError::service_unavailable("Database not initialized"))?;
@@ -508,7 +508,7 @@ pub async fn get_session(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     use lexicon_core::storage::SessionId;
 
-    let db = state.database.read().await;
+    let db = state.database.lock().await;
     let db = db
         .as_ref()
         .ok_or_else(|| ApiError::service_unavailable("Database not initialized"))?;
@@ -564,7 +564,7 @@ pub async fn delete_session(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     use lexicon_core::storage::SessionId;
 
-    let db = state.database.read().await;
+    let db = state.database.lock().await;
     let db = db
         .as_ref()
         .ok_or_else(|| ApiError::service_unavailable("Database not initialized"))?;
@@ -606,7 +606,7 @@ pub async fn export_session(
 ) -> Result<Response, ApiError> {
     use lexicon_core::storage::SessionId;
 
-    let db = state.database.read().await;
+    let db = state.database.lock().await;
     let db = db
         .as_ref()
         .ok_or_else(|| ApiError::service_unavailable("Database not initialized"))?;

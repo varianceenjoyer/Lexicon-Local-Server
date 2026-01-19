@@ -39,7 +39,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::Router;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing::info;
@@ -47,7 +47,7 @@ use tracing::info;
 use lexicon_core::{LexiconConfig, ModelRegistry};
 
 #[cfg(feature = "stt")]
-use lexicon_core::stt::WhisperTranscriber;
+use lexicon_core::stt::{Transcriber, WhisperTranscriber};
 
 #[cfg(feature = "tts")]
 use lexicon_core::tts::TtsManager;
@@ -132,9 +132,9 @@ pub struct AppState {
     /// TTS manager (lazily loaded).
     #[cfg(feature = "tts")]
     pub tts: RwLock<Option<TtsManager>>,
-    /// Database connection.
+    /// Database connection (Mutex because rusqlite::Connection is Send but not Sync).
     #[cfg(feature = "storage")]
-    pub database: RwLock<Option<Database>>,
+    pub database: Mutex<Option<Database>>,
 }
 
 impl AppState {
@@ -150,7 +150,7 @@ impl AppState {
             #[cfg(feature = "tts")]
             tts: RwLock::new(None),
             #[cfg(feature = "storage")]
-            database: RwLock::new(None),
+            database: Mutex::new(None),
         })
     }
 
@@ -159,7 +159,7 @@ impl AppState {
     pub async fn init_database(&self) -> anyhow::Result<()> {
         let db_path = self.config.data_dir.join("lexicon.db");
         let db = Database::open(&db_path)?;
-        *self.database.write().await = Some(db);
+        *self.database.lock().await = Some(db);
         info!("Database initialized at {:?}", db_path);
         Ok(())
     }
