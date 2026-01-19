@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-This plan decomposes Lexicon Local Server into **11 work packages** organized in **4 layers**. The layered structure enables parallel development within each layer while maintaining clear dependencies between layers.
+This plan decomposes Lexicon Local Server into **12 work packages** organized in **4 layers**. The layered structure enables parallel development within each layer while maintaining clear dependencies between layers.
 
 **Delivery Strategy:**
 - **MVP**: Desktop STT transcription with SQLite persistence
@@ -561,6 +561,77 @@ These packages create platform-specific distributions. They can be developed in 
 
 ---
 
+#### WP-WIN: Windows Native Build
+
+**Deliverable:** Native Windows build process with documentation and CI support
+
+**Scope:**
+- Native Windows build toolchain (MSVC)
+- Windows-specific system dependencies
+- PowerShell build scripts
+- Windows installer/portable distribution
+- Windows-specific troubleshooting documentation
+- GPU acceleration (CUDA, DirectML)
+
+**Build Requirements:**
+- Visual Studio 2022 Build Tools with C++ workload
+- LLVM/Clang for bindgen (libclang)
+- CMake for whisper-rs-sys
+- Rust 1.85+ via rustup-init.exe
+
+**System Dependencies (Windows Native):**
+```powershell
+# Option 1: winget (recommended)
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+winget install LLVM.LLVM
+winget install Kitware.CMake
+
+# Option 2: Chocolatey
+choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools"
+choco install llvm cmake
+
+# Rust installation
+winget install Rustlang.Rustup
+# or download from https://rustup.rs
+```
+
+**Environment Variables:**
+```powershell
+# Set LIBCLANG_PATH for bindgen
+$env:LIBCLANG_PATH = "C:\Program Files\LLVM\bin"
+
+# Ensure CMake is in PATH
+$env:PATH += ";C:\Program Files\CMake\bin"
+```
+
+**Interface Contract:**
+```powershell
+# Build commands (PowerShell)
+cargo build --workspace --all-features
+
+# Target: x86_64-pc-windows-msvc (default on Windows)
+# Produces: target\release\lexicon.exe
+```
+
+**Distribution Formats:**
+- Portable `.zip` archive (no installation required)
+- MSI installer via `cargo-wix` (optional future work)
+- Windows Package Manager manifest (winget)
+
+**Completion Criteria:**
+- [ ] Builds natively on Windows without WSL
+- [ ] All system dependencies documented with install commands
+- [ ] PowerShell build script (`scripts/build-windows.ps1`)
+- [ ] BUILD.md updated with Windows native section
+- [ ] GitHub Actions workflow builds on `windows-latest`
+- [ ] GPU acceleration (CUDA/DirectML) documented
+- [ ] Portable zip distribution created
+- [ ] Windows Defender / SmartScreen considerations documented
+
+**Architecture Refs:** Cross-Platform Build (005), Windows target in CI matrix
+
+---
+
 #### WP-BUILD: CI/CD Pipeline
 
 **Deliverable:** Automated build, test, and release pipeline
@@ -570,7 +641,7 @@ These packages create platform-specific distributions. They can be developed in 
 - Cross-compilation for all targets
 - Automated testing matrix
 - Release artifact generation
-- Code signing (iOS, Android)
+- Code signing (iOS, Android, Windows)
 - Model artifact publishing
 
 **Workflows:**
@@ -579,10 +650,11 @@ These packages create platform-specific distributions. They can be developed in 
 - `models.yml` - Sign and publish model manifests
 
 **Completion Criteria:**
-- [ ] All platforms build in CI
+- [ ] All platforms build in CI (including Windows native)
 - [ ] Tests pass on all platforms
 - [ ] Release creates signed artifacts
 - [ ] Model manifest signing automated
+- [ ] Windows builds produce portable zip and/or installer
 
 **Architecture Refs:** Cross-Platform Build (lines 332-367)
 
@@ -672,18 +744,21 @@ These packages create platform-specific distributions. They can be developed in 
 |---------|-------|
 | WP-IOS | Full including thermal monitoring |
 | WP-ANDROID | Full including thermal monitoring |
+| WP-WIN | Full including GPU acceleration documentation |
 | WP-BUILD | Full |
 
 **Release Deliverables:**
 1. iOS framework on TestFlight
 2. Android AAR on Maven
-3. Desktop binaries on GitHub Releases
-4. Signed model manifests
+3. Desktop binaries on GitHub Releases (including Windows native)
+4. Windows portable zip distribution
+5. Signed model manifests
 
 **Exit Criteria:**
 - [ ] iOS app transcribes on device
 - [ ] Android app transcribes on device
-- [ ] Thermal throttling triggers model downgrade on both platforms
+- [ ] Windows native build works without WSL
+- [ ] Thermal throttling triggers model downgrade on mobile platforms
 - [ ] All platforms pass integration tests
 - [ ] Security audit completed
 
@@ -702,12 +777,12 @@ Layer 1 (Parallel)
                      │    └── WP-TTS ──────┼──▶ Layer 3 (Parallel)
                      │                     │    ├── WP-FFI ────┐
                      └─────────────────────┘    ├── WP-SERVER  │
-                                                └── WP-CLI     │
+                                                └── WP-CLI ────┼──▶ Layer 4 (Parallel)
+                                                               │    ├── WP-IOS
+                                                               │    ├── WP-ANDROID
+                                                               │    ├── WP-WIN ────┐
+                                                               │    └── WP-BUILD◀──┘
                                                                ▼
-                                               Layer 4 (Parallel)
-                                               ├── WP-IOS
-                                               ├── WP-ANDROID
-                                               └── WP-BUILD
 ```
 
 ### Concurrent Workstreams
@@ -717,7 +792,7 @@ Layer 1 (Parallel)
 | Developer | Layer 1 | Layer 2 | Layer 3 | Layer 4 |
 |-----------|---------|---------|---------|---------|
 | Dev A | WP-CORE | WP-STT | WP-SERVER | WP-BUILD |
-| Dev B | WP-AUDIO | WP-STT | WP-CLI | — |
+| Dev B | WP-AUDIO | WP-STT | WP-CLI | WP-WIN |
 | Dev C | WP-DB | WP-TTS | WP-FFI | WP-IOS |
 | Dev D | WP-MODEL | WP-TTS | WP-FFI | WP-ANDROID |
 
@@ -761,6 +836,9 @@ pub struct MockTranscriber {
 | Thermal throttling on mobile | MEDIUM | Thermal API monitoring, adaptive model switching | WP-MODEL, WP-IOS, WP-ANDROID |
 | Bluetooth audio quality | MEDIUM | HFP 1.6 negotiation, fallback to device mic | WP-AUDIO |
 | Diarization accuracy | MEDIUM | Configurable, multiple algorithm options | WP-STT |
+| Windows build toolchain complexity | MEDIUM | Document MSVC/LLVM setup, provide PowerShell scripts | WP-WIN |
+| Windows Defender false positives | LOW | Code signing, reputation building, documentation | WP-WIN |
+| Windows long path limitations | LOW | Enable long paths in app manifest | WP-WIN |
 
 ---
 
@@ -1137,6 +1215,41 @@ tests/
 
 ---
 
+#### WP-WIN: Windows Native Build
+
+**Test Categories:** Build, Integration, Platform
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `win_builds_msvc` | Build | x86_64-pc-windows-msvc compiles |
+| `win_builds_release` | Build | Release binary created |
+| `win_cli_runs` | Integration | `lexicon.exe --version` succeeds |
+| `win_cli_transcribe` | E2E | Transcription produces output |
+| `win_cli_serve` | Integration | Server starts and responds |
+| `win_audio_capture` | Platform | WASAPI audio capture works |
+| `win_gpu_cuda` | Platform | CUDA acceleration detected (if available) |
+| `win_gpu_directml` | Platform | DirectML acceleration detected (if available) |
+| `win_portable_zip` | Build | Portable archive created |
+| `win_defender_scan` | Security | No false positive malware detection |
+| `win_path_unicode` | Integration | Unicode paths handled correctly |
+| `win_long_paths` | Integration | Long paths (>260 chars) work with manifest |
+
+**Coverage Target:** >80% line coverage (matching CLI)
+
+**Platform-Specific Tests:**
+- Windows audio (WASAPI via cpal)
+- Windows paths (UNC, long paths)
+- Windows console output (UTF-8/codepage handling)
+- Windows service integration (future)
+
+**Depends On:** WP-CORE, WP-AUDIO, WP-DB, WP-MODEL, WP-STT, WP-TTS, WP-CLI
+
+**Blocks:** WP-BUILD (Windows CI integration)
+
+---
+
 #### WP-BUILD: CI/CD Pipeline
 
 **Test Categories:** Build, Integration
@@ -1146,15 +1259,16 @@ tests/
 | Test | Type | Pass Criteria |
 |------|------|---------------|
 | `ci_workflow_syntax` | Build | GitHub Actions validates |
-| `all_platforms_build` | Build | Matrix builds succeed |
+| `all_platforms_build` | Build | Matrix builds succeed (including Windows native) |
 | `tests_pass_all_platforms` | Integration | CI test matrix green |
 | `release_creates_artifacts` | Build | Binaries created on tag |
 | `ios_signing` | Build | Framework is signed |
 | `android_signing` | Build | AAR is signed |
+| `windows_portable_zip` | Build | Windows portable zip created |
 | `model_manifest_signing` | Build | Manifest signed with minisign |
 | `coverage_reported` | Build | Coverage uploaded to service |
 
-**Depends On:** All other packages
+**Depends On:** All other packages (including WP-WIN)
 
 **Blocks:** None (terminal package)
 
@@ -1362,6 +1476,7 @@ cargo bench
 |---------|---------------|------------------|
 | WP-IOS | All platform tests | 70% |
 | WP-ANDROID | All platform tests | 70% |
+| WP-WIN | All Windows native tests | 80% |
 | WP-BUILD | All CI/CD tests | N/A |
 
 **E2E Validation:**
@@ -1370,6 +1485,7 @@ cargo bench
 |----------|---------------|
 | iOS transcription | Real device transcribes speech |
 | Android transcription | Real device transcribes speech |
+| Windows native transcription | Native Windows build transcribes speech |
 | iOS thermal throttling | Model switches at serious thermal state |
 | Android thermal throttling | Model switches at headroom < 0.7 |
 | Full CI pipeline | All platforms build and test |
@@ -1381,17 +1497,20 @@ cargo bench
 | Model verification suite | 100% pass |
 | FFI boundary tests | No panics, no leaks |
 | Code signing | iOS/Android artifacts signed |
+| Windows Defender | No false positive detection |
 
 **Release Exit Criteria Checklist:**
 
 - [ ] All Beta criteria still pass
 - [ ] iOS app transcribes on physical device
 - [ ] Android app transcribes on physical device
-- [ ] Thermal throttling triggers model downgrade on both platforms
+- [ ] Windows native build transcribes without WSL
+- [ ] Thermal throttling triggers model downgrade on mobile platforms
 - [ ] All platforms pass integration tests
 - [ ] Security test suite 100% pass
 - [ ] Code coverage meets all targets
 - [ ] Signed artifacts produced by CI
+- [ ] Windows portable zip distribution created
 
 ---
 
@@ -1410,6 +1529,7 @@ cargo bench
 | WP-CLI | 85% | 75% | 80% |
 | WP-IOS | N/A | N/A | 70% |
 | WP-ANDROID | N/A | N/A | 70% |
+| WP-WIN | 85% | 75% | 80% |
 | **Overall** | | | **>80%** |
 
 ---
