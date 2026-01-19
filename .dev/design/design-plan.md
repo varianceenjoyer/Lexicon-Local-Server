@@ -1,6 +1,8 @@
 # Lexicon Local Server — Design Plan
 
-> **Status**: Draft v1.0 | **Last Updated**: 2026-01-19
+> **Status**: Implementation v1.0 | **Last Updated**: 2026-01-19
+>
+> **Progress**: Layers 1-3 substantially complete. Phase 1 MVP ready for testing.
 >
 > This document translates the system architecture into actionable work packages. All implementation work should reference this plan.
 
@@ -58,10 +60,10 @@ impl LexiconContext {
 ```
 
 **Completion Criteria:**
-- [ ] Workspace compiles with `cargo build --workspace`
-- [ ] Error types documented with examples
-- [ ] Config loads from file and environment
-- [ ] Tracing outputs structured logs
+- [x] Workspace compiles with `cargo build --workspace`
+- [x] Error types documented with examples
+- [x] Config loads from file and environment
+- [x] Tracing outputs structured logs
 
 **Architecture Refs:** Error Handling (lines 237-258)
 
@@ -104,12 +106,12 @@ impl AudioSource for CpalAudioSource { ... }
 ```
 
 **Completion Criteria:**
-- [ ] Captures audio on macOS, Windows, Linux
-- [ ] VAD correctly identifies speech segments
-- [ ] Output is 16kHz mono f32 samples
-- [ ] Handles device disconnection gracefully
+- [x] Captures audio on macOS, Windows, Linux
+- [x] VAD correctly identifies speech segments
+- [x] Output is 16kHz mono f32 samples
+- [x] Handles device disconnection gracefully
 - [ ] Bluetooth HFP 1.6 negotiates 16kHz when available
-- [ ] Route changes handled without crashes
+- [x] Route changes handled without crashes
 
 **Architecture Refs:** Audio Pipeline, Decision D2 (Bluetooth HFP 1.6)
 
@@ -144,10 +146,10 @@ impl Database {
 ```
 
 **Completion Criteria:**
-- [ ] Schema matches architecture spec
-- [ ] FTS5 search returns ranked results
-- [ ] WAL mode enabled for concurrent reads
-- [ ] Export produces valid SRT format
+- [x] Schema matches architecture spec
+- [x] FTS5 search returns ranked results
+- [x] WAL mode enabled for concurrent reads
+- [x] Export produces valid SRT format
 
 **Architecture Refs:** Storage Layer (lines 217-234), R-DB-01
 
@@ -207,12 +209,12 @@ pub enum ThermalState {
 ```
 
 **Completion Criteria:**
-- [ ] Manifest signature verified before parsing
-- [ ] Download streams with SHA-256 hashing
-- [ ] Verification fails on hash mismatch
-- [ ] Device profiling selects appropriate tier models
+- [x] Manifest signature verified before parsing
+- [x] Download streams with SHA-256 hashing
+- [x] Verification fails on hash mismatch
+- [x] Device profiling selects appropriate tier models
 - [ ] First launch downloads all tier models before allowing transcription
-- [ ] Thermal state triggers model downgrade at headroom < 0.7
+- [x] Thermal state triggers model downgrade at headroom < 0.7
 
 **Architecture Refs:** Model Verification, Decisions D1 (Immediate Download), Thermal Management
 
@@ -277,10 +279,10 @@ pub struct TranscriptionConfig {
 ```
 
 **Completion Criteria:**
-- [ ] Transcribes audio with <800ms latency (base model)
-- [ ] Translation mode produces English output
-- [ ] GPU acceleration functional on supported platforms
-- [ ] Handles chunk boundaries without word splits
+- [x] Transcribes audio with <800ms latency (base model)
+- [x] Translation mode produces English output
+- [x] GPU acceleration functional on supported platforms
+- [x] Handles chunk boundaries without word splits
 - [ ] Diarization assigns consistent speaker IDs when enabled
 
 **Architecture Refs:** STT Engine, Decision D3 (Speaker Diarization)
@@ -332,12 +334,12 @@ pub struct TtsConfig {
 ```
 
 **Completion Criteria:**
-- [ ] Synthesizes English text with Kokoro
+- [x] Synthesizes English text with Kokoro
 - [ ] Streaming output begins within 200ms
-- [ ] Fallback triggers on non-English detection
-- [ ] Fallback triggers on user preference for platform voice
-- [ ] Fallback triggers on Kokoro model load failure
-- [ ] Platform TTS works on all desktop platforms
+- [x] Fallback triggers on non-English detection
+- [x] Fallback triggers on user preference for platform voice
+- [x] Fallback triggers on Kokoro model load failure
+- [x] Platform TTS works on all desktop platforms
 
 **Architecture Refs:** TTS Engine, Decision D4 (Multi-language TTS fallback)
 
@@ -431,10 +433,10 @@ REST Endpoints:
 ```
 
 **Completion Criteria:**
-- [ ] WebSocket STT streams segments in real-time
-- [ ] REST endpoints return valid JSON
-- [ ] Server handles concurrent connections
-- [ ] Graceful shutdown preserves data
+- [x] WebSocket STT streams segments in real-time
+- [x] REST endpoints return valid JSON
+- [x] Server handles concurrent connections
+- [x] Graceful shutdown preserves data
 
 **Architecture Refs:** Server API (lines 401-412)
 
@@ -476,9 +478,9 @@ OPTIONS:
 ```
 
 **Completion Criteria:**
-- [ ] All commands execute successfully
-- [ ] Progress bars show during long operations
-- [ ] Exit codes follow Unix conventions
+- [x] All commands execute successfully
+- [x] Progress bars show during long operations
+- [x] Exit codes follow Unix conventions
 - [ ] Shell completion scripts generated
 
 ---
