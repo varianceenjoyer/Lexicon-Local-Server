@@ -33,6 +33,9 @@ pub mod audio;
 #[cfg(feature = "stt")]
 pub mod stt;
 
+#[cfg(feature = "tts")]
+pub mod tts;
+
 pub mod models;
 
 pub use config::{LexiconConfig, LogLevel};
@@ -47,6 +50,9 @@ pub use audio::{AudioChunk, AudioConfig, AudioSource, CpalAudioSource, Resampler
 
 #[cfg(feature = "stt")]
 pub use stt::{Segment, Transcriber, TranscriptionConfig, TranscriptionResult, WhisperTranscriber};
+
+#[cfg(feature = "tts")]
+pub use tts::{AudioBuffer, KokoroSynthesizer, PlatformSynthesizer, Synthesizer, TtsConfig, TtsEngine, TtsManager};
 
 pub use models::{ModelRegistry, ModelManifest, ModelId, ModelInfo};
 

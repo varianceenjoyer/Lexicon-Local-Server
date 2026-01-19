@@ -164,7 +164,7 @@ impl AudioConfig {
 /// - Resample to 16kHz mono
 /// - Perform VAD if enabled
 /// - Handle device disconnection gracefully
-pub trait AudioSource: Send {
+pub trait AudioSource {
     /// Starts audio capture.
     ///
     /// # Errors

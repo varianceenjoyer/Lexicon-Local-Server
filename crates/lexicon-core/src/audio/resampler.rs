@@ -3,9 +3,7 @@
 //! This module provides high-quality resampling from common capture rates
 //! (44.1kHz, 48kHz) to the 16kHz required by Whisper.
 
-use rubato::{
-    FastFixedIn, PolynomialDegree, Resampler as RubatoResampler, ResamplerConstructionError,
-};
+use rubato::{FastFixedIn, PolynomialDegree, Resampler as RubatoResampler};
 
 use crate::error::{AudioError, LexiconError, Result};
 

@@ -10,7 +10,7 @@ rust-version.workspace = true
 [features]
 default = ["stt", "tts", "storage", "audio"]
 stt = ["dep:whisper-rs"]
-tts = []
+tts = ["dep:ort", "dep:tts"]
 storage = ["dep:rusqlite"]
 audio = ["dep:cpal", "dep:rubato", "dep:webrtc-vad", "dep:ringbuf"]
 server = []
@@ -57,6 +57,10 @@ ringbuf = { workspace = true, optional = true }
 
 # Speech-to-Text (Whisper)
 whisper-rs = { workspace = true, optional = true }
+
+# Text-to-Speech
+ort = { workspace = true, optional = true }
+tts = { workspace = true, optional = true }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true

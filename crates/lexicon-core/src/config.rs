@@ -278,7 +278,8 @@ impl LexiconConfig {
     ///
     /// Returns an error if the TOML is invalid.
     pub fn from_toml(content: &str) -> Result<Self> {
-        let config: Self = toml::from_str(content)?;
+        let config: Self = toml::from_str(content)
+            .map_err(|e| LexiconError::Config(format!("Invalid TOML configuration: {}", e)))?;
         config.validate()?;
         Ok(config)
     }

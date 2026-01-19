@@ -9,7 +9,8 @@ use std::time::Duration;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, SampleFormat, Stream, StreamConfig};
-use ringbuf::{HeapRb, Rb};
+use ringbuf::traits::{Consumer, Observer, Producer, Split};
+use ringbuf::HeapRb;
 
 use super::{AudioChunk, AudioConfig, AudioSource, Resampler, VoiceActivityDetector};
 use super::TARGET_SAMPLE_RATE;
@@ -276,49 +277,64 @@ impl AudioSource for CpalAudioSource {
             return Err(LexiconError::Audio(AudioError::DeviceDisconnected));
         }
 
-        let consumer = self.consumer.as_mut()
-            .ok_or_else(|| LexiconError::Audio(AudioError::StreamNotStarted))?;
-
-        let resampler = self.resampler.as_mut()
-            .ok_or_else(|| LexiconError::Audio(AudioError::StreamNotStarted))?;
-
+        // Get values needed before mutable borrows
         let chunk_samples = self.input_chunk_samples();
-
-        // Wait for enough samples (with timeout to allow checking for errors)
         let timeout = Duration::from_millis(self.config.chunk_ms as u64 * 2);
+        let input_channels = self.input_channels;
+
+        // Check components exist
+        if self.consumer.is_none() || self.resampler.is_none() {
+            return Err(LexiconError::Audio(AudioError::StreamNotStarted));
+        }
+
+        // Wait for enough samples
         let start = std::time::Instant::now();
-
-        while consumer.len() < chunk_samples {
-            if !self.running.load(Ordering::SeqCst) {
-                return Err(LexiconError::Audio(AudioError::StreamNotStarted));
-            }
-
-            if self.error_flag.load(Ordering::SeqCst) {
-                return Err(LexiconError::Audio(AudioError::DeviceDisconnected));
-            }
-
-            if start.elapsed() > timeout {
-                // Return partial chunk if we have some data
-                if !consumer.is_empty() {
-                    break;
+        {
+            let consumer = self.consumer.as_ref().unwrap();
+            while consumer.occupied_len() < chunk_samples {
+                if !self.running.load(Ordering::SeqCst) {
+                    return Err(LexiconError::Audio(AudioError::StreamNotStarted));
                 }
-                return Err(LexiconError::Audio(AudioError::BufferError {
-                    kind: "underrun".to_string(),
-                }));
-            }
 
-            std::thread::sleep(Duration::from_millis(1));
+                if self.error_flag.load(Ordering::SeqCst) {
+                    return Err(LexiconError::Audio(AudioError::DeviceDisconnected));
+                }
+
+                if start.elapsed() > timeout {
+                    if consumer.occupied_len() > 0 {
+                        break;
+                    }
+                    return Err(LexiconError::Audio(AudioError::BufferError {
+                        kind: "underrun".to_string(),
+                    }));
+                }
+
+                std::thread::sleep(Duration::from_millis(1));
+            }
         }
 
         // Read samples from ring buffer
-        let available = consumer.len().min(chunk_samples);
-        let mut input_samples = vec![0.0f32; available];
-        consumer.pop_slice(&mut input_samples);
+        let input_samples = {
+            let consumer = self.consumer.as_mut().unwrap();
+            let available = consumer.occupied_len().min(chunk_samples);
+            let mut samples = vec![0.0f32; available];
+            consumer.pop_slice(&mut samples);
+            samples
+        };
 
-        // Convert to mono
-        let mono_samples = self.to_mono(&input_samples);
+        // Convert to mono (inline to avoid borrow issues)
+        let mono_samples: Vec<f32> = if input_channels == 1 {
+            input_samples
+        } else {
+            let channels = input_channels as usize;
+            input_samples
+                .chunks(channels)
+                .map(|chunk| chunk.iter().sum::<f32>() / channels as f32)
+                .collect()
+        };
 
         // Resample to 16kHz
+        let resampler = self.resampler.as_mut().unwrap();
         let resampled = resampler.process(&mono_samples)?;
 
         // Get timestamp and advance
