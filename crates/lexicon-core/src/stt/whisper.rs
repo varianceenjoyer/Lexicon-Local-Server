@@ -5,7 +5,7 @@
 use std::path::Path;
 use std::time::Instant;
 
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 use super::{Segment, Transcriber, TranscriptionConfig, TranscriptionResult};
@@ -54,15 +54,15 @@ impl WhisperTranscriber {
     /// Converts whisper-rs segments to our Segment type.
     fn convert_segments(
         &self,
-        state: &whisper_rs::WhisperState<'_>,
+        state: &whisper_rs::WhisperState,
         num_segments: i32,
     ) -> Vec<Segment> {
         let mut segments = Vec::with_capacity(num_segments as usize);
 
         for i in 0..num_segments {
-            let start_ms = state.get_segment_t0(i).unwrap_or(0) * 10; // Convert centiseconds to ms
-            let end_ms = state.get_segment_t1(i).unwrap_or(0) * 10;
-            let text = state.get_segment_text(i).unwrap_or_default();
+            let start_ms = state.full_get_segment_t0(i).unwrap_or(0) * 10; // Convert centiseconds to ms
+            let end_ms = state.full_get_segment_t1(i).unwrap_or(0) * 10;
+            let text = state.full_get_segment_text(i).unwrap_or_default();
 
             // Skip empty segments
             if text.trim().is_empty() {
@@ -173,7 +173,7 @@ impl Transcriber for WhisperTranscriber {
         }
 
         // Suppress non-speech tokens
-        params.set_suppress_non_speech_tokens(config.suppress_non_speech);
+        params.set_suppress_nst(config.suppress_non_speech);
 
         // Don't print progress to stdout
         params.set_print_progress(false);
@@ -200,7 +200,7 @@ impl Transcriber for WhisperTranscriber {
         let segments = self.convert_segments(&state, num_segments);
 
         // Try to get detected language
-        let detected_language = state.full_lang_id().ok().and_then(|id| {
+        let detected_language = state.full_lang_id_from_state().ok().and_then(|id| {
             whisper_rs::get_lang_str(id).map(String::from)
         });
 
