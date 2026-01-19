@@ -6,7 +6,9 @@
 
 use crate::error::{LexiconError, ModelError, Result};
 use crate::models::manifest::{ManifestVerifier, ModelEntry, ModelManifest};
-use crate::models::types::{DownloadProgress, DownloadState, ModelId, ModelInfo, ModelType};
+use crate::models::types::{
+    DownloadProgress, DownloadState, ModelId, ModelInfo, ModelReadinessStatus, ModelType,
+};
 use crate::platform::{DeviceProfile, ModelTier, ThermalState};
 use futures_util::StreamExt;
 use sha2::{Digest, Sha256};
@@ -42,7 +44,8 @@ impl ModelRegistry {
     ///
     /// # Errors
     ///
-    /// Returns an error if the cache directory cannot be created.
+    /// Returns an error if the cache directory cannot be created or if
+    /// the default manifest verifier key is invalid.
     pub fn new(cache_dir: &Path) -> Result<Self> {
         std::fs::create_dir_all(cache_dir).map_err(|e| {
             LexiconError::Config(format!(
@@ -68,15 +71,80 @@ impl ModelRegistry {
     }
 
     /// Creates a registry with a custom manifest verifier.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the cache directory cannot be created.
     pub fn with_verifier(cache_dir: &Path, verifier: ManifestVerifier) -> Result<Self> {
-        let mut registry = Self::new(cache_dir)?;
-        registry.verifier = verifier;
+        std::fs::create_dir_all(cache_dir).map_err(|e| {
+            LexiconError::Config(format!(
+                "Failed to create model cache directory '{}': {}",
+                cache_dir.display(),
+                e
+            ))
+        })?;
+
+        let mut registry = Self {
+            cache_dir: cache_dir.to_path_buf(),
+            manifest: None,
+            models: HashMap::new(),
+            thermal_state: ThermalState::Nominal,
+            verifier,
+            download_states: Arc::new(RwLock::new(HashMap::new())),
+        };
+
+        // Scan for existing models
+        registry.scan_local_models();
+
         Ok(registry)
     }
 
     /// Fetches and verifies the model manifest from the remote server.
+    ///
+    /// This method fetches the signed manifest and verifies its signature
+    /// before parsing. If signature verification fails, the manifest is rejected.
+    ///
+    /// For development without a signed manifest server, use `fetch_manifest_unsigned`.
     #[instrument(skip(self))]
     pub async fn fetch_manifest(&mut self) -> Result<()> {
+        info!("Fetching signed model manifest from {}", MANIFEST_URL);
+
+        // Fetch signed manifest content (includes signature + JSON)
+        let signed_content = reqwest::get(MANIFEST_URL)
+            .await
+            .map_err(|e| ModelError::ManifestError {
+                message: format!("Failed to fetch manifest: {}", e),
+            })?
+            .text()
+            .await
+            .map_err(|e| ModelError::ManifestError {
+                message: format!("Failed to read manifest response: {}", e),
+            })?;
+
+        // Verify signature and parse manifest
+        let manifest = self.verifier.verify_and_parse(&signed_content)?;
+
+        info!(
+            "Manifest loaded and verified: version={}, {} models",
+            manifest.version,
+            manifest.models.len()
+        );
+
+        self.manifest = Some(manifest);
+        self.sync_models_from_manifest();
+
+        Ok(())
+    }
+
+    /// Fetches an unsigned manifest (for development/testing only).
+    ///
+    /// # Security Warning
+    ///
+    /// This bypasses signature verification and should only be used in
+    /// development environments where the manifest source is trusted.
+    #[instrument(skip(self))]
+    pub async fn fetch_manifest_unsigned(&mut self) -> Result<()> {
+        warn!("Fetching UNSIGNED manifest - do not use in production!");
         info!("Fetching model manifest from {}", MANIFEST_URL);
 
         // Fetch manifest content
@@ -91,11 +159,11 @@ impl ModelRegistry {
                 message: format!("Failed to read manifest response: {}", e),
             })?;
 
-        // Parse manifest (signature verification handled separately for now)
+        // Parse manifest without signature verification
         let manifest = ModelManifest::from_json(&manifest_content)?;
 
         info!(
-            "Manifest loaded: version={}, {} models",
+            "Manifest loaded (UNSIGNED): version={}, {} models",
             manifest.version,
             manifest.models.len()
         );
@@ -106,8 +174,31 @@ impl ModelRegistry {
         Ok(())
     }
 
-    /// Loads a manifest from a local file (for offline use or testing).
+    /// Loads a signed manifest from a local file.
+    ///
+    /// The file should contain a minisign signature followed by the manifest JSON,
+    /// separated by `---MANIFEST---`.
     pub fn load_manifest_from_file(&mut self, path: &Path) -> Result<()> {
+        let content = std::fs::read_to_string(path).map_err(|e| ModelError::ManifestError {
+            message: format!("Failed to read manifest file: {}", e),
+        })?;
+
+        let manifest = self.verifier.verify_and_parse(&content)?;
+        self.manifest = Some(manifest);
+        self.sync_models_from_manifest();
+
+        Ok(())
+    }
+
+    /// Loads an unsigned manifest from a local file (for testing only).
+    ///
+    /// # Security Warning
+    ///
+    /// This bypasses signature verification and should only be used in
+    /// development/testing scenarios.
+    pub fn load_manifest_from_file_unsigned(&mut self, path: &Path) -> Result<()> {
+        warn!("Loading UNSIGNED manifest from file - do not use in production!");
+
         let content = std::fs::read_to_string(path).map_err(|e| ModelError::ManifestError {
             message: format!("Failed to read manifest file: {}", e),
         })?;
@@ -332,6 +423,414 @@ impl ModelRegistry {
         &self.cache_dir
     }
 
+    // --- D1: Immediate Download Flow (First Launch) ---
+
+    /// Checks if at least one STT model is downloaded and ready.
+    ///
+    /// Use this to determine if transcription features can be enabled.
+    #[must_use]
+    pub fn is_stt_ready(&self) -> bool {
+        self.models.values().any(|m| m.model_type == ModelType::Stt && m.is_ready())
+    }
+
+    /// Checks if at least one TTS model is downloaded and ready.
+    ///
+    /// Use this to determine if synthesis features can be enabled.
+    #[must_use]
+    pub fn is_tts_ready(&self) -> bool {
+        self.models.values().any(|m| m.model_type == ModelType::Tts && m.is_ready())
+    }
+
+    /// Returns the best available STT model for the device.
+    ///
+    /// Returns the highest-tier downloaded STT model that fits the device profile.
+    #[must_use]
+    pub fn best_stt_model(&self, device_profile: &DeviceProfile) -> Option<&ModelInfo> {
+        let recommended = self.recommend_stt_models(device_profile);
+
+        // Try to find the first recommended model that's ready
+        for model_id in &recommended {
+            if let Some(info) = self.models.get(model_id) {
+                if info.is_ready() {
+                    return Some(info);
+                }
+            }
+        }
+
+        // Fall back to any ready STT model
+        self.models
+            .values()
+            .filter(|m| m.model_type == ModelType::Stt && m.is_ready())
+            .min_by_key(|m| m.memory_mb) // Prefer smaller model as fallback
+    }
+
+    /// Returns the best available TTS model for the device.
+    ///
+    /// Returns the highest-tier downloaded TTS model that fits the device profile.
+    #[must_use]
+    pub fn best_tts_model(&self, device_profile: &DeviceProfile) -> Option<&ModelInfo> {
+        let recommended = self.recommend_tts_models(device_profile);
+
+        for model_id in &recommended {
+            if let Some(info) = self.models.get(model_id) {
+                if info.is_ready() {
+                    return Some(info);
+                }
+            }
+        }
+
+        self.models
+            .values()
+            .find(|m| m.model_type == ModelType::Tts && m.is_ready())
+    }
+
+    /// Ensures at least one STT model is ready, blocking until download completes.
+    ///
+    /// This is the key D1 (Decision 1) method: blocks STT features until a model
+    /// is available. Should be called during application startup.
+    ///
+    /// # Arguments
+    ///
+    /// * `device_profile` - Device capabilities for model selection
+    /// * `progress_callback` - Called with download progress updates
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no manifest is loaded or download fails.
+    #[instrument(skip(self, progress_callback))]
+    pub async fn ensure_stt_ready<F>(
+        &self,
+        device_profile: &DeviceProfile,
+        progress_callback: F,
+    ) -> Result<PathBuf>
+    where
+        F: Fn(DownloadProgress) + Send + Sync + Clone + 'static,
+    {
+        // Check if already ready
+        if let Some(model) = self.best_stt_model(device_profile) {
+            info!("STT model already available: {}", model.name);
+            return model.local_path.clone().ok_or_else(|| {
+                ModelError::NotFound {
+                    path: self.cache_dir.clone(),
+                }
+                .into()
+            });
+        }
+
+        // Get recommended STT models for this device
+        let recommended = self.recommend_stt_models(device_profile);
+        if recommended.is_empty() {
+            return Err(ModelError::ManifestError {
+                message: "No STT models recommended for this device tier".to_string(),
+            }
+            .into());
+        }
+
+        // Download the first (highest priority) recommended model
+        let model_id = recommended[0].as_str();
+        info!(
+            "Downloading STT model for first launch: {} (tier: {:?})",
+            model_id,
+            device_profile.recommended_tier()
+        );
+
+        self.download_model(model_id, progress_callback).await
+    }
+
+    /// Starts background download of TTS model (non-blocking per D1).
+    ///
+    /// Unlike STT, TTS download does not block application startup.
+    /// Returns immediately after spawning the download task.
+    ///
+    /// # Arguments
+    ///
+    /// * `device_profile` - Device capabilities for model selection
+    /// * `progress_callback` - Called with download progress updates
+    /// * `completion_callback` - Called when download completes (success or failure)
+    #[instrument(skip(self, progress_callback, completion_callback))]
+    pub fn start_tts_download<F, C>(
+        &self,
+        device_profile: &DeviceProfile,
+        progress_callback: F,
+        completion_callback: C,
+    ) where
+        F: Fn(DownloadProgress) + Send + Sync + Clone + 'static,
+        C: FnOnce(Result<PathBuf>) + Send + 'static,
+    {
+        // Check if already ready
+        if self.is_tts_ready() {
+            if let Some(model) = self.best_tts_model(device_profile) {
+                info!("TTS model already available: {}", model.name);
+                if let Some(path) = model.local_path.clone() {
+                    completion_callback(Ok(path));
+                    return;
+                }
+            }
+        }
+
+        // Get recommended TTS models
+        let recommended = self.recommend_tts_models(device_profile);
+        if recommended.is_empty() {
+            info!("No TTS models recommended for device - TTS will use platform fallback");
+            completion_callback(Err(
+                ModelError::ManifestError {
+                    message: "No TTS models recommended for this device tier".to_string(),
+                }
+                .into(),
+            ));
+            return;
+        }
+
+        let model_id = recommended[0].to_string();
+        let manifest = self.manifest.clone();
+        let cache_dir = self.cache_dir.clone();
+        let download_states = self.download_states.clone();
+
+        info!(
+            "Starting background TTS download: {} (tier: {:?})",
+            model_id,
+            device_profile.recommended_tier()
+        );
+
+        // Spawn background download task
+        tokio::spawn(async move {
+            let result = Self::download_model_static(
+                &manifest,
+                &cache_dir,
+                &download_states,
+                &model_id,
+                progress_callback,
+            )
+            .await;
+
+            match &result {
+                Ok(path) => info!("TTS model download complete: {}", path.display()),
+                Err(e) => warn!("TTS model download failed: {} - will use platform TTS", e),
+            }
+
+            completion_callback(result);
+        });
+    }
+
+    /// First launch initialization flow (D1 implementation).
+    ///
+    /// This method implements the complete first-launch flow:
+    /// 1. Detects device capabilities
+    /// 2. Fetches and verifies the model manifest
+    /// 3. Downloads STT model (blocking - required for transcription)
+    /// 4. Starts TTS model download (non-blocking - uses platform fallback until ready)
+    ///
+    /// # Arguments
+    ///
+    /// * `progress_callback` - Called with download progress updates
+    /// * `tts_completion` - Called when TTS download completes
+    ///
+    /// # Returns
+    ///
+    /// The path to the downloaded STT model.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if manifest fetch fails or STT download fails.
+    #[instrument(skip(self, progress_callback, tts_completion))]
+    pub async fn first_launch_init<F, C>(
+        &mut self,
+        progress_callback: F,
+        tts_completion: C,
+    ) -> Result<PathBuf>
+    where
+        F: Fn(DownloadProgress) + Send + Sync + Clone + 'static,
+        C: FnOnce(Result<PathBuf>) + Send + 'static,
+    {
+        let device_profile = DeviceProfile::detect();
+        info!(
+            "First launch init: platform={}, tier={:?}, memory={}MB",
+            device_profile.platform,
+            device_profile.recommended_tier(),
+            device_profile.available_memory_mb
+        );
+
+        // Fetch manifest if not already loaded
+        if self.manifest.is_none() {
+            info!("Fetching model manifest...");
+            self.fetch_manifest().await?;
+        }
+
+        // Download STT model (blocking - required before transcription is available)
+        let stt_path = self
+            .ensure_stt_ready(&device_profile, progress_callback.clone())
+            .await?;
+
+        // Start TTS download in background (non-blocking)
+        self.start_tts_download(&device_profile, progress_callback, tts_completion);
+
+        Ok(stt_path)
+    }
+
+    /// Checks if first launch setup is complete.
+    ///
+    /// Returns true if at least one STT model is ready for use.
+    #[must_use]
+    pub fn is_first_launch_complete(&self) -> bool {
+        self.is_stt_ready()
+    }
+
+    /// Returns a summary of model readiness status.
+    #[must_use]
+    pub fn readiness_status(&self) -> ModelReadinessStatus {
+        ModelReadinessStatus {
+            stt_ready: self.is_stt_ready(),
+            tts_ready: self.is_tts_ready(),
+            stt_models_available: self
+                .models
+                .values()
+                .filter(|m| m.model_type == ModelType::Stt && m.is_ready())
+                .count(),
+            tts_models_available: self
+                .models
+                .values()
+                .filter(|m| m.model_type == ModelType::Tts && m.is_ready())
+                .count(),
+            total_models_in_manifest: self
+                .manifest
+                .as_ref()
+                .map(|m| m.models.len())
+                .unwrap_or(0),
+        }
+    }
+
+    /// Static download method for use in spawned tasks.
+    async fn download_model_static<F>(
+        manifest: &Option<ModelManifest>,
+        cache_dir: &Path,
+        download_states: &Arc<RwLock<HashMap<ModelId, DownloadState>>>,
+        model_id: &str,
+        progress_callback: F,
+    ) -> Result<PathBuf>
+    where
+        F: Fn(DownloadProgress) + Send + Sync + 'static,
+    {
+        let manifest = manifest.as_ref().ok_or_else(|| ModelError::ManifestError {
+            message: "No manifest loaded".to_string(),
+        })?;
+
+        let entry = manifest.get_model(model_id).ok_or_else(|| ModelError::NotFound {
+            path: PathBuf::from(model_id),
+        })?;
+
+        let filename = entry.download_path.rsplit('/').next().unwrap_or(&entry.id);
+        let dest_path = cache_dir.join(filename);
+        let model_id_owned = ModelId::new(model_id);
+
+        // Check if already downloaded
+        if dest_path.exists() {
+            // Verify hash
+            let file = std::fs::File::open(&dest_path).map_err(|_| ModelError::NotFound {
+                path: dest_path.clone(),
+            })?;
+            let mut reader = std::io::BufReader::new(file);
+            let mut hasher = Sha256::new();
+            std::io::copy(&mut reader, &mut hasher).map_err(|_| ModelError::InvalidModel {
+                path: dest_path.clone(),
+            })?;
+            let computed = format!("{:x}", hasher.finalize());
+
+            if computed == entry.hash_sha256 {
+                return Ok(dest_path);
+            }
+            std::fs::remove_file(&dest_path).ok();
+        }
+
+        // Update state
+        {
+            let mut states = download_states.write().await;
+            states.insert(model_id_owned.clone(), DownloadState::Downloading);
+        }
+
+        // Download
+        let download_url = entry.download_url(&manifest.base_url);
+        let response = reqwest::get(&download_url)
+            .await
+            .map_err(|e| ModelError::DownloadFailed {
+                model_id: model_id.to_string(),
+                message: format!("HTTP request failed: {}", e),
+            })?;
+
+        if !response.status().is_success() {
+            let mut states = download_states.write().await;
+            states.insert(model_id_owned, DownloadState::Failed);
+            return Err(ModelError::DownloadFailed {
+                model_id: model_id.to_string(),
+                message: format!("HTTP {}", response.status()),
+            }
+            .into());
+        }
+
+        let total_size = response.content_length().unwrap_or(entry.size_bytes);
+        let temp_path = dest_path.with_extension("tmp");
+
+        if let Some(parent) = dest_path.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+
+        let mut file =
+            std::fs::File::create(&temp_path).map_err(|e| ModelError::DownloadFailed {
+                model_id: model_id.to_string(),
+                message: format!("Failed to create file: {}", e),
+            })?;
+
+        let mut hasher = Sha256::new();
+        let mut downloaded: u64 = 0;
+        let mut stream = response.bytes_stream();
+
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result.map_err(|e| ModelError::DownloadFailed {
+                model_id: model_id.to_string(),
+                message: format!("Stream error: {}", e),
+            })?;
+
+            file.write_all(&chunk).map_err(|e| ModelError::DownloadFailed {
+                model_id: model_id.to_string(),
+                message: format!("Write error: {}", e),
+            })?;
+
+            hasher.update(&chunk);
+            downloaded += chunk.len() as u64;
+
+            progress_callback(DownloadProgress::new(
+                model_id_owned.clone(),
+                downloaded,
+                total_size,
+            ));
+        }
+
+        // Verify
+        let computed_hash = format!("{:x}", hasher.finalize());
+        if computed_hash != entry.hash_sha256 {
+            std::fs::remove_file(&temp_path).ok();
+            let mut states = download_states.write().await;
+            states.insert(model_id_owned, DownloadState::Failed);
+            return Err(ModelError::VerificationFailed {
+                expected: entry.hash_sha256.clone(),
+                actual: computed_hash,
+            }
+            .into());
+        }
+
+        // Finalize
+        std::fs::rename(&temp_path, &dest_path).map_err(|e| ModelError::DownloadFailed {
+            model_id: model_id.to_string(),
+            message: format!("Failed to finalize: {}", e),
+        })?;
+
+        {
+            let mut states = download_states.write().await;
+            states.insert(model_id_owned, DownloadState::Ready);
+        }
+
+        Ok(dest_path)
+    }
+
     // --- Private methods ---
 
     /// Verifies a model file's SHA-256 hash.
@@ -544,6 +1043,40 @@ mod tests {
         }"#
     }
 
+    fn sample_manifest_with_tts() -> &'static str {
+        r#"{
+            "version": "1.0.0",
+            "generated_at": "2025-01-01T00:00:00Z",
+            "base_url": "https://models.lexicon.dev",
+            "models": {
+                "whisper-tiny-q5_1": {
+                    "id": "whisper-tiny-q5_1",
+                    "name": "Whisper Tiny",
+                    "model_type": "stt",
+                    "size_bytes": 42000000,
+                    "hash_sha256": "abc123def456",
+                    "download_path": "stt/whisper-tiny-q5_1.bin",
+                    "memory_mb": 150
+                },
+                "kokoro-v1": {
+                    "id": "kokoro-v1",
+                    "name": "Kokoro TTS",
+                    "model_type": "tts",
+                    "size_bytes": 100000000,
+                    "hash_sha256": "def789ghi012",
+                    "download_path": "tts/kokoro-v1.bin",
+                    "memory_mb": 200
+                }
+            },
+            "tier_recommendations": {
+                "mobile-low": ["whisper-tiny-q5_1"],
+                "mobile-mid": ["whisper-tiny-q5_1", "kokoro-v1"],
+                "desktop": ["whisper-tiny-q5_1", "kokoro-v1"],
+                "server": ["whisper-tiny-q5_1", "kokoro-v1"]
+            }
+        }"#
+    }
+
     #[test]
     fn test_registry_creation() {
         let temp_dir = std::env::temp_dir().join("lexicon-registry-test");
@@ -570,6 +1103,286 @@ mod tests {
             registry.adjust_tier_for_thermal(ModelTier::Desktop),
             ModelTier::MobileMid
         );
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_load_unsigned_manifest() {
+        let temp_dir = std::env::temp_dir().join("lexicon-manifest-test");
+        let mut registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        // Load manifest
+        registry.load_unsigned_manifest(sample_manifest_json()).unwrap();
+
+        assert!(registry.manifest.is_some());
+        assert_eq!(registry.list_models().len(), 1);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_readiness_status_no_manifest() {
+        let temp_dir = std::env::temp_dir().join("lexicon-readiness-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        let status = registry.readiness_status();
+        assert!(!status.stt_ready);
+        assert!(!status.tts_ready);
+        assert_eq!(status.stt_models_available, 0);
+        assert_eq!(status.tts_models_available, 0);
+        assert_eq!(status.total_models_in_manifest, 0);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_readiness_status_with_manifest() {
+        let temp_dir = std::env::temp_dir().join("lexicon-readiness-manifest-test");
+        let mut registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        registry.load_unsigned_manifest(sample_manifest_with_tts()).unwrap();
+
+        let status = registry.readiness_status();
+        // Models are in manifest but not downloaded
+        assert!(!status.stt_ready);
+        assert!(!status.tts_ready);
+        assert_eq!(status.total_models_in_manifest, 2);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_is_model_available_no_manifest() {
+        let temp_dir = std::env::temp_dir().join("lexicon-avail-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        assert!(!registry.is_model_available("whisper-tiny-q5_1"));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_is_model_available_not_downloaded() {
+        let temp_dir = std::env::temp_dir().join("lexicon-avail-manifest-test");
+        let mut registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        registry.load_unsigned_manifest(sample_manifest_json()).unwrap();
+
+        // Model is in manifest but not downloaded
+        assert!(!registry.is_model_available("whisper-tiny-q5_1"));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_get_model_path_no_manifest() {
+        let temp_dir = std::env::temp_dir().join("lexicon-path-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        assert!(registry.get_model_path("whisper-tiny-q5_1").is_none());
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_cache_dir_accessor() {
+        let temp_dir = std::env::temp_dir().join("lexicon-cache-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        assert_eq!(registry.cache_dir(), &temp_dir);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_thermal_state_accessor() {
+        let temp_dir = std::env::temp_dir().join("lexicon-thermal-state-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        assert_eq!(registry.thermal_state(), ThermalState::Nominal);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_thermal_state_transitions() {
+        let temp_dir = std::env::temp_dir().join("lexicon-thermal-trans-test");
+        let mut registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        // Nominal (headroom > 0.5)
+        let should_switch = registry.update_thermal_state(0.8);
+        assert!(!should_switch);
+        assert_eq!(registry.thermal_state(), ThermalState::Nominal);
+
+        // Elevated (0.25 < headroom <= 0.5)
+        let should_switch = registry.update_thermal_state(0.4);
+        assert!(!should_switch);
+        assert_eq!(registry.thermal_state(), ThermalState::Elevated);
+
+        // High (0.1 < headroom <= 0.25) - should trigger throttle
+        let should_switch = registry.update_thermal_state(0.15);
+        assert!(should_switch);
+        assert_eq!(registry.thermal_state(), ThermalState::High);
+
+        // Critical (headroom <= 0.1)
+        let should_switch = registry.update_thermal_state(0.05);
+        assert!(should_switch);
+        assert_eq!(registry.thermal_state(), ThermalState::Critical);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_list_local_models_empty() {
+        let temp_dir = std::env::temp_dir().join("lexicon-local-list-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        let local_models = registry.list_local_models();
+        assert!(local_models.is_empty());
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_verify_model_without_manifest() {
+        let temp_dir = std::env::temp_dir().join("lexicon-verify-no-manifest-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        // Should return false without manifest
+        assert!(!registry.verify_model("whisper-tiny-q5_1"));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_verify_model_not_downloaded() {
+        let temp_dir = std::env::temp_dir().join("lexicon-verify-no-download-test");
+        let mut registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        registry.load_unsigned_manifest(sample_manifest_json()).unwrap();
+
+        // Should return false when file doesn't exist
+        assert!(!registry.verify_model("whisper-tiny-q5_1"));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_recommend_models_no_manifest() {
+        let temp_dir = std::env::temp_dir().join("lexicon-recommend-no-manifest-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        let device_profile = DeviceProfile::detect();
+        let recommendations = registry.recommend_models(&device_profile);
+
+        assert!(recommendations.is_empty());
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_recommend_models_with_manifest() {
+        let temp_dir = std::env::temp_dir().join("lexicon-recommend-manifest-test");
+        let mut registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        registry.load_unsigned_manifest(sample_manifest_json()).unwrap();
+
+        let device_profile = DeviceProfile::detect();
+        let recommendations = registry.recommend_models(&device_profile);
+
+        // Should recommend the model for any tier
+        assert!(!recommendations.is_empty());
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_is_first_launch_complete_no_models() {
+        let temp_dir = std::env::temp_dir().join("lexicon-first-launch-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        assert!(!registry.is_first_launch_complete());
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_registry_invalid_directory() {
+        // Test with a path that cannot be created (on Unix, /proc is read-only)
+        #[cfg(unix)]
+        {
+            let result = ModelRegistry::new(std::path::Path::new("/proc/lexicon-cannot-create"));
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_list_models_with_manifest() {
+        let temp_dir = std::env::temp_dir().join("lexicon-list-models-test");
+        let mut registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        registry.load_unsigned_manifest(sample_manifest_with_tts()).unwrap();
+
+        let models = registry.list_models();
+        assert_eq!(models.len(), 2);
+
+        // Verify model types
+        let has_stt = models.iter().any(|m| m.model_type == ModelType::Stt);
+        let has_tts = models.iter().any(|m| m.model_type == ModelType::Tts);
+        assert!(has_stt);
+        assert!(has_tts);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_recommend_stt_models() {
+        let temp_dir = std::env::temp_dir().join("lexicon-recommend-stt-test");
+        let mut registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        registry.load_unsigned_manifest(sample_manifest_with_tts()).unwrap();
+
+        let device_profile = DeviceProfile::detect();
+        let stt_models = registry.recommend_stt_models(&device_profile);
+
+        // Should only include STT models
+        for model_id in &stt_models {
+            let manifest = registry.manifest.as_ref().unwrap();
+            let entry = manifest.get_model(model_id.as_str()).unwrap();
+            assert_eq!(entry.model_type, ModelType::Stt);
+        }
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_recommend_tts_models() {
+        let temp_dir = std::env::temp_dir().join("lexicon-recommend-tts-test");
+        let mut registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        registry.load_unsigned_manifest(sample_manifest_with_tts()).unwrap();
+
+        let device_profile = DeviceProfile::detect();
+        let tts_models = registry.recommend_tts_models(&device_profile);
+
+        // Should only include TTS models
+        for model_id in &tts_models {
+            let manifest = registry.manifest.as_ref().unwrap();
+            let entry = manifest.get_model(model_id.as_str()).unwrap();
+            assert_eq!(entry.model_type, ModelType::Tts);
+        }
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_download_state_not_downloaded() {
+        let temp_dir = std::env::temp_dir().join("lexicon-download-state-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        let state = registry.download_state("whisper-tiny-q5_1").await;
+        assert_eq!(state, DownloadState::NotDownloaded);
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
