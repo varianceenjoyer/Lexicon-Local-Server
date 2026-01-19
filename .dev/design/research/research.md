@@ -49,7 +49,7 @@ The project will be implemented using Rust libraries instead of Go. This decisio
 - [x] 004 - Real-Time Performance (Adapted for Rust)
 - [x] 005 - Cross-Platform Build & Distribution (Adapted for Rust)
 - [x] 006 - Architecture Decisions (Adapted for Rust)
-- [x] [R-LIC-01](R-LIC-01-license-audit.md) - License Audit ⚠️ **Critical: espeak-ng GPL dependency in Piper TTS**
+- [x] [R-LIC-01](R-LIC-01-license-audit.md) - License Audit ✅ **Resolved: Kokoro TTS selected (Apache 2.0) to avoid espeak-ng GPL**
 - [x] [R-WRS-01](R-WRS-01-whisper-rs-benchmarks.md) - whisper-rs Benchmarking ✅ **GO recommendation** (empirical testing pending)
 - [x] [R-SEC-01](R-SEC-01-model-verification.md) - Model File Verification Patterns ✅
 - [x] [R-DB-01](R-DB-01-sqlite-schema.md) - SQLite Schema Design — FTS5 patterns, 100KB blob threshold, export formats

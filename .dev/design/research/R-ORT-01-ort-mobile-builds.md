@@ -38,7 +38,9 @@ ort mobile builds are feasible but require:
 
 ## Problem Statement
 
-The `ort` crate (Rust bindings for ONNX Runtime) is required for Piper TTS. While ort works well on desktop platforms, mobile deployment introduces challenges:
+The `ort` crate (Rust bindings for ONNX Runtime) is required for TTS inference. While ort works well on desktop platforms, mobile deployment introduces challenges:
+
+> **Note:** Piper TTS was originally planned but has been replaced by **Kokoro TTS** (Apache 2.0) to avoid GPL licensing issues with espeak-ng. See [R-TTS-01](R-TTS-01-alternative-tts-engines.md) for details. Kokoro also uses ONNX, so this research remains applicable.
 - iOS requires static linking and has no dynamic library support
 - Android requires NDK cross-compilation
 - ONNX Runtime mobile builds are a different artifact than desktop builds

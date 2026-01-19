@@ -38,11 +38,13 @@ The project requires translation and text-to-speech capabilities. This research 
 ### TTS Engine Analysis
 
 **Research Date:** 2026-01-19
+**Updated:** 2026-01-19 - **Kokoro TTS selected** to avoid Piper's espeak-ng GPL dependency. See [R-TTS-01](R-TTS-01-alternative-tts-engines.md).
 
 | Engine | Rust Integration | Platform Support | Quality | Size | Notes |
 |--------|------------------|------------------|---------|------|-------|
-| **Piper (via ONNX)** | ✅ ort crate | All platforms | Good-Excellent | 20-100MB/voice | **Recommended** |
-| **espeak-ng** | ✅ espeak-ng-sys crate | All platforms | Robotic | <10MB | C bindings available |
+| **Kokoro TTS (via ONNX)** | ✅ ort crate, kokorox/kokoroxide | All platforms | Excellent | ~350MB | **SELECTED** - Apache 2.0, Misaki G2P avoids GPL |
+| **Piper (via ONNX)** | ✅ ort crate | All platforms | Good-Excellent | 20-100MB/voice | ⚠️ espeak-ng GPL dependency - **Not selected** |
+| **espeak-ng** | ✅ espeak-ng-sys crate | All platforms | Robotic | <10MB | ⚠️ **GPLv3** - Not compatible with commercial use |
 | **Coqui TTS** | ❌ HTTP only | Server | Excellent | 100MB-1GB | Python server mode |
 | **System TTS** | ⚠️ Platform-specific | Per-platform | Varies | N/A | macOS: objc bindings, Windows: windows crate |
 
@@ -73,18 +75,22 @@ The project requires translation and text-to-speech capabilities. This research 
 
 ## Recommendations
 
-### R1: Use Piper TTS via ONNX Runtime ⭐
+### R1: Use Kokoro TTS via ONNX Runtime ⭐ (Updated)
+
+> **Decision:** Kokoro TTS was selected over Piper to avoid GPL licensing issues with espeak-ng. See [R-TTS-01](R-TTS-01-alternative-tts-engines.md) for full analysis.
 
 The `ort` crate provides Rust bindings to ONNX Runtime:
-- Load Piper VITS models directly
-- Good quality across 30+ languages
+- Load Kokoro ONNX models via kokorox or kokoroxide crates
+- Excellent quality (top-ranked on HuggingFace TTS Arena)
 - Cross-platform (including mobile via static linking)
-- 20-100MB per voice
+- ~350MB model size
+- **Apache 2.0 license** - fully permissive for commercial use
+- Misaki G2P avoids espeak-ng GPL contamination
 
 **Implementation approach:**
 ```rust
-use ort::{Environment, SessionBuilder, Value};
-// Load Piper ONNX model and run inference
+// Using kokorox or kokoroxide crate
+// Load Kokoro ONNX model and run inference via ort
 ```
 
 ### R2: Use Whisper Translation for X→English
@@ -105,7 +111,7 @@ If translation to non-English languages is required:
 ### R4: Architecture Recommendation
 
 **Tiered approach:**
-1. **Core (offline):** whisper-rs for STT + translation (X→English), Piper via ort for TTS
+1. **Core (offline):** whisper-rs for STT + translation (X→English), Kokoro TTS via ort (Apache 2.0, no GPL)
 2. **Extended (server):** LibreTranslate for multilingual translation
 3. **Fallback (online):** Cloud APIs for highest quality when available
 
