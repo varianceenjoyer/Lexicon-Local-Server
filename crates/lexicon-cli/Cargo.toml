@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 lexicon-core.workspace = true
+lexicon-server = { path = "../lexicon-server" }
 
 # Error handling
 thiserror.workspace = true
@@ -32,6 +33,12 @@ indicatif.workspace = true
 # Serialization
 serde.workspace = true
 serde_json.workspace = true
+
+# Time handling
+chrono.workspace = true
+
+# Audio file reading
+hound.workspace = true
 
 [dev-dependencies]
 
