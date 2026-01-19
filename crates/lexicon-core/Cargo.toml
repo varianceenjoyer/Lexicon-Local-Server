@@ -15,6 +15,8 @@ storage = ["dep:rusqlite"]
 audio = ["dep:cpal", "dep:rubato", "dep:webrtc-vad", "dep:ringbuf"]
 server = []
 ffi = []
+# Feature for test utilities (exposes functions useful for testing)
+test-utils = []
 
 [dependencies]
 # Database

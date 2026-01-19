@@ -200,3 +200,39 @@ impl std::fmt::Display for DownloadState {
         }
     }
 }
+
+/// Summary of model readiness status.
+///
+/// Used to report the current state of model availability
+/// for application status displays and feature enablement.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelReadinessStatus {
+    /// Whether at least one STT model is ready
+    pub stt_ready: bool,
+    /// Whether at least one TTS model is ready
+    pub tts_ready: bool,
+    /// Number of STT models available locally
+    pub stt_models_available: usize,
+    /// Number of TTS models available locally
+    pub tts_models_available: usize,
+    /// Total number of models in the manifest
+    pub total_models_in_manifest: usize,
+}
+
+impl ModelReadinessStatus {
+    /// Returns true if the application is ready for basic functionality.
+    ///
+    /// Basic functionality requires at least one STT model.
+    #[must_use]
+    pub fn is_ready(&self) -> bool {
+        self.stt_ready
+    }
+
+    /// Returns true if all features are ready.
+    ///
+    /// Full functionality requires both STT and TTS models.
+    #[must_use]
+    pub fn is_fully_ready(&self) -> bool {
+        self.stt_ready && self.tts_ready
+    }
+}
