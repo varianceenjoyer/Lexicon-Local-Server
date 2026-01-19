@@ -159,4 +159,119 @@ mod tests {
             assert!(result.is_err());
         }
     }
+
+    #[test]
+    fn test_context_creates_nested_directories() {
+        let temp_dir = std::env::temp_dir().join("lexicon-nested-test");
+        let nested_data = temp_dir.join("a").join("b").join("c").join("data");
+        let nested_models = temp_dir.join("x").join("y").join("z").join("models");
+
+        let config = LexiconConfig::builder()
+            .data_dir(nested_data.clone())
+            .model_dir(nested_models.clone())
+            .build()
+            .unwrap();
+
+        let ctx = LexiconContext::new(config).unwrap();
+        assert!(nested_data.exists());
+        assert!(nested_models.exists());
+        assert_eq!(ctx.config().data_dir, nested_data);
+        assert_eq!(ctx.config().model_dir, nested_models);
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_context_platform_detection() {
+        let temp_dir = std::env::temp_dir().join("lexicon-platform-test");
+        let config = LexiconConfig::builder()
+            .data_dir(temp_dir.clone())
+            .model_dir(temp_dir.join("models"))
+            .build()
+            .unwrap();
+
+        let ctx = LexiconContext::new(config).unwrap();
+        let platform = ctx.platform();
+
+        // Should detect one of the supported platforms
+        assert!(matches!(
+            platform,
+            Platform::MacOS | Platform::Windows | Platform::Linux | Platform::IOS | Platform::Android
+        ));
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_context_reuses_existing_directories() {
+        let temp_dir = std::env::temp_dir().join("lexicon-existing-test");
+        let data_dir = temp_dir.join("data");
+        let model_dir = temp_dir.join("models");
+
+        // Pre-create directories
+        std::fs::create_dir_all(&data_dir).unwrap();
+        std::fs::create_dir_all(&model_dir).unwrap();
+
+        // Create a marker file to verify directory wasn't recreated
+        let marker_file = data_dir.join("marker.txt");
+        std::fs::write(&marker_file, "test").unwrap();
+
+        let config = LexiconConfig::builder()
+            .data_dir(data_dir.clone())
+            .model_dir(model_dir.clone())
+            .build()
+            .unwrap();
+
+        let ctx = LexiconContext::new(config).unwrap();
+
+        // Marker file should still exist
+        assert!(marker_file.exists());
+        assert!(ctx.config().data_dir.exists());
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_context_config_accessor() {
+        let temp_dir = std::env::temp_dir().join("lexicon-config-access-test");
+        let config = LexiconConfig::builder()
+            .data_dir(temp_dir.clone())
+            .model_dir(temp_dir.join("models"))
+            .log_level(LogLevel::Debug)
+            .build()
+            .unwrap();
+
+        let ctx = LexiconContext::new(config).unwrap();
+
+        // Verify config accessors work correctly
+        assert_eq!(ctx.config().log_level, LogLevel::Debug);
+        assert_eq!(ctx.config().data_dir, temp_dir);
+        assert_eq!(ctx.config().model_dir, temp_dir.join("models"));
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_context_invalid_model_directory() {
+        // Test with valid data dir but invalid model dir
+        #[cfg(unix)]
+        {
+            let temp_dir = std::env::temp_dir().join("lexicon-invalid-model-test");
+            let config = LexiconConfig::builder()
+                .data_dir(temp_dir.clone())
+                .model_dir(PathBuf::from("/proc/lexicon-model-cannot-create"))
+                .build()
+                .unwrap();
+
+            let result = LexiconContext::new(config);
+            assert!(result.is_err());
+
+            // Data dir might have been created before model dir failed
+            let _ = std::fs::remove_dir_all(&temp_dir);
+        }
+    }
 }
