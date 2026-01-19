@@ -67,6 +67,7 @@ tts = "0.26"
 
 # CLI
 clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
 indicatif = "0.17"
 
 # Audio file reading

@@ -11,7 +11,8 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap_complete::{generate, Shell};
 use indicatif::{ProgressBar, ProgressStyle};
 
 use lexicon_core::{
@@ -100,6 +101,29 @@ enum Commands {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+
+    /// Generate shell completion scripts
+    Completions {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: ShellType,
+    },
+}
+
+/// Shell types for completion generation.
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum ShellType {
+    /// Bash shell
+    Bash,
+    /// Zsh shell
+    Zsh,
+    /// Fish shell
+    Fish,
+    /// PowerShell
+    #[value(name = "powershell")]
+    PowerShell,
+    /// Elvish shell
+    Elvish,
 }
 
 #[derive(Subcommand)]
@@ -198,7 +222,8 @@ fn main() -> Result<()> {
             session_id,
             format,
             output,
-        } => cmd_export(&session_id, &format, output)
+        } => cmd_export(&session_id, &format, output),
+        Commands::Completions { shell } => cmd_completions(shell),
     }
 }
 
@@ -928,6 +953,47 @@ fn cmd_export(session_id_str: &str, format: &str, output: Option<PathBuf>) -> Re
     } else {
         println!("{content}");
     }
+
+    Ok(())
+}
+
+// ============================================================================
+// Completions Command
+// ============================================================================
+
+/// Generate shell completion scripts.
+fn cmd_completions(shell_type: ShellType) -> Result<()> {
+    let mut cmd = Cli::command();
+    let shell = match shell_type {
+        ShellType::Bash => Shell::Bash,
+        ShellType::Zsh => Shell::Zsh,
+        ShellType::Fish => Shell::Fish,
+        ShellType::PowerShell => Shell::PowerShell,
+        ShellType::Elvish => Shell::Elvish,
+    };
+
+    generate(shell, &mut cmd, "lexicon", &mut std::io::stdout());
+
+    // Print usage instructions to stderr
+    let install_hint = match shell_type {
+        ShellType::Bash => {
+            "# Add to ~/.bashrc:\n#   eval \"$(lexicon completions bash)\"\n# Or save to file:\n#   lexicon completions bash > ~/.local/share/bash-completion/completions/lexicon"
+        }
+        ShellType::Zsh => {
+            "# Add to ~/.zshrc (before compinit):\n#   eval \"$(lexicon completions zsh)\"\n# Or save to fpath:\n#   lexicon completions zsh > ~/.zfunc/_lexicon"
+        }
+        ShellType::Fish => {
+            "# Save to completions directory:\n#   lexicon completions fish > ~/.config/fish/completions/lexicon.fish"
+        }
+        ShellType::PowerShell => {
+            "# Add to PowerShell profile:\n#   lexicon completions powershell | Out-String | Invoke-Expression"
+        }
+        ShellType::Elvish => {
+            "# Add to ~/.elvish/rc.elv:\n#   eval (lexicon completions elvish | slurp)"
+        }
+    };
+
+    eprintln!("\n{install_hint}");
 
     Ok(())
 }
