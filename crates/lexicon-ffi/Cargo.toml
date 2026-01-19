@@ -1,0 +1,51 @@
+[package]
+name = "lexicon-ffi"
+description = "UniFFI bindings for Lexicon - Swift/Kotlin cross-platform support"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "staticlib", "lib"]
+name = "lexicon_ffi"
+
+[features]
+default = ["stt", "tts"]
+stt = ["lexicon-core/stt"]
+tts = ["lexicon-core/tts"]
+
+[dependencies]
+lexicon-core.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# UniFFI
+uniffi.workspace = true
+
+# Logging
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Async runtime
+tokio.workspace = true
+
+# Time handling
+chrono.workspace = true
+
+[build-dependencies]
+uniffi = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+uniffi = { workspace = true, features = ["bindgen-tests"] }
+
+# Override workspace lint for FFI crate (UniFFI requires unsafe)
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"

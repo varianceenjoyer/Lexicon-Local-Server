@@ -1,0 +1,205 @@
+// Lexicon FFI Interface Definition
+// This file defines the cross-platform API for Swift (iOS) and Kotlin (Android)
+
+namespace lexicon {
+    // Initialize the Lexicon library with the given data directory
+    [Throws=LexiconFfiError]
+    void init_lexicon(string data_dir);
+
+    // Get the library version
+    string get_version();
+};
+
+// Error types exposed to foreign code
+[Error]
+enum LexiconFfiError {
+    "InitializationFailed",
+    "ConfigError",
+    "ModelNotFound",
+    "ModelLoadFailed",
+    "TranscriptionFailed",
+    "SynthesisFailed",
+    "InvalidInput",
+    "IoError",
+    "DatabaseError",
+};
+
+// Configuration for the Lexicon context
+dictionary LexiconFfiConfig {
+    string data_dir;
+    string? model_dir;
+    string log_level;
+};
+
+// Audio configuration
+dictionary AudioFfiConfig {
+    u32 sample_rate;
+    u32 chunk_ms;
+    boolean vad_enabled;
+    u8 vad_mode;
+};
+
+// Transcription configuration
+dictionary TranscriptionFfiConfig {
+    string? language;
+    boolean translate;
+    u32 num_threads;
+    string? initial_prompt;
+    f32 temperature;
+};
+
+// A transcribed segment
+dictionary TranscriptionSegment {
+    i64 start_ms;
+    i64 end_ms;
+    string text;
+    f32? confidence;
+    string? language;
+    u32? speaker_id;
+};
+
+// Result of a transcription
+dictionary TranscriptionFfiResult {
+    sequence<TranscriptionSegment> segments;
+    string? detected_language;
+    i64 audio_duration_ms;
+    i64 processing_time_ms;
+};
+
+// TTS configuration
+dictionary TtsFfiConfig {
+    string? language;
+    string? voice_id;
+    f32 rate;
+    f32 pitch;
+    f32 volume;
+    boolean use_kokoro;
+};
+
+// TTS synthesis result
+dictionary SynthesisFfiResult {
+    bytes audio_data;
+    u32 sample_rate;
+    i64 duration_ms;
+    string engine;
+};
+
+// Model information
+dictionary ModelFfiInfo {
+    string id;
+    string name;
+    string model_type;
+    u64 size_bytes;
+    boolean downloaded;
+    string? local_path;
+};
+
+// Download progress callback data
+dictionary DownloadProgress {
+    string model_id;
+    u64 downloaded_bytes;
+    u64 total_bytes;
+    u64 speed_bps;
+    u64? eta_seconds;
+};
+
+// Platform information
+dictionary PlatformFfiInfo {
+    string platform;
+    string model_tier;
+    u64 available_memory_mb;
+    boolean has_gpu;
+};
+
+// The main Lexicon context - manages STT, TTS, and models
+interface LexiconContext {
+    // Create a new context with configuration
+    [Throws=LexiconFfiError]
+    constructor(LexiconFfiConfig config);
+
+    // Get platform information
+    PlatformFfiInfo get_platform_info();
+
+    // Model management
+    [Throws=LexiconFfiError]
+    sequence<ModelFfiInfo> list_models();
+
+    [Throws=LexiconFfiError]
+    boolean is_model_downloaded(string model_id);
+
+    [Throws=LexiconFfiError]
+    void delete_model(string model_id);
+};
+
+// Speech-to-Text transcriber
+interface Transcriber {
+    // Create a new transcriber
+    [Throws=LexiconFfiError]
+    constructor();
+
+    // Load a model
+    [Throws=LexiconFfiError]
+    void load_model(string model_path);
+
+    // Unload the current model
+    void unload_model();
+
+    // Check if a model is loaded
+    boolean is_model_loaded();
+
+    // Get the loaded model name
+    string? get_model_name();
+
+    // Transcribe audio samples (16kHz mono f32)
+    [Throws=LexiconFfiError]
+    TranscriptionFfiResult transcribe(bytes audio_data, TranscriptionFfiConfig config);
+
+    // Translate audio to English
+    [Throws=LexiconFfiError]
+    TranscriptionFfiResult translate(bytes audio_data, TranscriptionFfiConfig config);
+};
+
+// Text-to-Speech synthesizer
+interface Synthesizer {
+    // Create a new synthesizer
+    [Throws=LexiconFfiError]
+    constructor();
+
+    // Check if ready
+    boolean is_ready();
+
+    // Synthesize text to audio
+    [Throws=LexiconFfiError]
+    SynthesisFfiResult synthesize(string text, TtsFfiConfig config);
+
+    // List available voices
+    sequence<string> list_voices();
+};
+
+// Callback interface for async operations
+callback interface DownloadCallback {
+    void on_progress(DownloadProgress progress);
+    void on_complete(string model_id);
+    void on_error(string model_id, string error);
+};
+
+// Callback interface for streaming transcription
+callback interface TranscriptionCallback {
+    void on_segment(TranscriptionSegment segment);
+    void on_final(TranscriptionFfiResult result);
+    void on_error(string error);
+};
+
+// Model downloader for async model fetching
+interface ModelDownloader {
+    // Create a new downloader
+    [Throws=LexiconFfiError]
+    constructor(string model_dir);
+
+    // Download a model asynchronously
+    [Throws=LexiconFfiError]
+    void download_model(string model_id, DownloadCallback callback);
+
+    // Cancel a download
+    void cancel_download(string model_id);
+};
