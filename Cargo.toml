@@ -1,0 +1,68 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/lexicon-core",
+    # "crates/lexicon-server",  # Layer 3: WP-SERVER
+    # "crates/lexicon-cli",     # Layer 3: WP-CLI
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/example/lexicon-local-server"
+rust-version = "1.85"
+
+[workspace.dependencies]
+# Database
+rusqlite = { version = "0.32", features = ["bundled", "modern_sqlite"] }
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Async runtime (for future use)
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Platform utilities
+directories = "5"
+
+# Cryptography / Model verification
+sha2 = "0.10"
+hex = "0.4"
+minisign-verify = "0.2"
+
+# HTTP client (for model downloads)
+reqwest = { version = "0.12", features = ["stream", "rustls-tls"], default-features = false }
+futures-util = "0.3"
+
+# Testing
+tempfile = "3"
+
+# Audio capture and processing
+cpal = "0.15"
+rubato = "0.16"
+webrtc-vad = "0.4"
+ringbuf = "0.4"
+
+# Speech-to-Text (Whisper)
+whisper-rs = "0.14"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"

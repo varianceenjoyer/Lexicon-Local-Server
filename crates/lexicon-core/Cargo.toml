@@ -1,0 +1,67 @@
+[package]
+name = "lexicon-core"
+description = "Core library for Lexicon Local Server - STT, translation, and TTS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["stt", "tts", "storage", "audio"]
+stt = ["dep:whisper-rs"]
+tts = []
+storage = ["dep:rusqlite"]
+audio = ["dep:cpal", "dep:rubato", "dep:webrtc-vad", "dep:ringbuf"]
+server = []
+ffi = []
+
+[dependencies]
+# Database
+rusqlite = { workspace = true, optional = true }
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Logging
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+# Utilities
+directories.workspace = true
+chrono.workspace = true
+
+# Cryptography / Model verification
+sha2.workspace = true
+hex.workspace = true
+minisign-verify.workspace = true
+
+# HTTP client (for model downloads)
+reqwest.workspace = true
+futures-util.workspace = true
+
+# Async runtime
+tokio.workspace = true
+
+# Audio capture and processing
+cpal = { workspace = true, optional = true }
+rubato = { workspace = true, optional = true }
+webrtc-vad = { workspace = true, optional = true }
+ringbuf = { workspace = true, optional = true }
+
+# Speech-to-Text (Whisper)
+whisper-rs = { workspace = true, optional = true }
+
+[dev-dependencies]
+tracing-subscriber.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }
+tempfile.workspace = true
+
+[lints]
+workspace = true
