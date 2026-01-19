@@ -85,4 +85,6 @@ projectName: Lexicon Local Server
 
 - **Client-server split**: Embedded architecture—core library is linked directly into each client app. On mobile, called via FFI. On desktop, can optionally expose localhost HTTP server for UI separation.
 - **Offline vs connected**: Fully offline. All STT, translation, and TTS processing runs locally on-device with no cloud dependencies. This ensures privacy, eliminates network latency, and enables use in disconnected environments.
+
+### Open Questions
 - **Multi-language model strategy**: Whisper multilingual models are larger. How are language-specific models managed/downloaded?
