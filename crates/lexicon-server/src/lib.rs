@@ -217,6 +217,12 @@ impl Server {
         &self.state
     }
 
+    /// Returns the Axum router for testing.
+    #[must_use]
+    pub fn router(&self) -> Router {
+        self.build_router()
+    }
+
     /// Builds the Axum router.
     fn build_router(&self) -> Router {
         let mut router = Router::new()
