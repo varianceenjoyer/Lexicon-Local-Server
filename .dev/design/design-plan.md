@@ -69,7 +69,7 @@ impl LexiconContext {
 
 #### WP-AUDIO: Audio Pipeline
 
-**Deliverable:** Audio capture, VAD, and resampling module
+**Deliverable:** Audio capture, VAD, resampling, and Bluetooth support
 
 **Scope:**
 - `AudioSource` trait for platform abstraction
@@ -77,7 +77,12 @@ impl LexiconContext {
 - webrtc-vad integration for speech detection
 - rubato resampling to 16kHz mono
 - Ring buffer for chunk accumulation
-- Audio route change handling
+- Audio route change handling (stutter mitigation per R-AUD-01)
+- **Bluetooth HFP 1.6 support** (Decision D2):
+  - Codec negotiation for 16kHz sample rate
+  - Graceful handling of Bluetooth connect/disconnect
+  - Automatic fallback to device microphone on disconnection
+  - Route change detection and stream rebuild
 
 **Interface Contract:**
 ```rust
@@ -103,8 +108,10 @@ impl AudioSource for CpalAudioSource { ... }
 - [ ] VAD correctly identifies speech segments
 - [ ] Output is 16kHz mono f32 samples
 - [ ] Handles device disconnection gracefully
+- [ ] Bluetooth HFP 1.6 negotiates 16kHz when available
+- [ ] Route changes handled without crashes
 
-**Architecture Refs:** Audio Pipeline (lines 165-185)
+**Architecture Refs:** Audio Pipeline, Decision D2 (Bluetooth HFP 1.6)
 
 ---
 
@@ -148,7 +155,7 @@ impl Database {
 
 #### WP-MODEL: Model Manager
 
-**Deliverable:** Model download, verification, and registry
+**Deliverable:** Model download, verification, registry, and thermal-aware selection
 
 **Scope:**
 - Model manifest parsing (signed JSON)
@@ -156,7 +163,16 @@ impl Database {
 - SHA-256 hash verification (download + load)
 - Download progress reporting
 - Local cache management
-- Device capability profiling for model selection
+- **Immediate download flow** (Decision D1):
+  - Device capability profiling at first launch
+  - Tier determination (mobile low/mid, desktop, server)
+  - Automatic download of all tier-appropriate models
+  - Block STT features until at least one model ready
+  - Background download for TTS model (non-blocking)
+- **Thermal-aware model switching**:
+  - Interface for receiving thermal state from platform layer
+  - Automatic downgrade (base → tiny) when thermal headroom < 0.7
+  - Upgrade back to preferred model when cooled
 
 **Interface Contract:**
 ```rust
@@ -179,6 +195,14 @@ pub struct DeviceProfile {
     pub available_memory_mb: u64,
     pub has_gpu: bool,
     pub platform: Platform,
+    pub thermal_headroom: Option<f32>,  // 0.0-1.0, None if unavailable
+}
+
+pub enum ThermalState {
+    Nominal,
+    Fair,
+    Serious,
+    Critical,
 }
 ```
 
@@ -186,9 +210,11 @@ pub struct DeviceProfile {
 - [ ] Manifest signature verified before parsing
 - [ ] Download streams with SHA-256 hashing
 - [ ] Verification fails on hash mismatch
-- [ ] Device profiling selects appropriate models
+- [ ] Device profiling selects appropriate tier models
+- [ ] First launch downloads all tier models before allowing transcription
+- [ ] Thermal state triggers model downgrade at headroom < 0.7
 
-**Architecture Refs:** Model Verification (lines 296-329), R-SEC-01
+**Architecture Refs:** Model Verification, Decisions D1 (Immediate Download), Thermal Management
 
 ---
 
@@ -204,7 +230,7 @@ These packages depend on Foundation layer completion. They can be developed in p
 
 #### WP-STT: Speech-to-Text Engine
 
-**Deliverable:** whisper-rs integration with streaming support
+**Deliverable:** whisper-rs integration with streaming and diarization support
 
 **Scope:**
 - whisper-rs context management
@@ -213,6 +239,12 @@ These packages depend on Foundation layer completion. They can be developed in p
 - Translation mode (X→English)
 - Confidence scores extraction
 - GPU acceleration (Metal, CUDA, Vulkan)
+- **Speaker diarization** (Decision D3):
+  - Configurable per-session (enable/disable)
+  - Speaker embedding extraction
+  - Clustering for speaker identification
+  - `speaker_id` assignment to segments
+  - Algorithm options: whisper-based clustering (MVP), sherpa-onnx (future)
 
 **Interface Contract:**
 ```rust
@@ -235,6 +267,12 @@ pub struct Segment {
     pub text: String,
     pub confidence: Option<f32>,
     pub language: Option<String>,
+    pub speaker_id: Option<u32>,  // Decision D3: diarization
+}
+
+pub struct TranscriptionConfig {
+    pub enable_diarization: bool,
+    pub max_speakers: Option<u32>,
 }
 ```
 
@@ -243,8 +281,9 @@ pub struct Segment {
 - [ ] Translation mode produces English output
 - [ ] GPU acceleration functional on supported platforms
 - [ ] Handles chunk boundaries without word splits
+- [ ] Diarization assigns consistent speaker IDs when enabled
 
-**Architecture Refs:** STT Engine (lines 187-204), R-WRS-01
+**Architecture Refs:** STT Engine, Decision D3 (Speaker Diarization)
 
 ---
 
@@ -256,9 +295,12 @@ pub struct Segment {
 - ort crate ONNX runtime integration
 - Kokoro model loading (~350MB)
 - Streaming audio output
-- Language detection for fallback trigger
-- tts-rs fallback for non-English
 - Voice selection API
+- **tts-rs fallback triggers** (Decision D4):
+  - Non-English language detected in text (automatic)
+  - User explicitly selects platform voice (preference)
+  - Kokoro model fails to load (error recovery)
+  - Platform-native synthesis: AVSpeechSynthesizer (iOS), Android TTS, SAPI (Windows)
 
 **Interface Contract:**
 ```rust
@@ -277,15 +319,27 @@ impl Synthesizer for KokoroSynthesizer { ... }
 
 pub struct PlatformSynthesizer { ... }  // tts-rs fallback
 impl Synthesizer for PlatformSynthesizer { ... }
+
+pub enum TtsEngine {
+    Kokoro,
+    Platform,  // tts-rs
+}
+
+pub struct TtsConfig {
+    pub preferred_engine: TtsEngine,
+    pub fallback_enabled: bool,
+}
 ```
 
 **Completion Criteria:**
 - [ ] Synthesizes English text with Kokoro
 - [ ] Streaming output begins within 200ms
 - [ ] Fallback triggers on non-English detection
+- [ ] Fallback triggers on user preference for platform voice
+- [ ] Fallback triggers on Kokoro model load failure
 - [ ] Platform TTS works on all desktop platforms
 
-**Architecture Refs:** TTS Engine (lines 206-215), R-TTS-01
+**Architecture Refs:** TTS Engine, Decision D4 (Multi-language TTS fallback)
 
 ---
 
@@ -451,6 +505,11 @@ These packages create platform-specific distributions. They can be developed in 
 - Background audio configuration
 - Microphone permission handling
 - CoreML/ANE acceleration
+- **Thermal monitoring** (supports WP-MODEL thermal-aware switching):
+  - `ProcessInfo.thermalState` monitoring
+  - Thermal state change notifications
+  - Expose thermal headroom to Rust core via FFI
+  - User warning at "serious" thermal state
 
 **Deliverables:**
 - `Lexicon.xcframework` (universal binary)
@@ -462,8 +521,10 @@ These packages create platform-specific distributions. They can be developed in 
 - [ ] Swift API is ergonomic and documented
 - [ ] Background transcription works
 - [ ] ANE acceleration verified on device
+- [ ] Thermal state changes trigger model switching
+- [ ] User warned at serious/critical thermal state
 
-**Architecture Refs:** iOS platform (line 126), Build targets (lines 338-339)
+**Architecture Refs:** iOS platform, Thermal Management, R-THR-01
 
 ---
 
@@ -476,7 +537,12 @@ These packages create platform-specific distributions. They can be developed in 
 - JNI/Kotlin bindings
 - Foreground service for background audio
 - Permission handling
-- XNNPACK acceleration
+- XNNPACK acceleration (NNAPI deprecated per R-ORT-01)
+- **Thermal monitoring** (supports WP-MODEL thermal-aware switching):
+  - `PowerManager.getThermalHeadroom()` monitoring (API 29+)
+  - Thermal status callback registration
+  - Expose thermal headroom to Rust core via JNI
+  - User warning when headroom < 0.3
 
 **Deliverables:**
 - `liblexicon.so` (arm64-v8a, armeabi-v7a)
@@ -488,8 +554,10 @@ These packages create platform-specific distributions. They can be developed in 
 - [ ] Kotlin API matches Swift API semantics
 - [ ] Foreground service keeps transcription active
 - [ ] XNNPACK acceleration verified
+- [ ] Thermal headroom monitoring works on API 29+
+- [ ] Model downgrade triggered when headroom < 0.7
 
-**Architecture Refs:** Android platform (line 127), Build targets (lines 340-341)
+**Architecture Refs:** Android platform, Thermal Management, R-THR-01
 
 ---
 
@@ -524,16 +592,16 @@ These packages create platform-specific distributions. They can be developed in 
 
 ### Phase 1: MVP (Core Functionality)
 
-**Goal:** Desktop STT transcription with persistence
+**Goal:** Desktop STT transcription with persistence and immediate model download
 
 **Included Packages:**
-| Package | Scope Reduction |
-|---------|-----------------|
+| Package | Scope |
+|---------|-------|
 | WP-CORE | Full |
-| WP-AUDIO | Desktop only (no mobile routes) |
+| WP-AUDIO | Desktop only (no Bluetooth, no mobile routes) |
 | WP-DB | Full |
-| WP-MODEL | Download only (no device profiling) |
-| WP-STT | Full |
+| WP-MODEL | Full including device profiling and immediate download (Decision D1) |
+| WP-STT | Core transcription (diarization deferred to Beta) |
 | WP-CLI | `transcribe` and `models` commands only |
 
 **Not Included:**
@@ -541,14 +609,17 @@ These packages create platform-specific distributions. They can be developed in 
 - Server (WP-SERVER)
 - Mobile (WP-FFI, WP-IOS, WP-ANDROID)
 - CI/CD (WP-BUILD)
+- Speaker diarization (deferred to Beta)
+- Bluetooth audio (deferred to Beta)
 
 **MVP Deliverables:**
 1. `lexicon transcribe audio.mp3` produces SRT output
-2. Models download and verify correctly
-3. Sessions persist to SQLite
+2. First launch profiles device and downloads tier-appropriate models
+3. Sessions persist to SQLite with FTS5 search
 4. Works on macOS, Windows, Linux
 
 **Exit Criteria:**
+- [ ] First launch downloads models before allowing transcription (D1)
 - [ ] Transcribe 10-minute audio file successfully
 - [ ] Search finds text across sessions
 - [ ] Export produces valid SRT
@@ -557,16 +628,16 @@ These packages create platform-specific distributions. They can be developed in 
 
 ### Phase 2: Beta (User Experience)
 
-**Goal:** Full feature set with streaming and mobile
+**Goal:** Full feature set with streaming, mobile bindings, and enhanced audio
 
 **Added Packages:**
 | Package | Scope |
 |---------|-------|
-| WP-TTS | Full |
+| WP-TTS | Full including fallback triggers (D4) |
 | WP-SERVER | Full |
 | WP-FFI | Full |
-| WP-AUDIO | Add mobile audio routes |
-| WP-MODEL | Add device profiling |
+| WP-AUDIO | Add Bluetooth HFP 1.6 (D2), mobile audio routes |
+| WP-STT | Add speaker diarization (D3) |
 | WP-CLI | Add `serve` command |
 
 **Not Included:**
@@ -575,27 +646,32 @@ These packages create platform-specific distributions. They can be developed in 
 
 **Beta Deliverables:**
 1. HTTP server with WebSocket streaming
-2. TTS synthesis with Kokoro
+2. TTS synthesis with Kokoro + tts-rs fallback
 3. UniFFI bindings compile
 4. Real-time STT latency <800ms
+5. Speaker diarization assigns IDs when enabled
+6. Bluetooth audio works at 16kHz
 
 **Exit Criteria:**
 - [ ] WebSocket client receives streaming segments
 - [ ] TTS produces natural-sounding speech
+- [ ] TTS falls back to platform voice for non-English (D4)
 - [ ] Swift/Kotlin bindings pass unit tests
+- [ ] Diarization correctly identifies 2+ speakers (D3)
+- [ ] Bluetooth HFP 1.6 verified at 16kHz (D2)
 - [ ] Latency benchmarks documented
 
 ---
 
 ### Phase 3: Release (Production Ready)
 
-**Goal:** Full platform coverage with production hardening
+**Goal:** Full platform coverage with production hardening and thermal management
 
 **Added Packages:**
 | Package | Scope |
 |---------|-------|
-| WP-IOS | Full |
-| WP-ANDROID | Full |
+| WP-IOS | Full including thermal monitoring |
+| WP-ANDROID | Full including thermal monitoring |
 | WP-BUILD | Full |
 
 **Release Deliverables:**
@@ -607,6 +683,7 @@ These packages create platform-specific distributions. They can be developed in 
 **Exit Criteria:**
 - [ ] iOS app transcribes on device
 - [ ] Android app transcribes on device
+- [ ] Thermal throttling triggers model downgrade on both platforms
 - [ ] All platforms pass integration tests
 - [ ] Security audit completed
 
@@ -681,7 +758,9 @@ pub struct MockTranscriber {
 | whisper-rs build complexity | HIGH | Document build matrix, provide Docker images | WP-STT |
 | ort mobile cross-compilation | MEDIUM | tract fallback, pre-built binaries | WP-TTS |
 | UniFFI async limitations | MEDIUM | Manual async wrapper if needed | WP-FFI |
-| Thermal throttling on mobile | MEDIUM | Test early with real devices | WP-IOS, WP-ANDROID |
+| Thermal throttling on mobile | MEDIUM | Thermal API monitoring, adaptive model switching | WP-MODEL, WP-IOS, WP-ANDROID |
+| Bluetooth audio quality | MEDIUM | HFP 1.6 negotiation, fallback to device mic | WP-AUDIO |
+| Diarization accuracy | MEDIUM | Configurable, multiple algorithm options | WP-STT |
 
 ---
 
