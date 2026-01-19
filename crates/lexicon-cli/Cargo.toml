@@ -1,0 +1,39 @@
+[package]
+name = "lexicon-cli"
+description = "Command-line interface for Lexicon Local Server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "lexicon"
+path = "src/main.rs"
+
+[dependencies]
+lexicon-core.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Logging
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Async runtime
+tokio.workspace = true
+
+# CLI
+clap.workspace = true
+indicatif.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+
+[lints]
+workspace = true
