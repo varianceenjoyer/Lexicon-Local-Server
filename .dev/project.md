@@ -19,9 +19,8 @@ projectName: Lexicon Local Server
 
 ## Dependencies
 
-    - whisper.cpp using official Go bindings
+    - sherpa-onnx
     - SQLite
-    - Go [language]
 
 ## Constraints
 

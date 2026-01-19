@@ -1,7 +1,7 @@
 # Research Plan: Cross-Platform Build & Distribution
 
 **ID:** 005
-**Status:** Ongoing
+**Status:** Complete
 **Impact:** MEDIUM
 **Created:** 2026-01-19
 **Last Updated:** 2026-01-19
@@ -179,40 +179,261 @@ How do model updates and server updates reach deployed mobile instances? Mobile 
 
 ## Findings
 
-### Mobile Wrapper Comparison
-| Approach | Feasibility | Notes |
-|----------|-------------|-------|
-| _Pending_ | | |
+### Mobile Wrapper Strategy
+
+**Key Finding:** sherpa-onnx changes the mobile wrapper calculus significantly - it provides native bindings that eliminate CGO cross-compilation complexity.
+
+| Approach | iOS | Android | Feasibility | Notes |
+|----------|-----|---------|-------------|-------|
+| **sherpa-onnx native** | ✅ Build from source | ✅ Pre-built libs | **Recommended** | Eliminates gomobile/CGO complexity |
+| **Flutter + sherpa_onnx** | ✅ Package available | ✅ Package available | Good | Cross-platform UI with native audio |
+| gomobile bind | ⚠️ CGO issues | ✅ Works | Risky | CGO-dependent packages problematic on iOS |
+| WebView + local server | ✅ | ✅ | Viable | Simpler but less native feel |
+
+**sherpa-onnx Build Requirements:**
+
+| Platform | Build Host | Toolchain | Min Version | Pre-built? |
+|----------|-----------|-----------|-------------|------------|
+| **iOS** | macOS only | Xcode 14.2+ | iOS 13.0+ | ❌ Build from source |
+| **Android** | Linux/macOS | NDK (22.1+ recommended) | API varies | ✅ Available on releases |
+| **Windows** | Windows/Linux | MinGW/MSVC | N/A | ✅ Available |
+| **macOS** | macOS | Xcode | 10.9+ | ✅ Available |
+| **Linux** | Linux | GCC | N/A | ✅ Available |
+
+**Library Sizes (sherpa-onnx Android arm64-v8a):**
+- `libonnxruntime.so`: ~15MB
+- `libsherpa-onnx-jni.so`: ~3.7MB
+- **Total runtime**: ~19MB (excluding models)
+- Models are additional (varies by quality)
+
+---
 
 ### App Store Requirements
-_Pending research_
+
+#### iOS App Store
+
+**Requirements Documented:**
+- [x] Apple Developer Program: Required ($99/year)
+- [x] Provisioning profiles and certificates: Required (manual setup in CI)
+- [x] Microphone entitlement: `NSMicrophoneUsageDescription` required
+- [x] Background audio: Enable "Audio, AirPlay, and Picture in Picture" capability
+- [x] Privacy manifest: Required for third-party AI usage (November 2025 guideline 5.1.2)
+
+**ML Model Downloads In-App:**
+
+Per [Apple Developer Documentation](https://developer.apple.com/documentation/coreml/downloading-and-compiling-a-model-on-the-user-s-device), downloading ML models after app installation is **permitted** with conditions:
+
+1. ✅ Only data files (not executable code) may be downloaded
+2. ✅ All code must be contained within the app bundle
+3. ✅ Model files used strictly as data, never executed as code
+4. ✅ Privacy disclosures must be clear and accurate
+5. ✅ Third-party AI usage must be documented in privacy policy
+
+**Apple DTS has confirmed** this approach does not violate guidelines.
+
+#### Google Play Store
+
+**Requirements Documented:**
+- [x] Google Play Developer account: Required ($25 one-time)
+- [x] APK/AAB signing: Required (keystore management)
+- [x] Microphone permission: `android.permission.RECORD_AUDIO`
+- [x] Foreground service: `android.permission.FOREGROUND_SERVICE_MICROPHONE` (Android 14+)
+- [x] Target API: Must target recent API (rolling requirement)
+- [x] 64-bit: Required (arm64-v8a supported by sherpa-onnx)
+
+**Foreground Service Requirements (Android 14+):**
+
+Per [Android Developers documentation](https://developer.android.com/develop/background-work/services/fgs/declare):
+
+1. Declare service with `foregroundServiceType="microphone"` in manifest
+2. Request `FOREGROUND_SERVICE_MICROPHONE` permission
+3. System verifies `RECORD_AUDIO` permission when service created
+4. **Cannot start** microphone foreground service from background
+5. Must show persistent notification while service running
+
+```xml
+<service
+    android:name=".AudioProcessingService"
+    android:foregroundServiceType="microphone" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+```
+
+---
 
 ### CI/CD Architecture
-_Pending research_
+
+**GitHub Actions Recommended** - supports all 5 platforms with native runners.
+
+#### Runner Requirements
+
+| Platform | Runner | Notes |
+|----------|--------|-------|
+| Windows | `windows-latest` | Cross-compile possible |
+| macOS | `macos-14` or `macos-15` | Required for iOS builds |
+| Linux | `ubuntu-latest` | Standard |
+| iOS | `macos-14` + Xcode | **macOS required** |
+| Android | `ubuntu-latest` + NDK | Can use Linux |
+
+**Key Findings:**
+
+1. **Apple Silicon (M1) runners** reduce iOS build times by up to 80% vs Intel ([GitHub Blog](https://github.blog/news-insights/product-news/introducing-the-new-apple-silicon-powered-m1-macos-larger-runner-for-github-actions/))
+   - 6-core CPU, 8-core GPU, 14GB RAM
+   - Use `macos-14-xlarge` label
+
+2. **macOS 26 image** available in public preview (September 2025)
+   - arm64 runners only (no Intel support)
+   - Required for latest Xcode/iOS SDK
+
+3. **iOS code signing in CI** requires manual setup:
+   - Base64-encode certificate and provisioning profile
+   - Import into temporary keychain per workflow run
+   - **Automatic signing not supported** in GitHub Actions
+
+4. **Known Issue:** Xcode 26 simulator performance issues reported in community
+
+#### Estimated Build Matrix
+
+| Platform | Build Time | Runner Cost | Notes |
+|----------|-----------|-------------|-------|
+| Windows | ~5-10 min | Low | Standard runner |
+| Linux | ~5-10 min | Low | Standard runner |
+| macOS | ~10-15 min | Medium | Xcode compilation |
+| iOS | ~15-25 min | Medium-High | Code signing + archive |
+| Android | ~10-15 min | Low | NDK compilation |
+
+**Pre-built Library Strategy:**
+
+For sherpa-onnx, consider:
+- Download pre-built libraries for Windows, Linux, macOS, Android from [releases](https://github.com/k2-fsa/sherpa-onnx/releases)
+- Only build iOS from source (no pre-built available)
+- Cache library downloads in CI to reduce build times
+
+---
 
 ### Update Strategy
-_Pending research_
+
+#### Component Update Approach
+
+| Component | Size | Update Method | Notes |
+|-----------|------|---------------|-------|
+| App binary | ~20-30MB | App store | Requires review cycle |
+| sherpa-onnx libs | ~19MB | Bundled with app | Versioned with app |
+| STT models | 26MB-3GB | In-app download | On-demand per quality tier |
+| TTS voices | 20-100MB | In-app download | Per-language selection |
+| Configuration | <1KB | Remote config / in-app | Real-time updates |
+
+#### Model Download Strategy
+
+**Recommended: On-Demand Download with Tiers**
+
+1. **Minimal bundle**: App ships without models (~30MB)
+2. **First launch**: User selects quality tier and languages
+3. **Progressive download**: Models download in background
+4. **Caching**: Models persist in app storage
+5. **Fallback**: Graceful degradation if download fails
+
+**iOS Background Downloads:**
+- Use `URLSession` with background configuration
+- Downloads continue when app backgrounded
+- System manages battery/network constraints
+
+**Android Downloads:**
+- Use `DownloadManager` API
+- Handles network interruptions, resume
+- Storage permissions may be required
+
+#### Model Hosting Options
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **GitHub Releases** | Free, version-aligned | Limited bandwidth |
+| **CDN (CloudFlare, etc.)** | Fast, global | Cost scales with usage |
+| **Cloud Storage (S3, GCS)** | Reliable, scalable | Requires infrastructure |
+| **Hugging Face Hub** | Free, ML-focused | May have limits |
+
+**Recommendation:** Use sherpa-onnx's existing model hosting on GitHub releases for initial deployment; migrate to CDN if bandwidth becomes an issue.
 
 ---
 
 ## Blockers Identified
 
-_None yet_
+**B1: iOS Build Requires macOS**
+- No cross-compilation option for iOS
+- CI/CD must include macOS runners (cost implications)
+- Requires Apple Developer Program membership
+
+**B2: Code Signing Complexity**
+- iOS requires certificate management in CI
+- Team/organization certificates need secure storage
+- Renewal cycles must be tracked
+
+**B3: Model Download Size**
+- High-quality models (small+) may deter mobile users
+- Need clear UX for download size/quality tradeoffs
+- Cellular data usage concerns
 
 ---
 
 ## Recommendations
 
-_Pending completion of research tasks_
+### R1: Use sherpa-onnx Native Bindings (STRONG)
+
+Avoid gomobile/CGO complexity by using sherpa-onnx's native platform support:
+- **iOS**: Build sherpa-onnx from source, integrate via Swift/ObjC
+- **Android**: Use pre-built JNI libraries from releases
+- **Desktop**: Use pre-built Go bindings
+
+### R2: Flutter for Cross-Platform UI (CONSIDER)
+
+The [sherpa_onnx Flutter package](https://pub.dev/packages/sherpa_onnx) provides:
+- Single codebase for iOS/Android UI
+- Native audio processing via sherpa-onnx
+- Reduces platform-specific UI code
+
+### R3: Tiered Model Strategy
+
+| Tier | Models | Total Size | Use Case |
+|------|--------|------------|----------|
+| **Lite** | tiny.en q5 + Piper (1 voice) | ~50MB | Quick start, English |
+| **Standard** | base q5 + Piper (5 voices) | ~150MB | Multilingual basic |
+| **Quality** | small + Piper (10 voices) | ~600MB | Best mobile quality |
+
+### R4: CI/CD Architecture
+
+```
+GitHub Actions Workflow:
+├── desktop-builds (parallel)
+│   ├── windows (ubuntu runner, cross-compile)
+│   ├── linux (ubuntu runner)
+│   └── macos (macos-14 runner)
+├── mobile-builds (parallel)
+│   ├── android (ubuntu runner + NDK)
+│   └── ios (macos-14 runner + Xcode)
+└── release
+    └── Upload artifacts to GitHub Releases
+```
+
+Use matrix strategy for ABIs:
+- Android: arm64-v8a (primary), armeabi-v7a (legacy)
+- iOS: arm64 (device), x86_64 (simulator)
 
 ---
 
 ## References
 
-- gomobile: https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile
-- Apple App Store Guidelines: https://developer.apple.com/app-store/review/guidelines/
-- Google Play Policies: https://play.google.com/about/developer-content-policy/
-- GitHub Actions pricing: https://docs.github.com/en/billing/managing-billing-for-github-actions
+- [x] sherpa-onnx GitHub: https://github.com/k2-fsa/sherpa-onnx
+- [x] sherpa-onnx iOS build docs: https://k2-fsa.github.io/sherpa/onnx/ios/build-sherpa-onnx-swift.html
+- [x] sherpa-onnx Android build docs: https://k2-fsa.github.io/sherpa/onnx/android/build-sherpa-onnx.html
+- [x] sherpa-onnx Go package: https://pkg.go.dev/github.com/k2-fsa/sherpa-onnx
+- [x] sherpa_onnx Flutter: https://pub.dev/packages/sherpa_onnx
+- [x] Apple Core ML model downloads: https://developer.apple.com/documentation/coreml/downloading-and-compiling-a-model-on-the-user-s-device
+- [x] Apple App Store Guidelines: https://developer.apple.com/app-store/review/guidelines/
+- [x] Android Foreground Services: https://developer.android.com/develop/background-work/services/fgs/declare
+- [x] Android Microphone Service Type: https://developer.android.com/develop/background-work/services/fgs/service-types
+- [x] GitHub Actions M1 runners: https://github.blog/news-insights/product-news/introducing-the-new-apple-silicon-powered-m1-macos-larger-runner-for-github-actions/
+- [x] GitHub Actions macOS 26: https://github.blog/changelog/2025-09-11-actions-macos-26-image-now-in-public-preview/
+- [x] OpenForge App Store AI Guidelines: https://openforge.io/app-store-review-guidelines-2025-essential-ai-app-rules/
 
 ---
 
@@ -221,3 +442,4 @@ _Pending completion of research tasks_
 | Date | Update |
 |------|--------|
 | 2026-01-19 | Initial research plan created |
+| 2026-01-19 | Research complete: sherpa-onnx distribution strategy, app store requirements, CI/CD architecture documented |

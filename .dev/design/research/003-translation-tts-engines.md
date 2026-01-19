@@ -1,7 +1,7 @@
 # Research Plan: Translation & TTS Engine Selection
 
 **ID:** 003
-**Status:** Ongoing
+**Status:** Complete
 **Impact:** MEDIUM-HIGH
 **Created:** 2026-01-19
 **Last Updated:** 2026-01-19
@@ -157,40 +157,117 @@ Whisper can translate speech in many languages directly to English text. If Engl
 ## Findings
 
 ### Translation Engine Comparison
-| Engine | Go Integration | Platform Support | Notes |
-|--------|----------------|------------------|-------|
-| _Pending_ | | | |
+
+**Research Date:** 2026-01-19
+
+| Engine | Go Integration | Platform Support | Offline | Notes |
+|--------|----------------|------------------|---------|-------|
+| **Whisper (translation)** | ✅ Native (via STT bindings) | All | Yes | X→English only, no separate engine needed |
+| **LibreTranslate** | ✅ HTTP client ([SnakeSel/libretranslate](https://github.com/SnakeSel/libretranslate)) | Server-only | Yes | Requires self-hosted Python server |
+| **Argos Translate** | ⚠️ Subprocess only | Python required | Yes | Powers LibreTranslate, no direct Go bindings |
+| **NLLB (Meta)** | ❌ None | Python/C++ | Yes | Would require custom ONNX integration |
+| **Cloud APIs** | ✅ HTTP client | N/A | No | Google, DeepL, Azure - excellent quality |
+
+**Key Finding:** No pure Go offline translation library exists. All offline options require either:
+1. Using Whisper's built-in translation (limited to X→English)
+2. Running a Python-based server (LibreTranslate/Argos) with Go HTTP client
+3. Cloud API fallback
 
 ### TTS Engine Comparison
-| Engine | Go Integration | Platform Support | Notes |
-|--------|----------------|------------------|-------|
-| _Pending_ | | | |
+
+**Research Date:** 2026-01-19
+
+| Engine | Go Integration | Platform Support | Quality | Size | Notes |
+|--------|----------------|------------------|---------|------|-------|
+| **sherpa-onnx + Piper** | ✅ Native Go bindings | All 5 platforms | Good-Excellent | 20-100MB/voice | **Recommended** - pre-built, 30+ languages |
+| **Piper (standalone)** | ⚠️ ONNX runtime needed | Desktop | Good-Excellent | 20-100MB/voice | [piper-onnx](https://github.com/thewh1teagle/piper-onnx) Python wrapper exists |
+| **eSpeak-ng** | ⚠️ CGO required | All | Robotic | <10MB | C API available, low quality |
+| **Coqui TTS** | ❌ HTTP only | Server | Excellent | 100MB-1GB | Python server mode |
+| **System TTS** | ⚠️ Platform-specific | Per-platform | Varies | N/A | macOS: NSSpeechSynthesizer, Windows: SAPI |
+
+### sherpa-onnx Discovery ⭐
+
+**Critical Finding:** [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) provides a unified solution for STT + TTS + VAD:
+
+| Feature | Support |
+|---------|---------|
+| Go bindings | ✅ Pre-built for Windows, Linux, macOS, iOS |
+| Android | ✅ Native support |
+| iOS | ✅ Native support |
+| Streaming STT | ✅ Both streaming and non-streaming |
+| TTS (Piper) | ✅ VITS models, 30+ languages |
+| VAD | ✅ Built-in |
+| Offline | ✅ Full offline operation |
+| Models | Zipformer, Paraformer, Whisper, Piper |
+
+**Go API Examples Available:**
+- `go-api-examples/real-time-speech-recognition-from-microphone`
+- `go-api-examples/streaming-decode-files`
+- `go-api-examples/non-streaming-tts`
 
 ### Whisper Translation
-_Pending research_
+
+**Status:** ✅ Viable for X→English translation
+
+- **Source languages:** All 99 languages Whisper supports
+- **Target language:** English only (Whisper limitation)
+- **Go bindings:** `SetTranslate(true)` method available
+- **Latency:** Same as transcription (no additional overhead)
+- **Quality:** Good - competitive with dedicated translation for many language pairs
+
+**Limitation:** Cannot translate TO non-English languages. For multilingual output, a separate translation engine is required.
 
 ---
 
 ## Blockers Identified
 
-_None yet_
+**B1: No Pure Go Offline Translation**
+All offline translation options require either Python dependencies or are limited to English output (Whisper). If multilingual translation output is required offline, this needs architectural decision.
+
+**B2: Translation Target Languages Unclear**
+The project requirements don't specify required translation directions. If only X→English is needed, Whisper suffices. If bidirectional translation is needed, LibreTranslate server or cloud fallback is required.
 
 ---
 
 ## Recommendations
 
-_Pending completion of research tasks_
+**R1: Use sherpa-onnx for TTS** ⭐
+- Pre-built Go bindings eliminate build complexity
+- Piper TTS models provide good quality across 30+ languages
+- Same library handles STT, eliminating multiple dependencies
+- Native mobile support (critical for project constraints)
+
+**R2: Use Whisper Translation for X→English**
+- Already available through STT integration
+- No additional dependencies
+- Good quality for most language pairs
+
+**R3: For Multilingual Translation Output**
+If translation to non-English languages is required:
+- **Option A:** Self-hosted LibreTranslate server + Go HTTP client (offline capable)
+- **Option B:** Cloud API fallback (Google Translate, DeepL) when online
+- **Option C:** Defer multilingual output to future version
+
+**R4: Architecture Recommendation**
+Consider a **tiered approach**:
+1. **Core (offline):** sherpa-onnx for STT + TTS + Whisper translation (X→English)
+2. **Extended (server):** LibreTranslate for multilingual translation
+3. **Fallback (online):** Cloud APIs for highest quality when available
 
 ---
 
 ## References
 
-- LibreTranslate: https://libretranslate.com
-- Argos Translate: https://github.com/argosopentech/argos-translate
-- Piper TTS: https://github.com/rhasspy/piper
-- eSpeak-ng: https://github.com/espeak-ng/espeak-ng
-- Coqui TTS: https://github.com/coqui-ai/TTS
-- ONNX Runtime Go: https://github.com/yalue/onnxruntime_go
+- [x] LibreTranslate: https://libretranslate.com
+- [x] LibreTranslate Go client: https://github.com/SnakeSel/libretranslate
+- [x] Argos Translate: https://github.com/argosopentech/argos-translate
+- [x] Piper TTS: https://github.com/rhasspy/piper
+- [x] piper-onnx (Python): https://github.com/thewh1teagle/piper-onnx
+- [x] eSpeak-ng: https://github.com/espeak-ng/espeak-ng
+- [ ] Coqui TTS: https://github.com/coqui-ai/TTS (not evaluated in depth)
+- [x] ONNX Runtime Go: https://github.com/yalue/onnxruntime_go
+- [x] sherpa-onnx (recommended): https://github.com/k2-fsa/sherpa-onnx
+- [x] sherpa-onnx TTS docs: https://k2-fsa.github.io/sherpa/onnx/tts/index.html
 
 ---
 
@@ -199,3 +276,4 @@ _Pending completion of research tasks_
 | Date | Update |
 |------|--------|
 | 2026-01-19 | Initial research plan created |
+| 2026-01-19 | Research complete: sherpa-onnx identified as unified STT+TTS solution, translation options documented |
