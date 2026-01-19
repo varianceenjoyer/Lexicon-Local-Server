@@ -3,10 +3,11 @@
 //! Neural text-to-speech using the Kokoro model via ONNX Runtime.
 
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-use ort::{GraphOptimizationLevel, Session, SessionOutputs};
-use tracing::{debug, info, warn};
+use ort::session::Session;
+use ort::value::Tensor;
+use tracing::{debug, info};
 
 use super::types::{AudioBuffer, TtsConfig, TtsEngine, VoiceGender, VoiceInfo, TTS_SAMPLE_RATE};
 use super::Synthesizer;
@@ -17,7 +18,7 @@ use crate::error::{InferenceError, LexiconError, Result};
 /// Kokoro is a high-quality neural TTS model that produces natural-sounding
 /// speech. It currently supports English only.
 pub struct KokoroSynthesizer {
-    session: Option<Arc<Session>>,
+    session: Option<Arc<Mutex<Session>>>,
     model_path: Option<String>,
 }
 
@@ -108,12 +109,6 @@ impl Synthesizer for KokoroSynthesizer {
                     message: format!("Failed to create ONNX session builder: {e}"),
                 })
             })?
-            .with_optimization_level(GraphOptimizationLevel::Level3)
-            .map_err(|e| {
-                LexiconError::Inference(InferenceError::ContextCreationFailed {
-                    message: format!("Failed to set optimization level: {e}"),
-                })
-            })?
             .with_intra_threads(4)
             .map_err(|e| {
                 LexiconError::Inference(InferenceError::ContextCreationFailed {
@@ -127,7 +122,7 @@ impl Synthesizer for KokoroSynthesizer {
                 })
             })?;
 
-        self.session = Some(Arc::new(session));
+        self.session = Some(Arc::new(Mutex::new(session)));
         self.model_path = Some(path.to_string_lossy().to_string());
 
         info!("Kokoro model loaded successfully");
@@ -135,8 +130,14 @@ impl Synthesizer for KokoroSynthesizer {
     }
 
     fn synthesize(&self, text: &str, config: &TtsConfig) -> Result<AudioBuffer> {
-        let session = self.session.as_ref().ok_or_else(|| {
+        let session_arc = self.session.as_ref().ok_or_else(|| {
             LexiconError::Inference(InferenceError::ModelNotLoaded)
+        })?;
+
+        let mut session = session_arc.lock().map_err(|_| {
+            LexiconError::Inference(InferenceError::InferenceFailed {
+                message: "Failed to acquire session lock".to_string(),
+            })
         })?;
 
         if text.is_empty() {
@@ -154,10 +155,16 @@ impl Synthesizer for KokoroSynthesizer {
         // Create input tensors
         // Note: Actual tensor creation depends on the specific Kokoro model's input format
         // This is a simplified example - real implementation would match model's expected inputs
-        let input_ids = ndarray::Array2::from_shape_vec(
+        let input_array = ndarray::Array2::from_shape_vec(
             (1, token_len),
             tokens,
         ).map_err(|e| {
+            LexiconError::Inference(InferenceError::InferenceFailed {
+                message: format!("Failed to create input array: {e}"),
+            })
+        })?;
+
+        let input_tensor = Tensor::from_array(input_array).map_err(|e| {
             LexiconError::Inference(InferenceError::InferenceFailed {
                 message: format!("Failed to create input tensor: {e}"),
             })
@@ -165,14 +172,10 @@ impl Synthesizer for KokoroSynthesizer {
 
         // Run inference
         // Note: Input/output names depend on the specific model
-        let outputs: SessionOutputs = session.run(
+        let outputs = session.run(
             ort::inputs![
-                "input_ids" => input_ids.view(),
-            ].map_err(|e| {
-                LexiconError::Inference(InferenceError::InferenceFailed {
-                    message: format!("Failed to create inputs: {e}"),
-                })
-            })?
+                "input_ids" => input_tensor,
+            ]
         ).map_err(|e| {
             LexiconError::Inference(InferenceError::InferenceFailed {
                 message: format!("Kokoro inference failed: {e}"),
@@ -197,7 +200,8 @@ impl Synthesizer for KokoroSynthesizer {
             })?;
 
         // Convert to Vec<f32>
-        let mut samples: Vec<f32> = audio_data.view().iter().copied().collect();
+        let (_, data) = audio_data;
+        let mut samples: Vec<f32> = data.iter().copied().collect();
 
         // Apply volume scaling
         if (config.volume - 1.0).abs() > f32::EPSILON {

@@ -6,7 +6,7 @@
 use std::path::Path;
 use std::sync::Mutex;
 
-use tts::{Features, Tts, UtteranceId};
+use tts::Tts;
 use tracing::{debug, info, warn};
 
 use super::types::{AudioBuffer, TtsConfig, TtsEngine, VoiceGender, VoiceInfo, TTS_SAMPLE_RATE};
@@ -49,7 +49,7 @@ impl PlatformSynthesizer {
         // Try to set voice if specified
         if let Some(ref voice_id) = config.voice {
             if let Ok(voices) = tts.voices() {
-                if let Some(voice) = voices.iter().find(|v| v.id() == voice_id) {
+                if let Some(voice) = voices.iter().find(|v| &v.id() == voice_id) {
                     tts.set_voice(voice).map_err(|e| {
                         LexiconError::Inference(InferenceError::InferenceFailed {
                             message: format!("Failed to set voice: {e}"),

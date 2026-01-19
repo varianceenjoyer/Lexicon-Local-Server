@@ -62,7 +62,8 @@ ringbuf = "0.4"
 whisper-rs = "0.14"
 
 # Text-to-Speech
-ort = { version = "2.0.0-rc.11", default-features = false }
+ort = { version = "2.0.0-rc.11", default-features = false, features = ["std", "ndarray", "download-binaries", "tls-rustls"] }
+ndarray = "0.17"
 tts = "0.26"
 
 # CLI

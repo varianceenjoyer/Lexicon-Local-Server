@@ -10,7 +10,7 @@ rust-version.workspace = true
 [features]
 default = ["stt", "tts", "storage", "audio"]
 stt = ["dep:whisper-rs"]
-tts = ["dep:ort", "dep:tts"]
+tts = ["dep:ort", "dep:ndarray", "dep:tts"]
 storage = ["dep:rusqlite"]
 audio = ["dep:cpal", "dep:rubato", "dep:webrtc-vad", "dep:ringbuf"]
 server = []
@@ -62,6 +62,7 @@ whisper-rs = { workspace = true, optional = true }
 
 # Text-to-Speech
 ort = { workspace = true, optional = true }
+ndarray = { workspace = true, optional = true }
 tts = { workspace = true, optional = true }
 
 [dev-dependencies]
