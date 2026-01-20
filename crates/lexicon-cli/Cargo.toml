@@ -42,6 +42,10 @@ chrono.workspace = true
 hound.workspace = true
 
 [dev-dependencies]
+# CLI testing
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile.workspace = true
 
 [lints]
 workspace = true

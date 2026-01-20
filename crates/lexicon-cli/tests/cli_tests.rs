@@ -1,11 +1,13 @@
 //! CLI integration tests.
 //!
 //! These tests verify command-line argument parsing and basic CLI behavior.
-//! They use `assert_cmd` patterns for testing CLI applications.
+//! They use `assert_cmd` for testing CLI binary invocation.
 
 #![allow(dead_code)]
 
 use std::path::PathBuf;
+use assert_cmd::Command;
+use predicates::prelude::*;
 
 /// Get the path to test fixtures.
 fn fixtures_dir() -> PathBuf {
@@ -498,4 +500,249 @@ fn test_config_path_construction() {
 
     // Just verify the function doesn't panic
     let _ = config_path();
+}
+
+// =============================================================================
+// Binary Invocation Tests (using assert_cmd)
+// =============================================================================
+//
+// These tests actually invoke the `lexicon` binary and verify its behavior.
+
+/// Helper to get a Command for the lexicon binary.
+#[allow(deprecated)]
+fn lexicon_cmd() -> Command {
+    Command::cargo_bin("lexicon").expect("Failed to find lexicon binary")
+}
+
+#[test]
+fn test_cli_help() {
+    let mut cmd = lexicon_cmd();
+    cmd.arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("STT"))
+        .stdout(predicate::str::contains("transcribe"))
+        .stdout(predicate::str::contains("serve"))
+        .stdout(predicate::str::contains("models"))
+        .stdout(predicate::str::contains("sessions"))
+        .stdout(predicate::str::contains("export"));
+}
+
+#[test]
+fn test_cli_version() {
+    let mut cmd = lexicon_cmd();
+    cmd.arg("--version")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("lexicon"));
+}
+
+#[test]
+fn test_cli_help_short() {
+    let mut cmd = lexicon_cmd();
+    cmd.arg("-h")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Usage"));
+}
+
+#[test]
+fn test_cli_transcribe_help() {
+    let mut cmd = lexicon_cmd();
+    cmd.args(["transcribe", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Transcribe"))
+        .stdout(predicate::str::contains("--model"))
+        .stdout(predicate::str::contains("--output"));
+}
+
+#[test]
+fn test_cli_models_help() {
+    let mut cmd = lexicon_cmd();
+    cmd.args(["models", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("list"))
+        .stdout(predicate::str::contains("download"))
+        .stdout(predicate::str::contains("delete"));
+}
+
+#[test]
+fn test_cli_serve_help() {
+    let mut cmd = lexicon_cmd();
+    cmd.args(["serve", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("HTTP"))
+        .stdout(predicate::str::contains("--port"));
+}
+
+#[test]
+fn test_cli_sessions_help() {
+    let mut cmd = lexicon_cmd();
+    cmd.args(["sessions", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("list"))
+        .stdout(predicate::str::contains("delete"));
+}
+
+#[test]
+fn test_cli_export_help() {
+    let mut cmd = lexicon_cmd();
+    cmd.args(["export", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("session"))
+        .stdout(predicate::str::contains("--format"));
+}
+
+#[test]
+fn test_cli_unknown_command() {
+    let mut cmd = lexicon_cmd();
+    cmd.arg("not-a-command")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("error"));
+}
+
+#[test]
+fn test_cli_transcribe_missing_file() {
+    let mut cmd = lexicon_cmd();
+    cmd.args(["transcribe", "nonexistent-file.wav"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_cli_models_list() {
+    let tmp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let data_dir = tmp_dir.path().join("data");
+    std::fs::create_dir_all(&data_dir).expect("Failed to create data dir");
+
+    let mut cmd = lexicon_cmd();
+    cmd.args(["models", "list"])
+        .env("LEXICON_DATA_DIR", &data_dir)
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_cli_sessions_list() {
+    let tmp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let data_dir = tmp_dir.path().join("data");
+    std::fs::create_dir_all(&data_dir).expect("Failed to create data dir");
+
+    let mut cmd = lexicon_cmd();
+    cmd.args(["sessions", "list"])
+        .env("LEXICON_DATA_DIR", &data_dir)
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_cli_export_invalid_session() {
+    let tmp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let data_dir = tmp_dir.path().join("data");
+    std::fs::create_dir_all(&data_dir).expect("Failed to create data dir");
+
+    let mut cmd = lexicon_cmd();
+    cmd.args(["export", "99999"])
+        .env("LEXICON_DATA_DIR", &data_dir)
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_cli_models_info_unknown() {
+    let tmp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let data_dir = tmp_dir.path().join("data");
+    std::fs::create_dir_all(&data_dir).expect("Failed to create data dir");
+
+    let mut cmd = lexicon_cmd();
+    // The CLI shows model info for any model name, including unknown ones
+    // It displays "Not downloaded" status for models that aren't present
+    cmd.args(["models", "info", "nonexistent-model"])
+        .env("LEXICON_DATA_DIR", &data_dir)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Not downloaded"));
+}
+
+#[test]
+fn test_cli_verbose_flag() {
+    let mut cmd = lexicon_cmd();
+    cmd.args(["-v", "--help"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_cli_double_verbose() {
+    let mut cmd = lexicon_cmd();
+    cmd.args(["-vv", "--help"])
+        .assert()
+        .success();
+}
+
+// =============================================================================
+// Exit Code Tests
+// =============================================================================
+
+#[test]
+fn test_exit_code_success() {
+    let mut cmd = lexicon_cmd();
+    cmd.arg("--help")
+        .assert()
+        .code(0);
+}
+
+#[test]
+fn test_exit_code_error_invalid_command() {
+    let mut cmd = lexicon_cmd();
+    cmd.arg("invalid-command")
+        .assert()
+        .code(2); // Usage error
+}
+
+// =============================================================================
+// Transcription Tests (require test fixtures)
+// =============================================================================
+
+#[test]
+fn test_cli_transcribe_with_fixture() {
+    let audio_fixture = fixtures_dir().join("audio").join("speech_like_5s.wav");
+
+    // Skip test if fixture doesn't exist
+    if !audio_fixture.exists() {
+        eprintln!("Skipping test: fixture not found at {:?}", audio_fixture);
+        return;
+    }
+
+    let tmp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let data_dir = tmp_dir.path().join("data");
+    std::fs::create_dir_all(&data_dir).expect("Failed to create data dir");
+
+    let mut cmd = lexicon_cmd();
+    cmd.args(["transcribe", audio_fixture.to_str().unwrap(), "--format", "srt"])
+        .env("LEXICON_DATA_DIR", &data_dir)
+        .timeout(std::time::Duration::from_secs(120));
+
+    // This test may fail if no model is available, which is expected
+    // In CI, we'd have models pre-cached
+    // We just verify the CLI runs without crashing and handles errors gracefully
+    let output = cmd.output().expect("Failed to execute command");
+
+    // Accept either success (model available) or controlled failure (no model)
+    // The point is the CLI doesn't crash unexpectedly
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        // If it failed, verify it's not a panic/crash
+        assert!(
+            !stderr.contains("panicked") && !stderr.contains("SIGABRT"),
+            "CLI crashed unexpectedly: {}",
+            stderr
+        );
+    }
 }
