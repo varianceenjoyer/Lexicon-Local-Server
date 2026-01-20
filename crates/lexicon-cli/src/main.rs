@@ -325,8 +325,7 @@ fn cmd_transcribe(
         eprintln!("\nTranscribing: {}", file.display());
 
         if !file.exists() {
-            eprintln!("Warning: File not found: {}", file.display());
-            continue;
+            return Err(anyhow::anyhow!("File not found: {}", file.display()));
         }
 
         // Load audio file
