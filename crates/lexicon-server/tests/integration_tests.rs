@@ -833,3 +833,224 @@ async fn test_multiple_restarts_no_corruption() {
 
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
+
+// =============================================================================
+// Authentication Tests (WP-ROADBLOCK-15)
+// =============================================================================
+
+/// Helper to create a test server router with authentication enabled.
+async fn test_app_with_auth(api_key: &str) -> axum::Router {
+    use lexicon_server::{Server, ServerConfig, AuthConfig};
+    use lexicon_core::LexiconConfig;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static AUTH_COUNTER: AtomicU64 = AtomicU64::new(10000);
+    let test_id = AUTH_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let thread_id = std::thread::current().id();
+
+    let temp_dir = std::env::temp_dir()
+        .join(format!("lexicon-auth-test-{test_id}-{thread_id:?}"));
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    let core_config = LexiconConfig::builder()
+        .data_dir(temp_dir.clone())
+        .model_dir(temp_dir.join("models"))
+        .build()
+        .expect("Failed to create config");
+
+    let auth_config = AuthConfig::with_api_key(api_key);
+
+    let server_config = ServerConfig::new("127.0.0.1", 0)
+        .with_core_config(core_config)
+        .with_auth(auth_config)
+        .without_rate_limit();
+
+    let server = Server::new(server_config).expect("Failed to create server");
+    server.state().init_database().await.expect("Failed to init database");
+    server.router()
+}
+
+/// Test: Health check endpoint bypasses authentication.
+///
+/// WP-ROADBLOCK-15: Health check bypasses authentication.
+#[tokio::test]
+async fn test_auth_health_check_bypasses_auth() {
+    let app = test_app_with_auth("secret-api-key-123").await;
+
+    // Health check should work without any API key
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+/// Test: Valid API key allows access to protected endpoints.
+///
+/// WP-ROADBLOCK-15: API key authentication implemented.
+#[tokio::test]
+async fn test_auth_valid_key_allowed() {
+    let api_key = "valid-test-key-abc123";
+    let app = test_app_with_auth(api_key).await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/models")
+                .header("X-API-Key", api_key)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+/// Test: Missing API key returns 401 Unauthorized.
+///
+/// WP-ROADBLOCK-15: 401 Unauthorized returned for invalid keys.
+#[tokio::test]
+async fn test_auth_missing_key_unauthorized() {
+    let app = test_app_with_auth("secret-key").await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/models")
+                // No X-API-Key header
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(json["error"], "unauthorized");
+    assert!(json["message"].as_str().unwrap().contains("API key"));
+}
+
+/// Test: Invalid API key returns 401 Unauthorized.
+///
+/// WP-ROADBLOCK-15: 401 Unauthorized returned for invalid keys.
+#[tokio::test]
+async fn test_auth_invalid_key_unauthorized() {
+    let app = test_app_with_auth("correct-key").await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/models")
+                .header("X-API-Key", "wrong-key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+/// Test: Authentication is optional when disabled.
+///
+/// WP-ROADBLOCK-15: Authentication is optional (configurable).
+#[tokio::test]
+async fn test_auth_disabled_allows_all() {
+    // Use regular test_app() which has auth disabled
+    let app = test_app().await;
+
+    // Should work without API key when auth is disabled
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/models")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+/// Test: Multiple API keys can be configured.
+#[tokio::test]
+async fn test_auth_multiple_keys() {
+    use lexicon_server::{Server, ServerConfig, AuthConfig};
+    use lexicon_core::LexiconConfig;
+
+    let temp_dir = std::env::temp_dir().join("lexicon-multi-key-test");
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    let core_config = LexiconConfig::builder()
+        .data_dir(temp_dir.clone())
+        .model_dir(temp_dir.join("models"))
+        .build()
+        .expect("Failed to create config");
+
+    let auth_config = AuthConfig::default()
+        .add_api_key("key-one")
+        .add_api_key("key-two")
+        .add_api_key("key-three");
+
+    let server_config = ServerConfig::new("127.0.0.1", 0)
+        .with_core_config(core_config)
+        .with_auth(auth_config)
+        .without_rate_limit();
+
+    let server = Server::new(server_config).expect("Failed to create server");
+    server.state().init_database().await.expect("Failed to init database");
+
+    // Test each key works
+    for key in &["key-one", "key-two", "key-three"] {
+        let app = server.router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/models")
+                    .header("X-API-Key", *key)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "Key '{}' should be valid",
+            key
+        );
+    }
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+/// Test: WWW-Authenticate header is returned on 401.
+#[tokio::test]
+async fn test_auth_www_authenticate_header() {
+    let app = test_app_with_auth("secret").await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/sessions")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert!(response.headers().contains_key("www-authenticate"));
+}
