@@ -283,10 +283,19 @@ impl Server {
             .with_state(Arc::clone(&self.state));
 
         // Add authentication middleware (only if enabled)
+        // Note: In tower/axum layer ordering:
+        // - Layers wrap bottom-up (later .layer() calls are outer)
+        // - Outer layers process requests first
+        // - Extension must be outer so it sets the extension BEFORE middleware extracts it
         if self.authenticator.is_enabled() {
+            let auth = Arc::clone(&self.authenticator);
             router = router
-                .layer(axum::Extension(Arc::clone(&self.authenticator)))
-                .layer(middleware::from_fn(auth::auth_middleware));
+                .layer(middleware::from_fn(move |req, next| {
+                    let auth = Arc::clone(&auth);
+                    async move {
+                        auth::auth_middleware(axum::Extension(auth), req, next).await
+                    }
+                }));
         }
 
         // Add rate limiting middleware (only if enabled)
