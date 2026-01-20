@@ -341,4 +341,129 @@ mod tests {
         assert!(!result.used_fallback);
         assert!((result.real_time_factor() - 0.2).abs() < 0.01); // 200ms / 1000ms
     }
+
+    #[test]
+    fn test_audio_buffer_empty() {
+        let buffer = AudioBuffer::empty();
+
+        assert!(buffer.is_empty());
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.duration_ms(), 0);
+        assert_eq!(buffer.sample_rate, TTS_SAMPLE_RATE);
+        assert_eq!(buffer.channels, 1);
+    }
+
+    #[test]
+    fn test_audio_buffer_zero_sample_rate() {
+        let buffer = AudioBuffer::new(vec![0.0; 1000], 0, 1);
+        assert_eq!(buffer.duration_ms(), 0);
+    }
+
+    #[test]
+    fn test_audio_buffer_stereo() {
+        let samples = vec![0.0f32; 48000]; // 2 channels * 24000 samples
+        let buffer = AudioBuffer::new(samples, 24000, 2);
+
+        // Duration should be 1 second (24000 samples per channel at 24kHz)
+        assert_eq!(buffer.duration_ms(), 1000);
+    }
+
+    #[test]
+    fn test_tts_engine_display() {
+        assert_eq!(TtsEngine::Kokoro.to_string(), "kokoro");
+        assert_eq!(TtsEngine::Platform.to_string(), "platform");
+    }
+
+    #[test]
+    fn test_tts_engine_default() {
+        assert_eq!(TtsEngine::default(), TtsEngine::Kokoro);
+    }
+
+    #[test]
+    fn test_tts_config_defaults() {
+        let config = TtsConfig::default();
+
+        assert_eq!(config.preferred_engine, TtsEngine::Kokoro);
+        assert!(config.fallback_enabled);
+        assert!(config.voice.is_none());
+        assert_eq!(config.rate, 1.0);
+        assert_eq!(config.pitch, 0.0);
+        assert_eq!(config.volume, 1.0);
+        assert!(config.language.is_none());
+    }
+
+    #[test]
+    fn test_tts_config_convenience_constructors() {
+        let kokoro = TtsConfig::kokoro();
+        assert_eq!(kokoro.preferred_engine, TtsEngine::Kokoro);
+
+        let platform = TtsConfig::platform();
+        assert_eq!(platform.preferred_engine, TtsEngine::Platform);
+    }
+
+    #[test]
+    fn test_tts_config_with_voice() {
+        let config = TtsConfig::new().with_voice("af_sarah");
+        assert_eq!(config.voice, Some("af_sarah".to_string()));
+    }
+
+    #[test]
+    fn test_tts_config_with_fallback() {
+        let config = TtsConfig::new().with_fallback(false);
+        assert!(!config.fallback_enabled);
+    }
+
+    #[test]
+    fn test_synthesis_result_with_fallback() {
+        let audio = AudioBuffer::empty();
+        let result = SynthesisResult::new(audio, TtsEngine::Platform, 100)
+            .with_fallback();
+
+        assert!(result.used_fallback);
+        assert_eq!(result.engine_used, TtsEngine::Platform);
+    }
+
+    #[test]
+    fn test_synthesis_result_zero_duration() {
+        let audio = AudioBuffer::empty();
+        let result = SynthesisResult::new(audio, TtsEngine::Kokoro, 100);
+
+        assert_eq!(result.real_time_factor(), 0.0);
+    }
+
+    #[test]
+    fn test_voice_info() {
+        let voice = VoiceInfo {
+            id: "en-us-1".to_string(),
+            name: "Sarah".to_string(),
+            language: "en-US".to_string(),
+            gender: Some(VoiceGender::Female),
+            engine: TtsEngine::Platform,
+        };
+
+        assert_eq!(voice.id, "en-us-1");
+        assert_eq!(voice.gender, Some(VoiceGender::Female));
+    }
+
+    #[test]
+    fn test_voice_info_serialization() {
+        let voice = VoiceInfo {
+            id: "test".to_string(),
+            name: "Test Voice".to_string(),
+            language: "en-US".to_string(),
+            gender: Some(VoiceGender::Male),
+            engine: TtsEngine::Kokoro,
+        };
+
+        let json = serde_json::to_string(&voice).unwrap();
+        let deserialized: VoiceInfo = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.id, "test");
+        assert_eq!(deserialized.gender, Some(VoiceGender::Male));
+    }
+
+    #[test]
+    fn test_tts_sample_rate_constant() {
+        assert_eq!(TTS_SAMPLE_RATE, 24_000);
+    }
 }

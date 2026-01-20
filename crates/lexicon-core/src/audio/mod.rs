@@ -283,4 +283,83 @@ mod tests {
         let config = AudioConfig::new().with_vad_mode(10);
         assert_eq!(config.vad_mode, 3); // Clamped to max
     }
+
+    #[test]
+    fn test_audio_chunk_empty() {
+        let chunk = AudioChunk::new(vec![], false, 0);
+        assert!(chunk.is_empty());
+        assert_eq!(chunk.len(), 0);
+        assert_eq!(chunk.duration_ms, 0);
+    }
+
+    #[test]
+    fn test_audio_chunk_duration_calculation() {
+        // 16000 samples = 1 second at 16kHz
+        let samples = vec![0.0f32; 16000];
+        let chunk = AudioChunk::new(samples, true, 1000);
+
+        assert_eq!(chunk.duration_ms, 1000);
+        assert_eq!(chunk.timestamp_ms, 1000);
+        assert!(chunk.has_speech);
+    }
+
+    #[test]
+    fn test_list_input_devices_does_not_panic() {
+        // This test verifies the function doesn't panic even without audio devices
+        // In CI environments, this may return an empty list or an error
+        let result = list_input_devices();
+        // We don't assert on the contents since that depends on hardware,
+        // but the function should not panic
+        match result {
+            Ok(devices) => {
+                // Success case: devices is a list (possibly empty)
+                assert!(devices.iter().all(|d| !d.is_empty() || devices.is_empty()));
+            }
+            Err(_) => {
+                // Error case: acceptable in CI environments without audio
+            }
+        }
+    }
+
+    #[test]
+    fn test_default_input_device_does_not_panic() {
+        // This test verifies the function doesn't panic
+        // It may return an error if no default device exists (e.g., in CI)
+        let result = default_input_device();
+        match result {
+            Ok(device_name) => {
+                // Success case: we got a device name
+                assert!(!device_name.is_empty());
+            }
+            Err(e) => {
+                // Error case: acceptable in CI environments without audio
+                // Verify it's the expected error type
+                match e {
+                    crate::error::LexiconError::Audio(crate::error::AudioError::NoInputDevice) => {}
+                    crate::error::LexiconError::Audio(crate::error::AudioError::DeviceEnumerationFailed { .. }) => {}
+                    _ => panic!("Unexpected error type: {}", e),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_audio_config_default() {
+        let config = AudioConfig::default();
+
+        assert_eq!(config.chunk_ms, DEFAULT_CHUNK_MS);
+        assert!(config.vad_enabled);
+        assert_eq!(config.vad_mode, 2);
+        assert!(config.device_name.is_none());
+    }
+
+    #[test]
+    fn test_target_sample_rate_constant() {
+        assert_eq!(TARGET_SAMPLE_RATE, 16_000);
+    }
+
+    #[test]
+    fn test_default_chunk_ms_constant() {
+        assert_eq!(DEFAULT_CHUNK_MS, 100);
+    }
 }

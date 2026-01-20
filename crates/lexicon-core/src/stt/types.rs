@@ -287,4 +287,79 @@ mod tests {
         assert_eq!(result.real_time_factor(), 0.25); // 500ms / 2000ms
         assert_eq!(result.detected_language, Some("en".to_string()));
     }
+
+    #[test]
+    fn test_segment_empty_text() {
+        let segment = Segment::new(0, 100, "");
+        assert!(segment.text.is_empty());
+        assert_eq!(segment.duration_ms(), 100);
+    }
+
+    #[test]
+    fn test_segment_negative_duration() {
+        // Edge case: end before start
+        let segment = Segment::new(1000, 500, "Inverted");
+        assert_eq!(segment.duration_ms(), -500);
+    }
+
+    #[test]
+    fn test_transcription_result_empty_segments() {
+        let result = TranscriptionResult::new(vec![], 1000, 100);
+        assert!(result.full_text().is_empty());
+    }
+
+    #[test]
+    fn test_transcription_result_zero_duration() {
+        let result = TranscriptionResult::new(vec![], 0, 100);
+        assert_eq!(result.real_time_factor(), 0.0);
+    }
+
+    #[test]
+    fn test_config_defaults() {
+        let config = TranscriptionConfig::default();
+
+        assert!(config.language.is_none());
+        assert!(!config.translate);
+        assert!(!config.enable_diarization);
+        assert!(config.max_speakers.is_none());
+        assert_eq!(config.num_threads, 0);
+        assert!(config.initial_prompt.is_none());
+        assert_eq!(config.temperature, 0.0);
+        assert_eq!(config.beam_size, 5);
+        assert_eq!(config.max_segment_length, 0);
+        assert!(config.suppress_non_speech);
+    }
+
+    #[test]
+    fn test_config_with_prompt() {
+        let config = TranscriptionConfig::new()
+            .with_prompt("Medical terminology: patient, diagnosis");
+
+        assert_eq!(
+            config.initial_prompt,
+            Some("Medical terminology: patient, diagnosis".to_string())
+        );
+    }
+
+    #[test]
+    fn test_config_with_beam_size() {
+        let config = TranscriptionConfig::new().with_beam_size(10);
+        assert_eq!(config.beam_size, 10);
+    }
+
+    #[test]
+    fn test_segment_serialization() {
+        let segment = Segment::new(0, 1000, "Test")
+            .with_confidence(0.95)
+            .with_language("en");
+
+        let json = serde_json::to_string(&segment).unwrap();
+        let deserialized: Segment = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.start_ms, 0);
+        assert_eq!(deserialized.end_ms, 1000);
+        assert_eq!(deserialized.text, "Test");
+        assert_eq!(deserialized.confidence, Some(0.95));
+        assert_eq!(deserialized.language, Some("en".to_string()));
+    }
 }

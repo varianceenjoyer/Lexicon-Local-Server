@@ -584,3 +584,49 @@ fn test_concurrent_reads() {
         handle.join().unwrap();
     }
 }
+
+/// Test that migrations are idempotent - running them multiple times doesn't break the schema.
+#[test]
+fn test_db_migrations_idempotent() {
+    let temp_dir = TempDir::new().unwrap();
+    let db_path = temp_dir.path().join("migrations-idempotent.db");
+
+    // Create and populate database with initial schema
+    let session_id = {
+        let db = Database::open(&db_path).unwrap();
+
+        // Create some data
+        let meta = SessionMetadata::new().with_name("Migration Test");
+        let session_id = db.create_session(&meta).unwrap();
+        db.insert_segment(
+            session_id,
+            &NewSegment::new(0, 1000, "Test segment"),
+        ).unwrap();
+
+        session_id
+    };
+
+    // Reopen database (migrations run again on open)
+    {
+        let db = Database::open(&db_path).unwrap();
+
+        // Data should still be intact
+        let sessions = db.list_sessions().unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].name, Some("Migration Test".to_string()));
+
+        // Segments should be preserved
+        let segments = db.get_session_segments(session_id).unwrap();
+        assert_eq!(segments.len(), 1);
+        assert_eq!(segments[0].text, "Test segment");
+    }
+
+    // Open a third time to ensure stability
+    {
+        let db = Database::open(&db_path).unwrap();
+        let sessions = db.list_sessions().unwrap();
+        assert_eq!(sessions.len(), 1);
+    }
+
+    // temp_dir automatically cleaned up when dropped
+}

@@ -616,4 +616,67 @@ mod tests {
         assert_eq!(Level::from(LogLevel::Error), Level::ERROR);
         assert_eq!(Level::from(LogLevel::Debug), Level::DEBUG);
     }
+
+    // Note: Environment variable tests are not included because the crate uses
+    // #![deny(unsafe_code)] and env::set_var/remove_var are unsafe in Rust 2024.
+    // The build_with_env() function is tested indirectly via integration tests
+    // that can set up the environment before invoking the binary.
+    //
+    // The function logic is covered by:
+    // - test_log_level_parsing (validates log level parsing used in build_with_env)
+    // - test_config_builder_* (validates builder patterns used by build_with_env)
+    // - test_config_validation_* (validates validation used by build_with_env)
+
+    #[test]
+    fn test_config_default_paths_determined() {
+        // Test that default_data_dir and default_model_dir return valid paths
+        let data_dir = LexiconConfig::default_data_dir();
+        let model_dir = LexiconConfig::default_model_dir();
+
+        // Should successfully determine paths on any supported system
+        assert!(data_dir.is_ok());
+        assert!(model_dir.is_ok());
+
+        // Model dir should be a subdirectory of data dir
+        let data_dir = data_dir.unwrap();
+        let model_dir = model_dir.unwrap();
+        assert!(model_dir.starts_with(&data_dir));
+    }
+
+    #[test]
+    fn test_config_default_config_path_determined() {
+        // Test that default_config_path returns a valid path
+        let config_path = LexiconConfig::default_config_path();
+
+        // Should successfully determine path on any supported system
+        assert!(config_path.is_ok());
+
+        // Path should end with config.toml
+        let path = config_path.unwrap();
+        assert!(path.file_name().unwrap().to_str().unwrap() == "config.toml");
+    }
+
+    #[test]
+    fn test_server_config_defaults() {
+        let config = ServerConfig::default();
+
+        assert_eq!(config.host, "127.0.0.1");
+        assert_eq!(config.port, 8765);
+        assert!(config.cors_enabled);
+    }
+
+    #[test]
+    fn test_stt_config_defaults() {
+        let config = SttConfig::default();
+
+        assert_eq!(config.default_model, "whisper-base-q5_1");
+        assert!(!config.diarization_enabled);
+        assert_eq!(config.max_speakers, 4);
+        assert!(config.gpu_enabled);
+    }
+
+    #[test]
+    fn test_tts_engine_default() {
+        assert_eq!(TtsEngine::default(), TtsEngine::Kokoro);
+    }
 }
