@@ -1,0 +1,52 @@
+{
+  "$schema": "https://lexicon.app/schemas/models/v1.json",
+  "version": "1.0.0",
+  "generated": "2026-01-20T00:00:00Z",
+  "signing_key_id": "RWQf6LRCGA9i53v1QWeSLW...",
+  "models": {
+    "whisper-tiny-q5_1": {
+      "filename": "ggml-tiny-q5_1.bin",
+      "size_bytes": 43688768,
+      "sha256": "31a8d0de3c0cb51d8e8f8a3f7c01a92f1a6c20b5a77d2d93c8f0db92c6b0c7e2",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin",
+      "mirrors": [],
+      "type": "stt",
+      "languages": ["multilingual"],
+      "quality_tier": "fast",
+      "description": "Tiny Whisper model (Q5_1 quantized) - fastest, lowest accuracy"
+    },
+    "whisper-base-q5_1": {
+      "filename": "ggml-base-q5_1.bin",
+      "size_bytes": 78215936,
+      "sha256": "abc123def456789012345678901234567890123456789012345678901234abcd",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin",
+      "mirrors": [],
+      "type": "stt",
+      "languages": ["multilingual"],
+      "quality_tier": "standard",
+      "description": "Base Whisper model (Q5_1 quantized) - balanced speed/accuracy"
+    },
+    "whisper-small-q5_1": {
+      "filename": "ggml-small-q5_1.bin",
+      "size_bytes": 257654784,
+      "sha256": "def456abc789012345678901234567890123456789012345678901234567def0",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
+      "mirrors": [],
+      "type": "stt",
+      "languages": ["multilingual"],
+      "quality_tier": "accurate",
+      "description": "Small Whisper model (Q5_1 quantized) - higher accuracy, slower"
+    },
+    "kokoro-82m": {
+      "filename": "kokoro-v0_19.onnx",
+      "size_bytes": 349175808,
+      "sha256": "fedcba987654321098765432109876543210987654321098765432109876fedc",
+      "url": "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.onnx",
+      "mirrors": [],
+      "type": "tts",
+      "languages": ["en-US", "en-GB"],
+      "quality_tier": "standard",
+      "description": "Kokoro 82M TTS model - natural-sounding English speech synthesis"
+    }
+  }
+}

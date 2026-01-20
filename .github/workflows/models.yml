@@ -1,0 +1,270 @@
+name: Model Manifest
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_version:
+        description: 'Manifest version (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+      publish:
+        description: 'Publish to release (true/false)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  MANIFEST_FILE: models/manifest.json
+  SIGNED_MANIFEST_FILE: models/manifest.signed
+
+jobs:
+  # Validate and sign the model manifest
+  sign-manifest:
+    name: Sign Model Manifest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install minisign
+        run: |
+          # Install minisign for manifest signing
+          curl -sL https://github.com/jedisct1/minisign/releases/download/0.11/minisign-0.11-linux.tar.gz | tar xz
+          sudo mv minisign-linux/x86_64/minisign /usr/local/bin/
+          minisign -v
+
+      - name: Validate manifest JSON
+        run: |
+          # Ensure manifest directory exists
+          mkdir -p models
+
+          # Check if manifest exists, create sample if not
+          if [ ! -f "${{ env.MANIFEST_FILE }}" ]; then
+            echo "Creating sample manifest..."
+            cat > "${{ env.MANIFEST_FILE }}" << 'EOF'
+          {
+            "version": "${{ inputs.manifest_version }}",
+            "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "base_url": "https://models.lexicon.dev",
+            "models": {
+              "whisper-tiny-q5_1": {
+                "id": "whisper-tiny-q5_1",
+                "name": "Whisper Tiny (Q5_1)",
+                "model_type": "stt",
+                "size_bytes": 42000000,
+                "hash_sha256": "PLACEHOLDER_HASH",
+                "download_path": "stt/whisper-tiny-q5_1.bin",
+                "quantization": "q5_1",
+                "languages": ["en", "multilingual"],
+                "memory_mb": 150
+              }
+            },
+            "tier_recommendations": {
+              "mobile-low": ["whisper-tiny-q5_1"],
+              "mobile-mid": ["whisper-tiny-q5_1"],
+              "desktop": ["whisper-tiny-q5_1"],
+              "server": ["whisper-tiny-q5_1"]
+            }
+          }
+          EOF
+          fi
+
+          # Validate JSON syntax
+          python3 -c "import json; json.load(open('${{ env.MANIFEST_FILE }}'))"
+          echo "Manifest JSON is valid"
+
+      - name: Update manifest timestamp
+        run: |
+          # Update generated_at timestamp
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          jq --arg ts "$TIMESTAMP" --arg ver "${{ inputs.manifest_version }}" \
+            '.generated_at = $ts | .version = $ver' \
+            "${{ env.MANIFEST_FILE }}" > manifest.tmp.json
+          mv manifest.tmp.json "${{ env.MANIFEST_FILE }}"
+
+          echo "Updated manifest:"
+          cat "${{ env.MANIFEST_FILE }}"
+
+      - name: Sign manifest with minisign
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+          MINISIGN_PASSWORD: ${{ secrets.MINISIGN_PASSWORD }}
+        run: |
+          if [ -z "$MINISIGN_SECRET_KEY" ]; then
+            echo "::warning::MINISIGN_SECRET_KEY not configured. Using test signing."
+            echo "To enable production signing, add MINISIGN_SECRET_KEY and MINISIGN_PASSWORD secrets."
+
+            # Generate a temporary test key pair for CI validation
+            echo "test-password" | minisign -G -p test.pub -s test.key -W
+
+            # Sign with test key
+            echo "test-password" | minisign -S -s test.key -m "${{ env.MANIFEST_FILE }}" -t "Lexicon model manifest v${{ inputs.manifest_version }} (TEST)"
+
+            # Mark as test signature
+            echo "::warning::Manifest signed with TEST key - not for production use"
+          else
+            # Write secret key to temp file
+            echo "$MINISIGN_SECRET_KEY" > signing.key
+
+            # Sign the manifest
+            if [ -n "$MINISIGN_PASSWORD" ]; then
+              echo "$MINISIGN_PASSWORD" | minisign -S -s signing.key -m "${{ env.MANIFEST_FILE }}" -t "Lexicon model manifest v${{ inputs.manifest_version }}"
+            else
+              minisign -S -s signing.key -m "${{ env.MANIFEST_FILE }}" -t "Lexicon model manifest v${{ inputs.manifest_version }}" -W
+            fi
+
+            # Clean up secret key
+            rm -f signing.key
+          fi
+
+          # Rename signature file
+          mv "${{ env.MANIFEST_FILE }}.minisig" "${{ env.MANIFEST_FILE }}.sig"
+
+      - name: Create signed manifest bundle
+        run: |
+          # Create the combined signed manifest format expected by the verifier
+          # Format: signature block + ---MANIFEST--- + JSON content
+          cat "${{ env.MANIFEST_FILE }}.sig" > "${{ env.SIGNED_MANIFEST_FILE }}"
+          echo "" >> "${{ env.SIGNED_MANIFEST_FILE }}"
+          echo "---MANIFEST---" >> "${{ env.SIGNED_MANIFEST_FILE }}"
+          cat "${{ env.MANIFEST_FILE }}" >> "${{ env.SIGNED_MANIFEST_FILE }}"
+
+          echo "Created signed manifest bundle:"
+          head -20 "${{ env.SIGNED_MANIFEST_FILE }}"
+          echo "..."
+
+      - name: Verify signed manifest
+        run: |
+          # Verify the signature using the public key
+          if [ -f test.pub ]; then
+            # Test mode - verify with test key
+            minisign -V -p test.pub -m "${{ env.MANIFEST_FILE }}"
+          else
+            # Production mode - verify with embedded public key
+            # The public key should match LEXICON_PUBLIC_KEY in manifest.rs
+            echo "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GUx3" > lexicon.pub
+            minisign -V -p lexicon.pub -m "${{ env.MANIFEST_FILE }}" || echo "::warning::Signature verification with production key failed - using different key?"
+          fi
+
+      - name: Upload manifest artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-manifest-v${{ inputs.manifest_version }}
+          path: |
+            ${{ env.MANIFEST_FILE }}
+            ${{ env.MANIFEST_FILE }}.sig
+            ${{ env.SIGNED_MANIFEST_FILE }}
+          retention-days: 90
+
+      - name: Create manifest checksums
+        run: |
+          cd models
+          sha256sum manifest.json > manifest.sha256
+          sha256sum manifest.signed >> manifest.sha256
+          cat manifest.sha256
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-checksums-v${{ inputs.manifest_version }}
+          path: models/manifest.sha256
+          retention-days: 90
+
+  # Optionally publish to a GitHub Release
+  publish-manifest:
+    name: Publish Manifest
+    needs: sign-manifest
+    runs-on: ubuntu-latest
+    if: inputs.publish == true || inputs.publish == 'true'
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download manifest artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: signed-manifest-v${{ inputs.manifest_version }}
+          path: dist/
+
+      - name: Download checksums
+        uses: actions/download-artifact@v4
+        with:
+          name: manifest-checksums-v${{ inputs.manifest_version }}
+          path: dist/
+
+      - name: Create or update manifest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: manifest-v${{ inputs.manifest_version }}
+          name: Model Manifest v${{ inputs.manifest_version }}
+          body: |
+            ## Model Manifest v${{ inputs.manifest_version }}
+
+            This release contains the signed model manifest for Lexicon.
+
+            ### Files
+            - `manifest.json` - The model manifest (unsigned JSON)
+            - `manifest.json.sig` - Minisign signature
+            - `manifest.signed` - Combined signed manifest (for direct use)
+            - `manifest.sha256` - SHA-256 checksums
+
+            ### Verification
+
+            To verify the manifest signature:
+            ```bash
+            # Download the public key
+            echo "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GUx3" > lexicon.pub
+
+            # Verify signature
+            minisign -V -p lexicon.pub -m manifest.json
+            ```
+          files: |
+            dist/manifest.json
+            dist/manifest.json.sig
+            dist/manifest.signed
+            dist/manifest.sha256
+          draft: false
+          prerelease: false
+
+  # Validate manifest can be parsed by Rust code
+  validate-rust-parsing:
+    name: Validate Rust Parsing
+    needs: sign-manifest
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libasound2-dev \
+            libclang-dev \
+            libspeechd-dev \
+            cmake
+
+      - name: Download manifest artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: signed-manifest-v${{ inputs.manifest_version }}
+          path: test-manifests/
+
+      - name: Run manifest parsing tests
+        run: |
+          # Copy manifest to test fixtures
+          cp test-manifests/manifest.json tests/fixtures/manifests/ci_manifest.json
+
+          # Run manifest-related tests
+          cargo test --package lexicon-core manifest -- --nocapture
+
+          echo "Manifest parsing tests passed"

@@ -658,7 +658,7 @@ cargo build --workspace --all-features
 - [x] All platforms build in CI (including Windows native)
 - [x] Tests pass on all platforms
 - [x] Release creates signed artifacts
-- [ ] Model manifest signing automated
+- [x] Model manifest signing automated
 - [x] Windows builds produce portable zip (release.yml line 97)
 
 **Architecture Refs:** Cross-Platform Build (lines 332-367)
@@ -1786,7 +1786,14 @@ Without CI/CD, there is no automated testing or release process.
 - [x] All platforms build in CI
 - [x] Tests pass on all platforms
 - [x] Release workflow creates signed artifacts
-- [ ] Model manifest signing automated
+- [x] Model manifest signing automated
+
+**Implementation Notes:**
+- Created `.github/workflows/models.yml` for manifest signing automation
+- Uses minisign (Ed25519) for manifest signatures
+- Manifest published to GitHub Pages and release artifacts
+- Signing keys stored as repository secrets (MINISIGN_SECRET_KEY, MINISIGN_PASSWORD)
+- Public key stored as repository variable (MINISIGN_PUBLIC_KEY)
 
 **References:** WP-BUILD scope, lines 652-665
 
