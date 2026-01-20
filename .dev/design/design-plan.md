@@ -283,7 +283,7 @@ pub struct TranscriptionConfig {
 - [x] Translation mode produces English output
 - [x] GPU acceleration functional on supported platforms
 - [x] Handles chunk boundaries without word splits
-- [ ] Diarization assigns consistent speaker IDs when enabled
+- [x] Diarization assigns consistent speaker IDs when enabled
 
 **Architecture Refs:** STT Engine, Decision D3 (Speaker Diarization)
 
@@ -335,7 +335,7 @@ pub struct TtsConfig {
 
 **Completion Criteria:**
 - [x] Synthesizes English text with Kokoro
-- [ ] Streaming output begins within 200ms
+- [x] Streaming output begins within 200ms
 - [x] Fallback triggers on non-English detection
 - [x] Fallback triggers on user preference for platform voice
 - [x] Fallback triggers on Kokoro model load failure

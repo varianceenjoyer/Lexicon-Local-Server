@@ -8,6 +8,7 @@ use std::time::Instant;
 use tracing::{debug, info};
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
+use super::diarization::{assign_speakers, DiarizationConfig};
 use super::{Segment, Transcriber, TranscriptionConfig, TranscriptionResult};
 use crate::error::{InferenceError, LexiconError, Result};
 
@@ -197,7 +198,15 @@ impl Transcriber for WhisperTranscriber {
             })
         })?;
 
-        let segments = self.convert_segments(&state, num_segments);
+        let mut segments = self.convert_segments(&state, num_segments);
+
+        // Apply speaker diarization if enabled
+        if config.enable_diarization && !segments.is_empty() {
+            debug!("Applying speaker diarization to {} segments", segments.len());
+            let diarization_config = DiarizationConfig::new()
+                .with_max_speakers(config.max_speakers.unwrap_or(4));
+            segments = assign_speakers(segments, samples, &diarization_config);
+        }
 
         // Try to get detected language
         let detected_language = state.full_lang_id_from_state().ok().and_then(|id| {

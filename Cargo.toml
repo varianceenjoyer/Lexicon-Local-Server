@@ -79,7 +79,7 @@ base64 = "0.22"
 
 # Web server (Axum)
 axum = { version = "0.7", features = ["ws", "macros"] }
-tower = "0.4"
+tower = { version = "0.4", features = ["util"] }
 tower-http = { version = "0.5", features = ["cors", "trace", "fs"] }
 hyper = { version = "1", features = ["full"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
@@ -88,7 +88,7 @@ hyper-util = { version = "0.1", features = ["tokio"] }
 lexicon-core = { path = "crates/lexicon-core" }
 
 # FFI (UniFFI for Swift/Kotlin bindings)
-uniffi = "0.28"
+uniffi = "0.31"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

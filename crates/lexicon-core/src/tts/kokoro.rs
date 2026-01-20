@@ -19,7 +19,8 @@ use crate::error::{InferenceError, LexiconError, Result};
 /// speech. It currently supports English only.
 pub struct KokoroSynthesizer {
     session: Option<Arc<Mutex<Session>>>,
-    model_path: Option<String>,
+    /// Path to the loaded model, if any.
+    pub model_path: Option<String>,
 }
 
 impl KokoroSynthesizer {

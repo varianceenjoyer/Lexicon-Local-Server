@@ -388,13 +388,22 @@ mod tests {
         let config = AudioConfig::default();
         let result = CpalAudioSource::new(config);
 
-        // Either succeeds or fails with NoInputDevice
+        // Either succeeds or fails with device-related errors in CI/headless environments
         match result {
             Ok(source) => {
                 assert!(!source.is_running());
             }
             Err(LexiconError::Audio(AudioError::NoInputDevice)) => {
                 // Expected in CI/headless environments
+            }
+            Err(LexiconError::Audio(AudioError::UnsupportedFormat { .. })) => {
+                // May occur when device is not available
+            }
+            Err(LexiconError::Audio(AudioError::DeviceEnumerationFailed { .. })) => {
+                // May occur on systems without audio subsystem
+            }
+            Err(LexiconError::Audio(AudioError::DeviceConfigFailed { .. })) => {
+                // May occur when device configuration is not available
             }
             Err(e) => {
                 panic!("Unexpected error: {}", e);

@@ -572,7 +572,7 @@ impl Synthesizer {
                 .with_volume(config.volume);
 
             if config.use_kokoro {
-                tts_config = tts_config.prefer_kokoro();
+                tts_config = tts_config.with_engine(lexicon_core::tts::TtsEngine::Kokoro);
             }
 
             // Synthesize
@@ -589,7 +589,7 @@ impl Synthesizer {
                 audio_data: audio_bytes,
                 sample_rate: result.audio.sample_rate,
                 duration_ms: result.audio.duration_ms() as i64,
-                engine: format!("{:?}", result.engine),
+                engine: format!("{:?}", result.engine_used),
             })
         }
 
@@ -653,10 +653,10 @@ impl ModelDownloader {
     pub fn download_model(
         &self,
         model_id: String,
-        callback: Arc<dyn DownloadCallback>,
+        callback: Box<dyn DownloadCallback>,
     ) -> Result<(), LexiconFfiError> {
         let model_dir = self.model_dir.clone();
-        let callback = Arc::clone(&callback);
+        let callback: Arc<dyn DownloadCallback> = Arc::from(callback);
 
         self.runtime.spawn(async move {
             let mut registry = match lexicon_core::ModelRegistry::new(&model_dir) {
@@ -688,7 +688,7 @@ impl ModelDownloader {
             }).await;
 
             match result {
-                Ok(()) => callback.on_complete(model_id),
+                Ok(_path) => callback.on_complete(model_id),
                 Err(e) => callback.on_error(model_id, e.to_string()),
             }
         });

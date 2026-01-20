@@ -44,9 +44,11 @@
 //!
 //! GPU support is enabled at compile time via whisper-rs features.
 
+mod diarization;
 mod types;
 mod whisper;
 
+pub use diarization::{assign_speakers, DiarizationConfig, DEFAULT_MAX_SPEAKERS};
 pub use types::{Segment, TranscriptionConfig, TranscriptionResult};
 pub use whisper::WhisperTranscriber;
 

@@ -253,14 +253,16 @@ fn test_fts5_ranked_results() {
     let session_id = db.create_session(&SessionMetadata::new()).unwrap();
 
     // Insert segments with varying relevance
+    // Using longer document that mentions "quick" once
     db.insert_segment(
         session_id,
-        &NewSegment::new(0, 1000, "The fox is quick"),
+        &NewSegment::new(0, 1000, "The brown fox is quick and jumps over the lazy dog"),
     )
     .unwrap();
+    // Using shorter document that mentions "quick" multiple times
     db.insert_segment(
         session_id,
-        &NewSegment::new(1000, 2000, "Quick quick quick fox"),
+        &NewSegment::new(1000, 2000, "quick quick quick"),
     )
     .unwrap();
     db.insert_segment(
@@ -273,8 +275,12 @@ fn test_fts5_ranked_results() {
     let results = db.search("quick").unwrap();
     assert_eq!(results.len(), 2);
 
-    // The segment with more "quick" occurrences should rank higher
-    assert!(results[0].segment.text.contains("quick quick quick"));
+    // Both results should contain "quick" - BM25 should rank them by relevance
+    assert!(results.iter().all(|r| r.segment.text.to_lowercase().contains("quick")));
+
+    // The segment with more "quick" occurrences and shorter length should rank higher
+    // BM25 favors higher term frequency and shorter documents
+    assert!(results[0].segment.text == "quick quick quick");
 }
 
 #[test]
@@ -582,6 +588,99 @@ fn test_concurrent_reads() {
     // Wait for all readers
     for handle in handles {
         handle.join().unwrap();
+    }
+}
+
+// =============================================================================
+// MVP Validation Tests
+// =============================================================================
+
+/// Tests FTS5 search finds text across multiple sessions.
+/// This is an MVP Exit Criteria requirement.
+#[test]
+fn test_fts5_search_across_sessions() {
+    let db = test_db();
+
+    // Create multiple sessions with different content
+    let session1 = db.create_session(&SessionMetadata::new().with_name("Meeting Notes")).unwrap();
+    db.insert_segment(session1, &NewSegment::new(0, 2000, "The quarterly budget report shows growth")).unwrap();
+    db.insert_segment(session1, &NewSegment::new(2000, 4000, "Revenue increased by fifteen percent")).unwrap();
+
+    let session2 = db.create_session(&SessionMetadata::new().with_name("Podcast Episode")).unwrap();
+    db.insert_segment(session2, &NewSegment::new(0, 3000, "Today we discuss the impact of AI on business")).unwrap();
+    db.insert_segment(session2, &NewSegment::new(3000, 6000, "Technology is changing how we work")).unwrap();
+
+    let session3 = db.create_session(&SessionMetadata::new().with_name("Interview")).unwrap();
+    db.insert_segment(session3, &NewSegment::new(0, 2500, "Tell me about your experience with budget management")).unwrap();
+    db.insert_segment(session3, &NewSegment::new(2500, 5000, "I have worked with quarterly reports for years")).unwrap();
+
+    // Search for term that appears in multiple sessions
+    let results = db.search("quarterly").unwrap();
+    assert!(results.len() >= 2, "FTS5 should find 'quarterly' in multiple sessions, found: {}", results.len());
+
+    // Verify results come from different sessions
+    let unique_sessions: std::collections::HashSet<_> = results.iter().map(|r| r.segment.session_id).collect();
+    assert!(unique_sessions.len() >= 2, "Results should come from at least 2 different sessions, found: {}", unique_sessions.len());
+
+    // Search for term that appears in one session
+    let ai_results = db.search("AI").unwrap();
+    assert!(!ai_results.is_empty(), "FTS5 should find 'AI'");
+
+    // Search for term that appears multiple times
+    let budget_results = db.search("budget").unwrap();
+    assert!(budget_results.len() >= 2, "FTS5 should find 'budget' in multiple places, found: {}", budget_results.len());
+}
+
+/// Validates that SRT export produces valid SRT format.
+/// This is an MVP Exit Criteria requirement.
+#[test]
+fn test_srt_format_validation() {
+    let db = test_db();
+
+    // Create session with segments that test edge cases
+    let session = db.create_session(&SessionMetadata::new().with_name("SRT Test")).unwrap();
+
+    // Add segments with various timing scenarios
+    db.insert_segment(session, &NewSegment::new(0, 1500, "First subtitle line.")).unwrap();
+    db.insert_segment(session, &NewSegment::new(1500, 3200, "Second line with special chars: café, naïve")).unwrap();
+    db.insert_segment(session, &NewSegment::new(3200, 5678, "Third line with precise timing.")).unwrap();
+    db.insert_segment(session, &NewSegment::new(10000, 62500, "Line crossing the one-minute mark.")).unwrap();
+    db.insert_segment(session, &NewSegment::new(3661000, 3662500, "Line at 1:01:01.")).unwrap();
+
+    let srt = db.export_srt(session).unwrap();
+
+    // Validate SRT format:
+    // 1. Sequence numbers start at 1 and increment
+    assert!(srt.contains("1\n"), "SRT should start with sequence number 1");
+    assert!(srt.contains("\n2\n"), "SRT should have sequence number 2");
+    assert!(srt.contains("\n3\n"), "SRT should have sequence number 3");
+
+    // 2. Timestamp format: HH:MM:SS,mmm --> HH:MM:SS,mmm
+    assert!(srt.contains("00:00:00,000 --> 00:00:01,500"), "First timing should be correct");
+    assert!(srt.contains("00:00:01,500 --> 00:00:03,200"), "Second timing should be correct");
+    assert!(srt.contains("00:00:03,200 --> 00:00:05,678"), "Third timing with milliseconds");
+    assert!(srt.contains("00:00:10,000 --> 00:01:02,500"), "Minute boundary timing");
+    assert!(srt.contains("01:01:01,000 --> 01:01:02,500"), "Hour timing");
+
+    // 3. Text content preserved
+    assert!(srt.contains("First subtitle line."), "First text preserved");
+    assert!(srt.contains("café"), "Special characters preserved");
+    assert!(srt.contains("Line at 1:01:01."), "Long timing text preserved");
+
+    // 4. Blank lines between entries (SRT format requirement)
+    let entries: Vec<&str> = srt.trim().split("\n\n").collect();
+    assert_eq!(entries.len(), 5, "Should have 5 SRT entries separated by blank lines");
+
+    // 5. Each entry should have exactly 3 parts: number, timing, text
+    for (i, entry) in entries.iter().enumerate() {
+        let lines: Vec<&str> = entry.lines().collect();
+        assert!(lines.len() >= 3, "Entry {} should have at least 3 lines", i + 1);
+
+        // First line should be a number
+        assert!(lines[0].parse::<u32>().is_ok(), "Entry {} should start with sequence number", i + 1);
+
+        // Second line should contain -->
+        assert!(lines[1].contains(" --> "), "Entry {} should have timing with ' --> '", i + 1);
     }
 }
 

@@ -11,6 +11,10 @@ rust-version.workspace = true
 crate-type = ["cdylib", "staticlib", "lib"]
 name = "lexicon_ffi"
 
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
 [features]
 default = ["stt", "tts"]
 stt = ["lexicon-core/stt"]
@@ -24,7 +28,7 @@ thiserror.workspace = true
 anyhow.workspace = true
 
 # UniFFI
-uniffi.workspace = true
+uniffi = { workspace = true, features = ["cli"] }
 
 # Logging
 tracing.workspace = true

@@ -205,8 +205,8 @@ impl Database {
         let mut stmt = self
             .conn
             .prepare(
-                "SELECT id, name, language, created_at, updated_at 
-             FROM sessions ORDER BY updated_at DESC",
+                "SELECT id, name, language, created_at, updated_at
+             FROM sessions ORDER BY updated_at DESC, id DESC",
             )
             .map_err(|e| DatabaseError::QueryFailed {
                 message: format!("Failed to prepare sessions query: {e}"),

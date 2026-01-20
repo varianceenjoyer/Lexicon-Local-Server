@@ -622,7 +622,12 @@ pub async fn export_session(
         "srt" => {
             let srt = db.export_srt(session_id).map_err(|e| {
                 error!("Failed to export SRT: {}", e);
-                ApiError::internal(format!("Export failed: {e}"))
+                // Check if it's a NotFound error
+                if matches!(e, lexicon_core::error::DatabaseError::NotFound { .. }) {
+                    ApiError::not_found(format!("Session not found: {e}"))
+                } else {
+                    ApiError::internal(format!("Export failed: {e}"))
+                }
             })?;
 
             Ok((
