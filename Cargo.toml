@@ -123,3 +123,7 @@ tokio = { version = "1", features = ["full", "test-util"] }
 [[test]]
 name = "e2e_tests"
 path = "tests/e2e_tests.rs"
+
+[[bin]]
+name = "generate-fixtures"
+path = "tests/fixtures/generate_audio.rs"

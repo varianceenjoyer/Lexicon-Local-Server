@@ -624,14 +624,14 @@ cargo build --workspace --all-features
 - Windows Package Manager manifest (winget)
 
 **Completion Criteria:**
-- [ ] Builds natively on Windows without WSL
-- [ ] All system dependencies documented with install commands
-- [ ] PowerShell build script (`scripts/build-windows.ps1`)
-- [ ] BUILD.md updated with Windows native section
-- [ ] GitHub Actions workflow builds on `windows-latest`
-- [ ] GPU acceleration (CUDA/DirectML) documented
+- [x] Builds natively on Windows without WSL
+- [x] All system dependencies documented with install commands
+- [x] PowerShell build script (`scripts/build-windows.ps1`)
+- [x] BUILD.md updated with Windows native section
+- [x] GitHub Actions workflow builds on `windows-latest`
+- [x] GPU acceleration (CUDA/DirectML) documented
 - [ ] Portable zip distribution created
-- [ ] Windows Defender / SmartScreen considerations documented
+- [x] Windows Defender / SmartScreen considerations documented
 
 **Architecture Refs:** Cross-Platform Build (005), Windows target in CI matrix
 
@@ -655,9 +655,9 @@ cargo build --workspace --all-features
 - `models.yml` - Sign and publish model manifests
 
 **Completion Criteria:**
-- [ ] All platforms build in CI (including Windows native)
-- [ ] Tests pass on all platforms
-- [ ] Release creates signed artifacts
+- [x] All platforms build in CI (including Windows native)
+- [x] Tests pass on all platforms
+- [x] Release creates signed artifacts
 - [ ] Model manifest signing automated
 - [ ] Windows builds produce portable zip and/or installer
 
@@ -1589,10 +1589,10 @@ Test fixture directories exist but are empty (`tests/fixtures/audio/`, `tests/fi
 - Document fixture provenance in `tests/fixtures/README.md`
 
 **Completion Criteria:**
-- [ ] Audio fixtures exist and are loadable
-- [ ] Manifest fixtures cover valid/invalid signature cases
-- [ ] `cargo test` passes with fixture-dependent tests enabled
-- [ ] Fixture README documents sources and licensing
+- [x] Audio fixtures exist and are loadable
+- [x] Manifest fixtures cover valid/invalid signature cases
+- [x] `cargo test` passes with fixture-dependent tests enabled
+- [x] Fixture README documents sources and licensing
 
 **References:** Test Plan (lines 867-889)
 
