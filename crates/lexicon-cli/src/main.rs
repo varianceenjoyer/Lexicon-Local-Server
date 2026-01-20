@@ -723,7 +723,7 @@ fn cmd_models_info(model_id: &str) -> Result<()> {
     }
 
     // Model capabilities
-    let (languages, multilingual) = match model_name {
+    let (_languages, multilingual) = match model_name {
         "tiny" | "base" | "small" | "medium" | "large" => (99, true),
         "tiny.en" | "base.en" | "small.en" | "medium.en" => (1, false),
         _ => (99, true),
@@ -740,6 +740,7 @@ fn cmd_models_info(model_id: &str) -> Result<()> {
 
 /// List all sessions.
 fn cmd_sessions_list() -> Result<()> {
+    #[allow(unused_imports)]
     use lexicon_core::storage::{Database, SessionId};
 
     let config = LexiconConfig::builder().build()?;

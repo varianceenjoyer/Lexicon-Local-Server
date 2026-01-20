@@ -650,4 +650,124 @@ mod tests {
         assert_eq!(returns_ok().unwrap(), 42);
         assert!(returns_err().is_err());
     }
+
+    #[test]
+    fn test_all_audio_error_codes() {
+        // Test all audio error variants map to correct codes
+        let test_cases = vec![
+            (AudioError::NoInputDevice, LexiconErrorCode::AudioNoDevice),
+            (AudioError::NoOutputDevice, LexiconErrorCode::AudioNoDevice),
+            (AudioError::PermissionDenied, LexiconErrorCode::AudioPermissionDenied),
+            (AudioError::DeviceDisconnected, LexiconErrorCode::AudioDisconnected),
+            (AudioError::UnsupportedFormat { format: "test".into() }, LexiconErrorCode::AudioUnsupportedFormat),
+            (AudioError::StreamError { message: "test".into() }, LexiconErrorCode::AudioStreamError),
+            (AudioError::SessionInterrupted { reason: "test".into() }, LexiconErrorCode::AudioInterrupted),
+            (AudioError::BluetoothError { message: "test".into() }, LexiconErrorCode::AudioBluetoothError),
+            (AudioError::BufferError { kind: "test".into() }, LexiconErrorCode::AudioStreamError),
+            (AudioError::DeviceEnumerationFailed { message: "test".into() }, LexiconErrorCode::AudioNoDevice),
+            (AudioError::InvalidFrameSize { expected: "160".into(), actual: 100 }, LexiconErrorCode::AudioStreamError),
+            (AudioError::VadError { message: "test".into() }, LexiconErrorCode::AudioStreamError),
+            (AudioError::ResamplerInitFailed { message: "test".into() }, LexiconErrorCode::AudioStreamError),
+            (AudioError::ResamplerError { message: "test".into() }, LexiconErrorCode::AudioStreamError),
+            (AudioError::StreamNotStarted, LexiconErrorCode::AudioStreamError),
+            (AudioError::StreamNotRunning, LexiconErrorCode::AudioStreamError),
+            (AudioError::DeviceNotFound { name: "test".into() }, LexiconErrorCode::AudioNoDevice),
+            (AudioError::DeviceConfigFailed { message: "test".into() }, LexiconErrorCode::AudioStreamError),
+            (AudioError::StreamBuildFailed { message: "test".into() }, LexiconErrorCode::AudioStreamError),
+            (AudioError::StreamStartFailed { message: "test".into() }, LexiconErrorCode::AudioStreamError),
+            (AudioError::Timeout { operation: "read".into() }, LexiconErrorCode::AudioStreamError),
+        ];
+
+        for (audio_err, expected_code) in test_cases {
+            let err = LexiconError::Audio(audio_err);
+            let code = LexiconErrorCode::from(&err);
+            assert_eq!(code, expected_code, "Failed for error: {err}");
+        }
+    }
+
+    #[test]
+    fn test_all_model_error_codes() {
+        let test_cases = vec![
+            (ModelError::NotFound { path: PathBuf::from("/test") }, LexiconErrorCode::ModelNotFound),
+            (ModelError::InvalidModel { path: PathBuf::from("/test") }, LexiconErrorCode::ModelInvalid),
+            (ModelError::VerificationFailed { expected: "a".into(), actual: "b".into() }, LexiconErrorCode::ModelVerificationFailed),
+            (ModelError::SignatureInvalid, LexiconErrorCode::ModelSignatureInvalid),
+            (ModelError::OutOfMemory { required_mb: 1024, available_mb: 512 }, LexiconErrorCode::ModelOom),
+            (ModelError::VersionMismatch { expected: "1.0".into(), actual: "2.0".into() }, LexiconErrorCode::ModelInvalid),
+            (ModelError::DownloadFailed { model_id: "test".into(), message: "test".into() }, LexiconErrorCode::ModelDownloadFailed),
+            (ModelError::ManifestError { message: "test".into() }, LexiconErrorCode::ModelSignatureInvalid),
+            (ModelError::NotInManifest { model_id: "test".into() }, LexiconErrorCode::ModelNotFound),
+        ];
+
+        for (model_err, expected_code) in test_cases {
+            let err = LexiconError::Model(model_err);
+            let code = LexiconErrorCode::from(&err);
+            assert_eq!(code, expected_code, "Failed for error: {err}");
+        }
+    }
+
+    #[test]
+    fn test_all_inference_error_codes() {
+        let test_cases = vec![
+            (InferenceError::AudioTooShort { min_seconds: 0.5, actual_seconds: 0.1 }, LexiconErrorCode::InferenceTooShort),
+            (InferenceError::Timeout { timeout_ms: 30000 }, LexiconErrorCode::InferenceTimeout),
+            (InferenceError::ModelNotLoaded, LexiconErrorCode::InferenceModelNotLoaded),
+            (InferenceError::ContextCreationFailed { message: "test".into() }, LexiconErrorCode::InferenceInternal),
+            (InferenceError::InferenceFailed { message: "test".into() }, LexiconErrorCode::InferenceInternal),
+            (InferenceError::InvalidInput { message: "test".into() }, LexiconErrorCode::InferenceInternal),
+            (InferenceError::AcceleratorUnavailable { accelerator: "cuda".into() }, LexiconErrorCode::InferenceInternal),
+        ];
+
+        for (inference_err, expected_code) in test_cases {
+            let err = LexiconError::Inference(inference_err);
+            let code = LexiconErrorCode::from(&err);
+            assert_eq!(code, expected_code, "Failed for error: {err}");
+        }
+    }
+
+    #[test]
+    fn test_database_error_codes_stub() {
+        // Test database error codes using the non-storage stub
+        #[cfg(not(feature = "storage"))]
+        {
+            let test_cases = vec![
+                (DatabaseError::OpenFailed { path: PathBuf::from("/test") }, LexiconErrorCode::DatabaseOpenFailed),
+                (DatabaseError::MigrationFailed { message: "test".into() }, LexiconErrorCode::DatabaseQueryFailed),
+                (DatabaseError::QueryFailed { message: "test".into() }, LexiconErrorCode::DatabaseQueryFailed),
+                (DatabaseError::NotFound { entity: "sessions".into(), id: "123".into() }, LexiconErrorCode::DatabaseNotFound),
+                (DatabaseError::ConstraintViolation { message: "test".into() }, LexiconErrorCode::DatabaseQueryFailed),
+                (DatabaseError::WriteFailed { message: "test".into() }, LexiconErrorCode::DatabaseQueryFailed),
+                (DatabaseError::Locked, LexiconErrorCode::DatabaseLocked),
+            ];
+
+            for (db_err, expected_code) in test_cases {
+                let err = LexiconError::Database(db_err);
+                let code = LexiconErrorCode::from(&err);
+                assert_eq!(code, expected_code, "Failed for error: {err}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_io_and_config_error_codes() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "not found");
+        let err = LexiconError::Io(io_err);
+        assert_eq!(LexiconErrorCode::from(&err), LexiconErrorCode::IoError);
+
+        let err = LexiconError::Config("bad config".into());
+        assert_eq!(LexiconErrorCode::from(&err), LexiconErrorCode::ConfigError);
+    }
+
+    #[test]
+    fn test_error_code_values() {
+        // Test that error codes have the expected numeric values
+        assert_eq!(LexiconErrorCode::Ok as i32, 0);
+        assert_eq!(LexiconErrorCode::AudioNoDevice as i32, 100);
+        assert_eq!(LexiconErrorCode::ModelNotFound as i32, 200);
+        assert_eq!(LexiconErrorCode::InferenceTooShort as i32, 300);
+        assert_eq!(LexiconErrorCode::InferenceInternal as i32, 302);
+        assert_eq!(LexiconErrorCode::DatabaseOpenFailed as i32, 400);
+        assert_eq!(LexiconErrorCode::IoError as i32, 500);
+        assert_eq!(LexiconErrorCode::Unknown as i32, 999);
+    }
 }

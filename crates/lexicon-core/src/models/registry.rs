@@ -21,6 +21,7 @@ use tracing::{debug, error, info, instrument, warn};
 
 /// Manifest URL for fetching model information.
 const MANIFEST_URL: &str = "https://models.lexicon.dev/manifest.json";
+#[allow(dead_code)]
 const MANIFEST_SIG_URL: &str = "https://models.lexicon.dev/manifest.json.minisig";
 
 /// Model registry for managing model downloads, verification, and selection.

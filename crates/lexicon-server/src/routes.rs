@@ -108,6 +108,7 @@ impl ErrorResponse {
         }
     }
 
+    #[allow(dead_code)]
     fn with_details(mut self, details: impl Into<String>) -> Self {
         self.details = Some(details.into());
         self
@@ -469,6 +470,7 @@ fn ms_to_rfc3339(ms: i64) -> String {
 pub async fn list_sessions(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<SessionResponse>>, ApiError> {
+    #[allow(unused_imports)]
     use lexicon_core::storage::SessionId;
 
     let db = state.database.lock().await;

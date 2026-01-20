@@ -113,6 +113,7 @@ impl CpalAudioSource {
     }
 
     /// Converts interleaved multi-channel audio to mono.
+    #[allow(dead_code)]
     fn to_mono(&self, samples: &[f32]) -> Vec<f32> {
         if self.input_channels == 1 {
             return samples.to_vec();

@@ -168,6 +168,7 @@ impl std::fmt::Debug for Resampler {
 
 /// Converts interleaved stereo samples to separate channels.
 #[must_use]
+#[allow(dead_code)]
 pub fn deinterleave_stereo(interleaved: &[f32]) -> (Vec<f32>, Vec<f32>) {
     let mut left = Vec::with_capacity(interleaved.len() / 2);
     let mut right = Vec::with_capacity(interleaved.len() / 2);
@@ -184,6 +185,7 @@ pub fn deinterleave_stereo(interleaved: &[f32]) -> (Vec<f32>, Vec<f32>) {
 
 /// Converts stereo to mono by averaging channels.
 #[must_use]
+#[allow(dead_code)]
 pub fn stereo_to_mono(interleaved: &[f32]) -> Vec<f32> {
     interleaved
         .chunks(2)

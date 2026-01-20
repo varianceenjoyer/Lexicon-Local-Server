@@ -332,6 +332,7 @@ impl ManifestVerifier {
 /// # Errors
 ///
 /// Returns `ModelError::ManifestError` if parsing fails.
+#[allow(dead_code)]
 pub fn parse_unsigned_manifest(json: &str) -> ManifestResult<ModelManifest> {
     tracing::warn!("Parsing unsigned manifest - this should not be used in production");
     ModelManifest::from_json(json)

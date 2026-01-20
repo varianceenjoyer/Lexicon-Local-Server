@@ -13,7 +13,7 @@ use crate::error::{AudioError, LexiconError, Result};
 /// It operates on 16kHz audio in 10ms, 20ms, or 30ms frames.
 pub struct VoiceActivityDetector {
     vad: Vad,
-    sample_rate: SampleRate,
+    _sample_rate: SampleRate,
 }
 
 impl VoiceActivityDetector {
@@ -43,7 +43,7 @@ impl VoiceActivityDetector {
 
         Ok(Self {
             vad,
-            sample_rate: SampleRate::Rate16kHz,
+            _sample_rate: SampleRate::Rate16kHz,
         })
     }
 

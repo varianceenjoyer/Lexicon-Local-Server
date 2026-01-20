@@ -55,3 +55,54 @@ impl From<anyhow::Error> for LexiconFfiError {
         Self::InitializationFailed(err.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_display() {
+        let err = LexiconFfiError::InitializationFailed("test".to_string());
+        assert_eq!(format!("{err}"), "Initialization failed: test");
+
+        let err = LexiconFfiError::ModelNotFound("whisper".to_string());
+        assert_eq!(format!("{err}"), "Model not found: whisper");
+
+        let err = LexiconFfiError::TranscriptionFailed("timeout".to_string());
+        assert_eq!(format!("{err}"), "Transcription failed: timeout");
+
+        let err = LexiconFfiError::SynthesisFailed("model error".to_string());
+        assert_eq!(format!("{err}"), "Synthesis failed: model error");
+
+        let err = LexiconFfiError::InvalidInput("empty audio".to_string());
+        assert_eq!(format!("{err}"), "Invalid input: empty audio");
+
+        let err = LexiconFfiError::IoError("file not found".to_string());
+        assert_eq!(format!("{err}"), "I/O error: file not found");
+
+        let err = LexiconFfiError::DatabaseError("connection failed".to_string());
+        assert_eq!(format!("{err}"), "Database error: connection failed");
+
+        let err = LexiconFfiError::ConfigError("invalid".to_string());
+        assert_eq!(format!("{err}"), "Configuration error: invalid");
+
+        let err = LexiconFfiError::ModelLoadFailed("corrupt".to_string());
+        assert_eq!(format!("{err}"), "Model load failed: corrupt");
+    }
+
+    #[test]
+    fn test_from_io_error() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let ffi_err: LexiconFfiError = io_err.into();
+        assert!(matches!(ffi_err, LexiconFfiError::IoError(_)));
+        assert!(format!("{ffi_err}").contains("file not found"));
+    }
+
+    #[test]
+    fn test_from_anyhow_error() {
+        let anyhow_err = anyhow::anyhow!("something went wrong");
+        let ffi_err: LexiconFfiError = anyhow_err.into();
+        assert!(matches!(ffi_err, LexiconFfiError::InitializationFailed(_)));
+        assert!(format!("{ffi_err}").contains("something went wrong"));
+    }
+}
