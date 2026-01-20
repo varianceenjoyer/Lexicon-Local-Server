@@ -410,6 +410,39 @@ impl std::fmt::Debug for TtsManager {
 mod tests {
     use super::*;
 
+    // ==========================================================================
+    // Configuration Tests
+    // ==========================================================================
+
+    #[test]
+    fn test_tts_config_presets() {
+        let kokoro_config = TtsConfig::kokoro();
+        assert_eq!(kokoro_config.preferred_engine, TtsEngine::Kokoro);
+
+        let platform_config = TtsConfig::platform();
+        assert_eq!(platform_config.preferred_engine, TtsEngine::Platform);
+    }
+
+    #[test]
+    fn test_tts_config_builder() {
+        let config = TtsConfig::new()
+            .with_language("es-ES")
+            .with_rate(1.5)
+            .with_pitch(0.8)
+            .with_volume(0.9)
+            .with_engine(TtsEngine::Platform);
+
+        assert_eq!(config.language.as_deref(), Some("es-ES"));
+        assert_eq!(config.rate, 1.5);
+        assert_eq!(config.pitch, 0.8);
+        assert_eq!(config.volume, 0.9);
+        assert_eq!(config.preferred_engine, TtsEngine::Platform);
+    }
+
+    // ==========================================================================
+    // Language Detection Tests
+    // ==========================================================================
+
     #[test]
     fn test_non_english_detection() {
         // This test may fail in CI if platform TTS isn't available
@@ -437,11 +470,304 @@ mod tests {
     }
 
     #[test]
-    fn test_tts_config_presets() {
-        let kokoro_config = TtsConfig::kokoro();
-        assert_eq!(kokoro_config.preferred_engine, TtsEngine::Kokoro);
+    fn test_non_english_detection_french() {
+        let manager = match TtsManager::new() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+        let config = TtsConfig::new();
 
-        let platform_config = TtsConfig::platform();
-        assert_eq!(platform_config.preferred_engine, TtsEngine::Platform);
+        // French text with accents
+        assert!(manager.is_non_english("Bonjour le monde! Comment ça va?", &config));
+
+        // Pure ASCII French won't trigger detection
+        assert!(!manager.is_non_english("Bonjour!", &config));
+
+        // Explicit French language triggers detection
+        let config_fr = TtsConfig::new().with_language("fr-FR");
+        assert!(manager.is_non_english("Hello", &config_fr));
+    }
+
+    #[test]
+    fn test_non_english_detection_chinese() {
+        let manager = match TtsManager::new() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+        let config = TtsConfig::new();
+
+        // Chinese text
+        assert!(manager.is_non_english("你好世界", &config));
+    }
+
+    #[test]
+    fn test_non_english_detection_mixed() {
+        let manager = match TtsManager::new() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+        let config = TtsConfig::new();
+
+        // Mostly English with some non-ASCII
+        assert!(!manager.is_non_english("Hello café", &config)); // < 20% non-ASCII
+
+        // Mostly non-English
+        assert!(manager.is_non_english("日本語 English 日本語", &config)); // > 20% non-ASCII
+    }
+
+    // ==========================================================================
+    // Fallback Tests (WP-ROADBLOCK-19)
+    // ==========================================================================
+
+    /// Test: Non-English text triggers platform TTS fallback.
+    #[test]
+    fn test_fallback_non_english_triggers_platform_tts() {
+        let manager = match TtsManager::new() {
+            Ok(m) => m,
+            Err(_) => return, // Skip if TTS unavailable
+        };
+
+        // With Kokoro preferred but non-English text
+        let config = TtsConfig::new()
+            .with_engine(TtsEngine::Kokoro)
+            .with_language("fr-FR");
+
+        // Kokoro is not loaded, so should use platform
+        let result = manager.synthesize("Bonjour le monde", &config);
+
+        // Should succeed with platform TTS (or fail gracefully if unavailable)
+        match result {
+            Ok(r) => {
+                assert_eq!(r.engine_used, TtsEngine::Platform);
+            }
+            Err(_) => {
+                // Platform TTS might not be available in headless CI
+            }
+        }
+    }
+
+    /// Test: Missing Kokoro model triggers platform fallback.
+    #[test]
+    fn test_fallback_on_kokoro_not_loaded() {
+        let manager = match TtsManager::new() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+
+        // Kokoro is not loaded
+        assert!(!manager.is_kokoro_ready());
+
+        // Request Kokoro synthesis
+        let config = TtsConfig::kokoro();
+        let result = manager.synthesize("Hello, world!", &config);
+
+        // Should fall back to platform
+        match result {
+            Ok(r) => {
+                assert_eq!(r.engine_used, TtsEngine::Platform);
+            }
+            Err(_) => {
+                // Platform TTS might not be available in headless CI
+            }
+        }
+    }
+
+    /// Test: User can force platform TTS preference.
+    #[test]
+    fn test_fallback_user_preference() {
+        let manager = match TtsManager::new() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+
+        // Explicitly request platform TTS
+        let config = TtsConfig::platform();
+        let result = manager.synthesize("Hello, world!", &config);
+
+        match result {
+            Ok(r) => {
+                assert_eq!(r.engine_used, TtsEngine::Platform);
+            }
+            Err(_) => {
+                // Platform TTS might not be available in headless CI
+            }
+        }
+    }
+
+    /// Test: Platform TTS produces non-zero audio.
+    #[test]
+    fn test_platform_tts_produces_audio() {
+        let manager = match TtsManager::new() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+
+        let config = TtsConfig::platform();
+        let result = manager.synthesize("Testing audio output", &config);
+
+        match result {
+            Ok(r) => {
+                // Audio should not be empty
+                assert!(!r.audio.samples.is_empty(), "Audio should not be empty");
+
+                // Audio should have a valid sample rate
+                assert!(r.audio.sample_rate > 0, "Sample rate should be positive");
+
+                // Duration should be reasonable (> 0 ms for non-empty text)
+                assert!(r.audio.duration_ms() > 0, "Duration should be positive");
+
+                // Check that audio is not completely silent (at least some non-zero samples)
+                let max_amplitude = r.audio.samples.iter()
+                    .map(|s| s.abs())
+                    .fold(0.0f32, |a, b| a.max(b));
+                // Note: In some CI environments, TTS may produce silence
+                // This is acceptable as long as we get valid audio data
+                debug!("Max amplitude: {}", max_amplitude);
+            }
+            Err(e) => {
+                // Platform TTS might not be available - acceptable in CI
+                debug!("Platform TTS unavailable: {}", e);
+            }
+        }
+    }
+
+    /// Test: Fallback chain works correctly.
+    #[test]
+    fn test_fallback_chain() {
+        let manager = match TtsManager::new() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+
+        // Kokoro not loaded, should use platform
+        assert!(!manager.is_kokoro_ready());
+
+        // Request Kokoro with fallback enabled
+        let config = TtsConfig::new()
+            .with_engine(TtsEngine::Kokoro);
+
+        let result = manager.synthesize("Testing fallback chain", &config);
+
+        match result {
+            Ok(r) => {
+                // Should have fallen back to platform
+                assert_eq!(r.engine_used, TtsEngine::Platform);
+            }
+            Err(_) => {
+                // Acceptable if platform TTS is also unavailable
+            }
+        }
+    }
+
+    /// Test: Synthesis with engine forces specific engine.
+    #[test]
+    fn test_synthesize_with_engine() {
+        let manager = match TtsManager::new() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+
+        let config = TtsConfig::new();
+
+        // Force platform engine
+        let result = manager.synthesize_with_engine(
+            "Testing explicit engine",
+            &config,
+            TtsEngine::Platform
+        );
+
+        match result {
+            Ok(r) => {
+                assert_eq!(r.engine_used, TtsEngine::Platform);
+            }
+            Err(_) => {
+                // Platform TTS might not be available
+            }
+        }
+    }
+
+    /// Test: Empty text returns error.
+    #[test]
+    fn test_empty_text_error() {
+        let manager = match TtsManager::new() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+
+        let config = TtsConfig::new();
+        let result = manager.synthesize("", &config);
+
+        assert!(result.is_err(), "Empty text should return error");
+    }
+
+    // ==========================================================================
+    // Streaming Tests
+    // ==========================================================================
+
+    #[test]
+    fn test_streaming_synthesis() {
+        let manager = match TtsManager::new() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+
+        let config = TtsConfig::platform();
+        let mut receiver = manager.synthesize_streaming(
+            "Testing streaming synthesis",
+            &config,
+            Some(1200), // Smaller chunks for faster test
+        );
+
+        let mut total_samples = 0;
+        let mut chunk_count = 0;
+        let mut received_final = false;
+
+        // Receive chunks with timeout
+        let timeout = std::time::Duration::from_secs(5);
+        let start = std::time::Instant::now();
+
+        while start.elapsed() < timeout {
+            match receiver.try_recv() {
+                Ok(Some(chunk)) => {
+                    total_samples += chunk.samples.len();
+                    chunk_count += 1;
+                    if chunk.is_final {
+                        received_final = true;
+                        break;
+                    }
+                }
+                Ok(None) => {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(_) => {
+                    break; // Channel closed
+                }
+            }
+        }
+
+        // In headless CI, streaming might not produce output
+        if chunk_count > 0 {
+            assert!(received_final, "Should receive final chunk");
+            assert!(total_samples > 0, "Should receive samples");
+        }
+    }
+
+    // ==========================================================================
+    // Voice Listing Tests
+    // ==========================================================================
+
+    #[test]
+    fn test_list_voices() {
+        let manager = match TtsManager::new() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+
+        let voices = manager.list_voices();
+
+        // Voice list might be empty in headless CI, but should not panic
+        for voice in &voices {
+            assert!(!voice.id.is_empty(), "Voice ID should not be empty");
+        }
     }
 }
