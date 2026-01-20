@@ -69,6 +69,19 @@ tts = { workspace = true, optional = true }
 tracing-subscriber.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }
 tempfile.workspace = true
+criterion = { workspace = true }
+
+[[bench]]
+name = "audio_pipeline"
+harness = false
+
+[[bench]]
+name = "stt_latency"
+harness = false
+
+[[bench]]
+name = "tts_latency"
+harness = false
 
 [lints]
 workspace = true
