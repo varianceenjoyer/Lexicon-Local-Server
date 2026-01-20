@@ -21,7 +21,7 @@
 | 9 | FFI Boundary Safety Tests | Beta | Medium | ✅ Complete |
 | 10 | Server Graceful Shutdown Tests | Beta | Low | ✅ Complete |
 | 11 | TTS Fallback Integration Tests | Beta | Medium | ✅ Complete |
-| 12 | Long-Running STT Stability Tests | Beta | Medium | ⬜ Not Started |
+| 12 | Long-Running STT Stability Tests | Beta | Medium | ✅ Complete |
 
 ---
 
