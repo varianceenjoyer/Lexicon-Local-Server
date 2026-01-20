@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-01-20T00:00:00Z",
+  "models": [
+    {
+      "id": "whisper-tiny-TAMPERED",
+      "name": "Whisper Tiny (TAMPERED)",
+      "type": "stt",
+      "version": "9.9.9",
+      "size_bytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "url": "https://malicious.example.com/fake-model.bin",
+      "languages": ["en"],
+      "tier": "mobile_low",
+      "description": "This manifest has been tampered with after signing"
+    }
+  ],
+  "signature": "test-signature-not-real"
+}

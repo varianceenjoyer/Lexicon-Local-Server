@@ -1,0 +1,31 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-01-20T00:00:00Z",
+  "models": [
+    {
+      "id": "whisper-tiny",
+      "name": "Whisper Tiny",
+      "type": "stt",
+      "version": "1.0.0",
+      "size_bytes": 75000000,
+      "sha256": "deadbeef0123456789abcdef0123456789abcdef0123456789abcdef01234567",
+      "url": "https://example.com/models/whisper-tiny.bin",
+      "languages": ["en", "es", "fr", "de", "it", "pt", "ru", "zh", "ja", "ko"],
+      "tier": "mobile_low",
+      "description": "Smallest Whisper model, suitable for mobile devices with limited memory"
+    },
+    {
+      "id": "whisper-base",
+      "name": "Whisper Base",
+      "type": "stt",
+      "version": "1.0.0",
+      "size_bytes": 142000000,
+      "sha256": "cafebabe0123456789abcdef0123456789abcdef0123456789abcdef01234567",
+      "url": "https://example.com/models/whisper-base.bin",
+      "languages": ["en", "es", "fr", "de", "it", "pt", "ru", "zh", "ja", "ko"],
+      "tier": "mobile_mid",
+      "description": "Good balance of speed and accuracy for most mobile devices"
+    }
+  ],
+  "signature": "test-signature-not-real"
+}
