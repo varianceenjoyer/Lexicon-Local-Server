@@ -299,10 +299,13 @@ impl Server {
         }
 
         // Add rate limiting middleware (only if enabled)
+        // Note: In tower/axum, layers wrap bottom-up (later .layer() calls are outer)
+        // The Extension layer must be outer (added last) so it sets the extension
+        // BEFORE the middleware (inner) tries to extract it
         if self.config.rate_limit.enabled {
             router = router
-                .layer(axum::Extension(Arc::clone(&self.rate_limiter)))
-                .layer(middleware::from_fn(rate_limit::rate_limit_middleware_forwarded));
+                .layer(middleware::from_fn(rate_limit::rate_limit_middleware_forwarded))
+                .layer(axum::Extension(Arc::clone(&self.rate_limiter)));
         }
 
         // Add CORS layer
