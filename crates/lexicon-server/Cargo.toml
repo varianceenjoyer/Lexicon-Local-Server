@@ -43,6 +43,8 @@ base64.workspace = true
 chrono.workspace = true
 
 [dev-dependencies]
+tokio-tungstenite = { workspace = true }
+futures-util = { workspace = true }
 
 [lints]
 workspace = true

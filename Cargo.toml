@@ -51,6 +51,7 @@ futures-util = "0.3"
 
 # Testing
 tempfile = "3"
+tokio-tungstenite = "0.24"
 
 # Audio capture and processing
 cpal = "0.15"
