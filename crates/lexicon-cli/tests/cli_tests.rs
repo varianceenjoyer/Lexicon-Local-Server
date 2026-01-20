@@ -197,10 +197,9 @@ fn test_model_path_construction() {
 
     let model_path = model_dir.join(format!("whisper-{model_name}.bin"));
 
-    assert_eq!(
-        model_path.to_str().unwrap(),
-        "/home/user/.local/share/lexicon/models/whisper-base.bin"
-    );
+    // Compare PathBuf objects for cross-platform compatibility
+    let expected = PathBuf::from("/home/user/.local/share/lexicon/models").join("whisper-base.bin");
+    assert_eq!(model_path, expected);
 }
 
 #[test]
@@ -208,10 +207,9 @@ fn test_data_dir_construction() {
     let data_dir = PathBuf::from("/home/user/.local/share/lexicon");
     let db_path = data_dir.join("lexicon.db");
 
-    assert_eq!(
-        db_path.to_str().unwrap(),
-        "/home/user/.local/share/lexicon/lexicon.db"
-    );
+    // Compare PathBuf objects for cross-platform compatibility
+    let expected = PathBuf::from("/home/user/.local/share/lexicon").join("lexicon.db");
+    assert_eq!(db_path, expected);
 }
 
 // =============================================================================
