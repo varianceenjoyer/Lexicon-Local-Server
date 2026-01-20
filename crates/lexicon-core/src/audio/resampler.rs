@@ -145,7 +145,15 @@ impl Resampler {
 
         // Extract mono channel output, truncated to actual output size
         let mut result = output_buffer.into_iter().next().unwrap_or_default();
-        result.truncate(num_out);
+
+        // Calculate expected output based on actual input size and resampling ratio
+        // The resampler may report more output frames than actually correspond to input
+        let ratio = self.output_rate as f64 / self.input_rate as f64;
+        let expected_output = ((input.len() as f64) * ratio).ceil() as usize;
+
+        // Use the minimum of reported output and expected output to avoid extra samples
+        let actual_output = num_out.min(expected_output);
+        result.truncate(actual_output);
         Ok(result)
     }
 
