@@ -32,17 +32,20 @@
 //! }
 //! ```
 
+pub mod rate_limit;
 pub mod routes;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use axum::Router;
+use axum::{middleware, Router};
 use tokio::sync::{Mutex, RwLock};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing::info;
+
+pub use rate_limit::{RateLimitConfig, RateLimiter};
 
 use lexicon_core::{LexiconConfig, ModelRegistry};
 
@@ -68,6 +71,8 @@ pub struct ServerConfig {
     pub static_dir: Option<PathBuf>,
     /// Lexicon core configuration.
     pub core_config: LexiconConfig,
+    /// Rate limiting configuration.
+    pub rate_limit: RateLimitConfig,
 }
 
 impl Default for ServerConfig {
@@ -83,6 +88,7 @@ impl Default for ServerConfig {
                     .build()
                     .expect("Failed to create default config")
             }),
+            rate_limit: RateLimitConfig::default(),
         }
     }
 }
@@ -116,6 +122,20 @@ impl ServerConfig {
     #[must_use]
     pub fn with_strict_cors(mut self) -> Self {
         self.cors_permissive = false;
+        self
+    }
+
+    /// Sets the rate limiting configuration.
+    #[must_use]
+    pub fn with_rate_limit(mut self, config: RateLimitConfig) -> Self {
+        self.rate_limit = config;
+        self
+    }
+
+    /// Disables rate limiting.
+    #[must_use]
+    pub fn without_rate_limit(mut self) -> Self {
+        self.rate_limit = RateLimitConfig::disabled();
         self
     }
 }
@@ -194,6 +214,7 @@ impl AppState {
 pub struct Server {
     config: ServerConfig,
     state: Arc<AppState>,
+    rate_limiter: Arc<RateLimiter>,
 }
 
 impl Server {
@@ -204,10 +225,12 @@ impl Server {
     /// Returns an error if initialization fails.
     pub fn new(config: ServerConfig) -> anyhow::Result<Self> {
         let state = AppState::new(config.core_config.clone())?;
+        let rate_limiter = Arc::new(RateLimiter::new(config.rate_limit.clone()));
 
         Ok(Self {
             config,
             state: Arc::new(state),
+            rate_limiter,
         })
     }
 
@@ -229,6 +252,13 @@ impl Server {
             .nest("/api/v1", routes::api_routes())
             .route("/health", axum::routing::get(routes::health_check))
             .with_state(Arc::clone(&self.state));
+
+        // Add rate limiting middleware (only if enabled)
+        if self.config.rate_limit.enabled {
+            router = router
+                .layer(axum::Extension(Arc::clone(&self.rate_limiter)))
+                .layer(middleware::from_fn(rate_limit::rate_limit_middleware_forwarded));
+        }
 
         // Add CORS layer
         if self.config.cors_permissive {
@@ -272,6 +302,16 @@ impl Server {
         let router = self.build_router();
 
         info!("Lexicon server starting on http://{}", addr);
+        if self.config.rate_limit.enabled {
+            info!(
+                "Rate limiting enabled: {} req/min (general), {} req/min (heavy), {} req/min (websocket)",
+                self.config.rate_limit.default_rpm,
+                self.config.rate_limit.heavy_rpm,
+                self.config.rate_limit.websocket_rpm
+            );
+        } else {
+            info!("Rate limiting disabled");
+        }
 
         let listener = tokio::net::TcpListener::bind(addr).await?;
         axum::serve(listener, router)

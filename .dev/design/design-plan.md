@@ -1993,11 +1993,11 @@ WP-SERVER scope (line 419) specifies "Rate limiting" as a feature, but no rate l
 - Add configuration options in `ServerConfig`
 
 **Completion Criteria:**
-- [ ] Rate limiting middleware integrated
-- [ ] Per-IP rate limits enforced
-- [ ] Rate limit headers included in responses
-- [ ] 429 responses returned when limits exceeded
-- [ ] Limits configurable via ServerConfig
+- [x] Rate limiting middleware integrated
+- [x] Per-IP rate limits enforced
+- [x] Rate limit headers included in responses
+- [x] 429 responses returned when limits exceeded
+- [x] Limits configurable via ServerConfig
 
 **References:** WP-SERVER scope line 419, WP-SERVER test requirements
 

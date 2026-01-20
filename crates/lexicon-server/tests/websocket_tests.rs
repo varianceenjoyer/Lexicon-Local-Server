@@ -49,7 +49,8 @@ async fn start_test_server() -> (SocketAddr, oneshot::Sender<()>) {
     let addr = listener.local_addr().unwrap();
 
     let server_config = ServerConfig::new("127.0.0.1", addr.port())
-        .with_core_config(core_config);
+        .with_core_config(core_config)
+        .without_rate_limit(); // Disable rate limiting for tests
 
     let server = Server::new(server_config).expect("Failed to create server");
 
