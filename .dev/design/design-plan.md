@@ -1927,11 +1927,11 @@ Release exit criterion "Security audit completed" (line 768) has no preparation.
 - Prepare for external audit engagement
 
 **Completion Criteria:**
-- [ ] SECURITY.md exists with disclosure policy
-- [ ] Security checklist documented
-- [ ] All unsafe code blocks reviewed
+- [x] SECURITY.md exists with disclosure policy
+- [x] Security checklist documented
+- [x] All unsafe code blocks reviewed
 - [ ] FFI boundary tests verify no panics
-- [ ] Input validation documented
+- [x] Input validation documented
 
 **References:** Release Exit Criteria line 768, Test Plan security tests
 
