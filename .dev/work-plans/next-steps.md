@@ -337,8 +337,8 @@ Work Plan 3 (TTS Phonemes)
 Work Plan 4 (Rate Limiting) ✅ COMPLETE
     └── Custom token bucket implementation (no external deps)
 
-Work Plan 5 (Download Cancel)
-    └── Depends on: tokio cancellation pattern
+Work Plan 5 (Download Cancel) ✅ COMPLETE
+    └── Uses tokio_util::CancellationToken with download_model_cancellable
 
 Work Plan 6 (Bluetooth HFP)
     └── Depends on: platform API research
