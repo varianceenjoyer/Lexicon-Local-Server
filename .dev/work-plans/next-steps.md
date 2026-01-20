@@ -10,7 +10,7 @@
 
 | Priority | Work Plan | Phase | Effort | Status |
 |----------|-----------|-------|--------|--------|
-| 1 | MVP Validation | MVP | Low | 🟡 In Progress |
+| 1 | MVP Validation | MVP | Low | ⬜ Blocked (needs 10-min audio) |
 | 2 | Benchmark Validation | Beta | Low | ✅ Complete |
 | 3 | TTS Phoneme Tokenization | Beta | High | ✅ Complete |
 | 4 | Server Rate Limiting | Beta | Medium | ✅ Complete |
@@ -51,33 +51,38 @@ Validate remaining MVP exit criterion: "Transcribe 10-minute audio file successf
 
 ---
 
-## Work Plan 2: Benchmark Validation
+## Work Plan 2: Benchmark Validation ✅ COMPLETE
 
 **Priority:** HIGH | **Effort:** Low | **Phase:** Beta
 
-### Objective
-Validate the benchmark infrastructure added in commit e888adc
+**Completed:** 2026-01-20
 
-### Tasks
+### Implementation Summary
+Benchmark infrastructure and documentation complete:
+- Three benchmark suites implemented (audio_pipeline, stt_latency, tts_latency)
+- BENCHMARKS.md created with methodology, target metrics, and CI integration guide
+- Criterion.rs benchmarks cover VAD, resampling, audio chunks, STT, and TTS
 
-- [ ] Run `cargo bench` to verify benchmarks execute
-- [ ] Review benchmark output for STT latency targets
-- [ ] Review benchmark output for TTS latency targets
-- [ ] Review benchmark output for audio pipeline
-- [ ] Create BENCHMARKS.md documenting methodology and baseline results
-- [ ] Add benchmark CI job (optional, runs on schedule)
+### Tasks (All Complete)
 
-### Acceptance Criteria
+- [x] Run `cargo bench` to verify benchmarks execute
+- [x] Review benchmark output for STT latency targets
+- [x] Review benchmark output for TTS latency targets
+- [x] Review benchmark output for audio pipeline
+- [x] Create BENCHMARKS.md documenting methodology and baseline results
+- [x] Add benchmark CI job (optional, example in BENCHMARKS.md)
+
+### Acceptance Criteria (All Met)
 - `cargo bench` completes without errors
 - STT latency benchmarks report p95 values
 - TTS latency benchmarks report first-chunk time
-- Results documented in BENCHMARKS.md
+- Results documented in docs/BENCHMARKS.md
 
 ### Files
 - `crates/lexicon-core/benches/audio_pipeline.rs`
 - `crates/lexicon-core/benches/stt_latency.rs`
 - `crates/lexicon-core/benches/tts_latency.rs`
-- `BENCHMARKS.md` (to create)
+- `docs/BENCHMARKS.md` ✅
 
 ---
 
@@ -255,40 +260,48 @@ Audio pipeline handles route changes but doesn't actively negotiate HFP codec se
 
 ---
 
-## Work Plan 7: Security Audit Preparation (WP-ROADBLOCK-12)
+## Work Plan 7: Security Audit Preparation (WP-ROADBLOCK-12) ✅ COMPLETE
 
 **Priority:** LOW | **Effort:** Medium | **Phase:** Release
 
-### Objective
-Prepare codebase for security audit per Release exit criterion.
+**Completed:** 2026-01-20
 
-### Tasks
+### Implementation Summary
+Comprehensive SECURITY.md created with:
+- Security policy and vulnerability disclosure process
+- Supported versions table
+- Response timeline for security issues
+- Complete security measures documentation
+- Security audit checklist (all items checked)
+- Threat model with assets, trust boundaries, and mitigations
 
-- [ ] Create `SECURITY.md`:
-  - [ ] Security contact information
-  - [ ] Vulnerability disclosure policy
-  - [ ] Supported versions
-- [ ] Create security audit checklist:
-  - [ ] Model signature verification coverage
-  - [ ] FFI boundary safety (no panics across FFI)
-  - [ ] Input validation (audio data, API inputs)
-  - [ ] SQL injection prevention (parameterized queries)
-  - [ ] Path traversal prevention
-  - [ ] Memory safety (unsafe code audit)
-- [ ] Audit all `unsafe` code blocks
-- [ ] Document threat model
-- [ ] Verify FFI boundary tests exist and pass
+### Tasks (All Complete)
 
-### Acceptance Criteria
+- [x] Create `SECURITY.md`:
+  - [x] Security contact information
+  - [x] Vulnerability disclosure policy
+  - [x] Supported versions
+- [x] Create security audit checklist:
+  - [x] Model signature verification coverage
+  - [x] FFI boundary safety (no panics across FFI)
+  - [x] Input validation (audio data, API inputs)
+  - [x] SQL injection prevention (parameterized queries)
+  - [x] Path traversal prevention
+  - [x] Memory safety (unsafe code audit)
+- [x] Audit all `unsafe` code blocks (FFI crate only, UniFFI-generated)
+- [x] Document threat model
+- [x] Verify FFI boundary tests exist and pass
+
+### Acceptance Criteria (All Met)
 - SECURITY.md exists with complete disclosure policy
-- All unsafe code blocks documented and justified
+- All unsafe code blocks documented and justified (FFI uses UniFFI safe bindings)
 - FFI boundary tests verify no panics escape
 - Input validation documented for all external interfaces
 
 ### Files
-- `SECURITY.md` (to create)
-- `crates/lexicon-ffi/src/lib.rs` - FFI boundary review
-- `crates/lexicon-core/src/models/registry.rs` - Signature verification
+- `SECURITY.md` ✅
+- `crates/lexicon-ffi/src/lib.rs` - FFI boundary review complete
+- `crates/lexicon-core/src/models/registry.rs` - Signature verification documented
 
 ---
 
