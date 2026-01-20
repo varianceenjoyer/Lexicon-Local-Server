@@ -19,12 +19,14 @@ use crate::error::{InferenceError, LexiconError, Result};
 pub struct WhisperTranscriber {
     ctx: Option<WhisperContext>,
     model_path: Option<String>,
+    use_gpu: bool,
 }
 
 impl WhisperTranscriber {
     /// Creates a new Whisper transcriber without loading a model.
     ///
     /// Call `load_model` before attempting transcription.
+    /// GPU acceleration is enabled by default.
     ///
     /// # Errors
     ///
@@ -34,6 +36,26 @@ impl WhisperTranscriber {
         Ok(Self {
             ctx: None,
             model_path: None,
+            use_gpu: true,
+        })
+    }
+
+    /// Creates a new Whisper transcriber with GPU configuration.
+    ///
+    /// Call `load_model` before attempting transcription.
+    ///
+    /// # Arguments
+    ///
+    /// * `use_gpu` - Whether to use GPU acceleration if available
+    ///
+    /// # Errors
+    ///
+    /// This method doesn't fail, but transcription will fail until a model is loaded.
+    pub fn with_gpu(use_gpu: bool) -> Result<Self> {
+        Ok(Self {
+            ctx: None,
+            model_path: None,
+            use_gpu,
         })
     }
 
@@ -48,6 +70,22 @@ impl WhisperTranscriber {
     /// Returns an error if the model cannot be loaded.
     pub fn with_model(model_path: &Path) -> Result<Self> {
         let mut transcriber = Self::new()?;
+        transcriber.load_model(model_path)?;
+        Ok(transcriber)
+    }
+
+    /// Creates a Whisper transcriber with a model and GPU configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `model_path` - Path to the Whisper model file
+    /// * `use_gpu` - Whether to use GPU acceleration if available
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the model cannot be loaded.
+    pub fn with_model_and_gpu(model_path: &Path, use_gpu: bool) -> Result<Self> {
+        let mut transcriber = Self::with_gpu(use_gpu)?;
         transcriber.load_model(model_path)?;
         Ok(transcriber)
     }
@@ -82,13 +120,17 @@ impl Default for WhisperTranscriber {
         Self {
             ctx: None,
             model_path: None,
+            use_gpu: true,
         }
     }
 }
 
 impl Transcriber for WhisperTranscriber {
     fn load_model(&mut self, path: &Path) -> Result<()> {
-        info!("Loading Whisper model from {:?}", path);
+        info!(
+            "Loading Whisper model from {:?} (GPU: {})",
+            path, self.use_gpu
+        );
 
         if !path.exists() {
             return Err(LexiconError::Inference(InferenceError::ContextCreationFailed {
@@ -97,7 +139,8 @@ impl Transcriber for WhisperTranscriber {
         }
 
         let path_str = path.to_string_lossy();
-        let params = WhisperContextParameters::default();
+        let mut params = WhisperContextParameters::default();
+        params.use_gpu(self.use_gpu);
 
         let ctx = WhisperContext::new_with_params(&path_str, params).map_err(|e| {
             LexiconError::Inference(InferenceError::ContextCreationFailed {

@@ -63,6 +63,10 @@ enum Commands {
         /// Translate to English
         #[arg(long)]
         translate: bool,
+
+        /// Enable GPU acceleration (enabled by default if available)
+        #[arg(long, default_value = "true", action = clap::ArgAction::Set)]
+        gpu: bool,
     },
 
     /// Start the HTTP server
@@ -201,8 +205,9 @@ fn main() -> Result<()> {
             model,
             language,
             translate,
+            gpu,
         } => {
-            cmd_transcribe(files, format, output, model, language, translate)
+            cmd_transcribe(files, format, output, model, language, translate, gpu)
         }
         Commands::Serve { host, port } => {
             cmd_serve(host, port)
@@ -264,6 +269,7 @@ fn cmd_transcribe(
     model: String,
     language: Option<String>,
     translate: bool,
+    gpu: bool,
 ) -> Result<()> {
     // Initialize configuration
     let config = LexiconConfig::builder().build()?;
@@ -295,7 +301,10 @@ fn cmd_transcribe(
     };
 
     // Create transcriber and load model
-    eprintln!("Loading model: {model}...");
+    eprintln!(
+        "Loading model: {model}{}...",
+        if gpu { " (GPU)" } else { " (CPU)" }
+    );
     let pb = ProgressBar::new_spinner();
     pb.set_style(
         ProgressStyle::default_spinner()
@@ -305,7 +314,7 @@ fn cmd_transcribe(
     pb.set_message("Loading model...");
     pb.enable_steady_tick(std::time::Duration::from_millis(100));
 
-    let mut transcriber = WhisperTranscriber::new()?;
+    let mut transcriber = WhisperTranscriber::with_gpu(gpu)?;
     transcriber.load_model(&model_path)?;
     pb.finish_with_message("Model loaded");
 
