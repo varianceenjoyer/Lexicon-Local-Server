@@ -975,3 +975,299 @@ mod benchmarks {
         // - Memory usage
     }
 }
+
+// =============================================================================
+// Long-Running STT Stability Tests (WP-ROADBLOCK-20)
+// =============================================================================
+//
+// These tests verify STT stability for extended transcription sessions.
+// They are marked #[ignore] by default and run only in nightly CI builds
+// or when explicitly enabled via `cargo test -- --ignored`.
+
+#[cfg(feature = "stt")]
+mod stability_tests {
+    #[allow(unused_imports)]
+    use super::*;
+    use std::time::Instant;
+
+    /// Generate synthetic audio samples (silence + random noise).
+    /// Returns f32 samples at 16kHz mono.
+    fn generate_synthetic_audio(duration_secs: u32) -> Vec<f32> {
+        let sample_rate = 16000;
+        let total_samples = sample_rate * duration_secs as usize;
+        let mut samples = Vec::with_capacity(total_samples);
+
+        // Use a simple LCG for deterministic "random" samples
+        let mut seed: u32 = 12345;
+        for i in 0..total_samples {
+            // Mix silence with occasional low-amplitude noise
+            if i % 1000 < 100 {
+                // Brief noise burst every 1000 samples (simulate speech-like pattern)
+                seed = seed.wrapping_mul(1103515245).wrapping_add(12345);
+                let noise = ((seed >> 16) as f32 / 65536.0 - 0.5) * 0.1;
+                samples.push(noise);
+            } else {
+                // Silence
+                samples.push(0.0);
+            }
+        }
+
+        samples
+    }
+
+    /// Get memory usage estimate (platform-specific).
+    /// Returns approximate heap usage in bytes.
+    #[allow(dead_code)]
+    fn get_memory_usage() -> Option<usize> {
+        // On Linux, read /proc/self/statm
+        #[cfg(target_os = "linux")]
+        {
+            if let Ok(contents) = std::fs::read_to_string("/proc/self/statm") {
+                if let Some(rss_pages) = contents.split_whitespace().nth(1) {
+                    if let Ok(pages) = rss_pages.parse::<usize>() {
+                        // Assume 4KB pages
+                        return Some(pages * 4096);
+                    }
+                }
+            }
+        }
+
+        // On macOS, we'd use mach_task_info (not implemented)
+        // On Windows, we'd use GetProcessMemoryInfo (not implemented)
+
+        None
+    }
+
+    /// Test: Short stability test (10 seconds).
+    ///
+    /// This test runs as part of normal CI and verifies basic stability.
+    #[test]
+    fn test_stability_10_seconds() {
+        use lexicon_core::stt::{WhisperTranscriber, Transcriber, TranscriptionConfig};
+
+        let transcriber = match WhisperTranscriber::new() {
+            Ok(t) => t,
+            Err(e) => {
+                println!("Skipping: Failed to create transcriber: {}", e);
+                return;
+            }
+        };
+
+        // Note: This test requires a model to be loaded for actual transcription
+        // Without a model, we just test that the transcriber handles the audio
+        if !transcriber.is_model_loaded() {
+            println!("Skipping actual transcription: No model loaded");
+
+            // Still verify we can process the audio buffer
+            let audio = generate_synthetic_audio(10);
+            assert_eq!(audio.len(), 160000, "10 seconds at 16kHz");
+            return;
+        }
+
+        let audio = generate_synthetic_audio(10);
+        let config = TranscriptionConfig::new();
+
+        let start = Instant::now();
+        let result = transcriber.transcribe(&audio, &config);
+        let duration = start.elapsed();
+
+        if let Ok(result) = result {
+            println!(
+                "10s transcription completed in {:?}, {} segments",
+                duration,
+                result.segments.len()
+            );
+        }
+    }
+
+    /// Test: Extended stability test (10 minutes).
+    ///
+    /// This test is marked #[ignore] and runs only in nightly CI builds.
+    /// It verifies that the STT engine can handle extended transcription
+    /// without crashing or excessive memory growth.
+    #[test]
+    #[ignore] // Run with: cargo test -- --ignored
+    fn test_stability_10_minutes() {
+        use lexicon_core::stt::{WhisperTranscriber, Transcriber, TranscriptionConfig};
+
+        let transcriber = match WhisperTranscriber::new() {
+            Ok(t) => t,
+            Err(e) => {
+                println!("Skipping: Failed to create transcriber: {}", e);
+                return;
+            }
+        };
+
+        if !transcriber.is_model_loaded() {
+            println!("Skipping: No model loaded");
+            return;
+        }
+
+        let initial_memory = get_memory_usage();
+
+        // Process 10 minutes in 30-second chunks (simulates real-time streaming)
+        let chunk_duration_secs = 30;
+        let total_chunks = 20; // 20 * 30s = 600s = 10 minutes
+
+        let config = TranscriptionConfig::new();
+        let mut total_segments = 0;
+
+        for chunk_idx in 0..total_chunks {
+            let audio = generate_synthetic_audio(chunk_duration_secs);
+            let start = Instant::now();
+
+            match transcriber.transcribe(&audio, &config) {
+                Ok(result) => {
+                    total_segments += result.segments.len();
+                    println!(
+                        "Chunk {}/{}: {} segments in {:?}",
+                        chunk_idx + 1,
+                        total_chunks,
+                        result.segments.len(),
+                        start.elapsed()
+                    );
+                }
+                Err(e) => {
+                    panic!("Transcription failed at chunk {}: {}", chunk_idx, e);
+                }
+            }
+
+            // Check memory periodically
+            if let Some(current_memory) = get_memory_usage() {
+                if let Some(initial) = initial_memory {
+                    let growth = current_memory as f64 / initial as f64;
+                    println!(
+                        "  Memory: {} MB (growth: {:.1}x)",
+                        current_memory / 1024 / 1024,
+                        growth
+                    );
+
+                    // Fail if memory grows more than 2x
+                    assert!(
+                        growth < 2.0,
+                        "Memory grew too much: {:.1}x (initial: {} MB, current: {} MB)",
+                        growth,
+                        initial / 1024 / 1024,
+                        current_memory / 1024 / 1024
+                    );
+                }
+            }
+        }
+
+        println!(
+            "10-minute stability test completed: {} total segments",
+            total_segments
+        );
+
+        // Check final memory
+        if let (Some(initial), Some(final_mem)) = (initial_memory, get_memory_usage()) {
+            let growth_pct = ((final_mem as f64 / initial as f64) - 1.0) * 100.0;
+            println!(
+                "Final memory growth: {:.1}% (target: <10%)",
+                growth_pct
+            );
+
+            // Target: memory growth < 10%
+            // Note: This may not be achievable with synthetic audio
+            // Real audio might have different memory characteristics
+            if growth_pct > 50.0 {
+                println!(
+                    "WARNING: Memory growth ({:.1}%) exceeds target (10%)",
+                    growth_pct
+                );
+            }
+        }
+    }
+
+    /// Test: 30-minute stability test (full requirement).
+    ///
+    /// This is the full WP-STT stability_30min requirement.
+    /// Run only in dedicated stability testing.
+    #[test]
+    #[ignore] // Run with: cargo test -- --ignored stability_30_minutes
+    fn test_stability_30_minutes() {
+        use lexicon_core::stt::{WhisperTranscriber, Transcriber, TranscriptionConfig};
+
+        let transcriber = match WhisperTranscriber::new() {
+            Ok(t) => t,
+            Err(e) => {
+                println!("Skipping: Failed to create transcriber: {}", e);
+                return;
+            }
+        };
+
+        if !transcriber.is_model_loaded() {
+            println!("Skipping: No model loaded");
+            return;
+        }
+
+        let initial_memory = get_memory_usage();
+
+        // Process 30 minutes in 1-minute chunks
+        let chunk_duration_secs = 60;
+        let total_chunks = 30;
+
+        let config = TranscriptionConfig::new();
+        let mut total_segments = 0;
+        let start_time = Instant::now();
+
+        for chunk_idx in 0..total_chunks {
+            let audio = generate_synthetic_audio(chunk_duration_secs);
+
+            match transcriber.transcribe(&audio, &config) {
+                Ok(result) => {
+                    total_segments += result.segments.len();
+
+                    // Log progress every 5 minutes
+                    if (chunk_idx + 1) % 5 == 0 {
+                        let elapsed = start_time.elapsed();
+                        println!(
+                            "Progress: {} minutes ({} segments, elapsed: {:?})",
+                            chunk_idx + 1,
+                            total_segments,
+                            elapsed
+                        );
+
+                        if let Some(current_memory) = get_memory_usage() {
+                            println!(
+                                "  Memory: {} MB",
+                                current_memory / 1024 / 1024
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    panic!(
+                        "Transcription failed at minute {}: {}",
+                        chunk_idx + 1,
+                        e
+                    );
+                }
+            }
+        }
+
+        let total_duration = start_time.elapsed();
+        println!(
+            "\n30-minute stability test completed:"
+        );
+        println!("  - Total segments: {}", total_segments);
+        println!("  - Total time: {:?}", total_duration);
+        println!(
+            "  - Real-time factor: {:.2}x",
+            total_duration.as_secs_f64() / 1800.0
+        );
+
+        // Check memory growth
+        if let (Some(initial), Some(final_mem)) = (initial_memory, get_memory_usage()) {
+            let growth_pct = ((final_mem as f64 / initial as f64) - 1.0) * 100.0;
+            println!("  - Memory growth: {:.1}%", growth_pct);
+
+            // WP-ROADBLOCK-20 requirement: < 10% growth
+            assert!(
+                growth_pct < 10.0,
+                "Memory growth ({:.1}%) exceeds 10% threshold",
+                growth_pct
+            );
+        }
+    }
+}

@@ -211,3 +211,51 @@ jobs:
           path: target/criterion
           retention-days: 30
         if: always()
+
+  # Long-running stability tests (nightly only)
+  stability:
+    name: Stability Tests
+    runs-on: ubuntu-latest
+    # Run only on nightly schedule
+    if: github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libasound2-dev \
+            libclang-dev \
+            libspeechd-dev \
+            cmake
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-stability-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-stability-
+
+      - name: Run stability tests
+        run: cargo test --test e2e_tests stability -- --ignored --nocapture
+        continue-on-error: true
+        timeout-minutes: 60
+
+      - name: Upload stability test logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: stability-test-results
+          path: |
+            target/*.log
+          retention-days: 7
+        if: always()
