@@ -130,11 +130,11 @@ impl KokoroSynthesizer {
                 '?' => 6,
                 '—' => 9,
                 '…' => 10,
-                '"' => 11,
+                '"' => 11, // Standard quote (U+0022)
                 '(' => 12,
                 ')' => 13,
-                '"' => 14,
-                '"' => 15,
+                '\u{201C}' => 14, // Left double quotation mark "
+                '\u{201D}' => 15, // Right double quotation mark "
                 ' ' => 16,  // Space/word boundary
 
                 // Diacritics and affricates
@@ -502,14 +502,56 @@ mod tests {
 
         // Should have start token, phoneme tokens, end token
         assert!(tokens.len() >= 3); // At minimum: start, one phoneme, end
+        assert_eq!(tokens[0], 0); // Start (padding)
+        assert_eq!(tokens[tokens.len() - 1], 0); // End (padding)
+
+        // All intermediate tokens should be valid (> 0) phoneme IDs
+        for (i, token) in tokens[1..tokens.len() - 1].iter().enumerate() {
+            assert!(
+                *token > 0,
+                "Token at position {} should be non-zero: {} (tokens: {:?})",
+                i + 1,
+                token,
+                tokens
+            );
+        }
+    }
+
+    #[test]
+    fn test_vocab_mapping() {
+        let synth = KokoroSynthesizer::new();
+
+        // Test direct phoneme-to-token mapping
+        // "hˈaɪ" is the IPA for "hi" - verify these map to expected tokens
+        let tokens = synth.phonemes_to_tokens("hˈaɪ");
+
+        // Should have: [0 (start), h=50, ˈ=156, a=43, ɪ=102, 0 (end)]
         assert_eq!(tokens[0], 0); // Start
         assert_eq!(tokens[tokens.len() - 1], 0); // End
 
-        // All intermediate tokens should be non-zero (valid phonemes)
-        for token in &tokens[1..tokens.len() - 1] {
-            // Token should be valid (> 0 or space token)
-            assert!(*token >= 0, "Invalid token: {}", token);
-        }
+        // Verify some known token IDs
+        assert!(tokens.contains(&50), "Should contain 'h' token (50): {:?}", tokens);
+        assert!(tokens.contains(&156), "Should contain 'ˈ' token (156): {:?}", tokens);
+
+        // Space should map to 16
+        let tokens_with_space = synth.phonemes_to_tokens("a b");
+        assert!(tokens_with_space.contains(&16), "Should contain space token (16)");
+    }
+
+    #[test]
+    fn test_token_sequence_limit() {
+        let synth = KokoroSynthesizer::new();
+
+        // Create a very long input
+        let long_text = "a ".repeat(300); // 600 characters
+        let tokens = synth.tokenize_text(&long_text);
+
+        // Should be truncated to max 512 tokens
+        assert!(
+            tokens.len() <= 512,
+            "Tokens should be truncated to 512, got {}",
+            tokens.len()
+        );
     }
 
     #[test]
