@@ -2020,11 +2020,11 @@ WP-SERVER scope (line 417) specifies "Authentication (optional, configurable)" b
 - Document authentication setup in API docs
 
 **Completion Criteria:**
-- [ ] API key authentication implemented
-- [ ] Authentication is optional (configurable)
-- [ ] Health check bypasses authentication
-- [ ] 401 Unauthorized returned for invalid keys
-- [ ] Authentication documented in API reference
+- [x] API key authentication implemented
+- [x] Authentication is optional (configurable)
+- [x] Health check bypasses authentication
+- [x] 401 Unauthorized returned for invalid keys
+- [x] Authentication documented in API reference (in auth.rs module docs)
 
 **References:** WP-SERVER scope line 417
 

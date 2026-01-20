@@ -32,6 +32,7 @@
 //! }
 //! ```
 
+pub mod auth;
 pub mod rate_limit;
 pub mod routes;
 
@@ -45,6 +46,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
+pub use auth::{AuthConfig, Authenticator};
 pub use rate_limit::{RateLimitConfig, RateLimiter};
 
 use lexicon_core::{LexiconConfig, ModelRegistry};
@@ -73,6 +75,8 @@ pub struct ServerConfig {
     pub core_config: LexiconConfig,
     /// Rate limiting configuration.
     pub rate_limit: RateLimitConfig,
+    /// Authentication configuration.
+    pub auth: AuthConfig,
 }
 
 impl Default for ServerConfig {
@@ -89,6 +93,7 @@ impl Default for ServerConfig {
                     .expect("Failed to create default config")
             }),
             rate_limit: RateLimitConfig::default(),
+            auth: AuthConfig::default(),
         }
     }
 }
@@ -136,6 +141,27 @@ impl ServerConfig {
     #[must_use]
     pub fn without_rate_limit(mut self) -> Self {
         self.rate_limit = RateLimitConfig::disabled();
+        self
+    }
+
+    /// Sets the authentication configuration.
+    #[must_use]
+    pub fn with_auth(mut self, config: AuthConfig) -> Self {
+        self.auth = config;
+        self
+    }
+
+    /// Enables authentication with a single API key.
+    #[must_use]
+    pub fn with_api_key(mut self, key: impl Into<String>) -> Self {
+        self.auth = AuthConfig::with_api_key(key);
+        self
+    }
+
+    /// Disables authentication.
+    #[must_use]
+    pub fn without_auth(mut self) -> Self {
+        self.auth = AuthConfig::disabled();
         self
     }
 }
@@ -215,6 +241,7 @@ pub struct Server {
     config: ServerConfig,
     state: Arc<AppState>,
     rate_limiter: Arc<RateLimiter>,
+    authenticator: Arc<Authenticator>,
 }
 
 impl Server {
@@ -226,11 +253,13 @@ impl Server {
     pub fn new(config: ServerConfig) -> anyhow::Result<Self> {
         let state = AppState::new(config.core_config.clone())?;
         let rate_limiter = Arc::new(RateLimiter::new(config.rate_limit.clone()));
+        let authenticator = Arc::new(Authenticator::new(config.auth.clone()));
 
         Ok(Self {
             config,
             state: Arc::new(state),
             rate_limiter,
+            authenticator,
         })
     }
 
@@ -252,6 +281,13 @@ impl Server {
             .nest("/api/v1", routes::api_routes())
             .route("/health", axum::routing::get(routes::health_check))
             .with_state(Arc::clone(&self.state));
+
+        // Add authentication middleware (only if enabled)
+        if self.authenticator.is_enabled() {
+            router = router
+                .layer(axum::Extension(Arc::clone(&self.authenticator)))
+                .layer(middleware::from_fn(auth::auth_middleware));
+        }
 
         // Add rate limiting middleware (only if enabled)
         if self.config.rate_limit.enabled {
@@ -302,6 +338,14 @@ impl Server {
         let router = self.build_router();
 
         info!("Lexicon server starting on http://{}", addr);
+        if self.authenticator.is_enabled() {
+            info!(
+                "Authentication enabled with {} API key(s)",
+                self.config.auth.api_keys.len()
+            );
+        } else {
+            info!("Authentication disabled");
+        }
         if self.config.rate_limit.enabled {
             info!(
                 "Rate limiting enabled: {} req/min (general), {} req/min (heavy), {} req/min (websocket)",
