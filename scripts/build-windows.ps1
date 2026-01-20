@@ -12,6 +12,7 @@
 #   - Rust 1.85+ (via rustup)
 #   - CMake (via winget)
 #   - LLVM/Clang (via winget)
+#   - Visual Studio Build Tools with C++ workload (MSVC linker)
 
 param(
     [switch]$Release,
@@ -28,6 +29,13 @@ Set-Location $ProjectDir
 
 # Minimum required versions
 $RequiredRustVersion = "1.85"
+
+# Visual Studio Build Tools configuration
+$VsBuildToolsWorkloadArgs = @(
+    "--add", "Microsoft.VisualStudio.Workload.VCTools",
+    "--add", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+    "--add", "Microsoft.VisualStudio.Component.Windows11SDK.22621"
+)
 
 function Write-Info {
     param([string]$Message)
@@ -167,6 +175,151 @@ function Install-LLVM {
     }
 }
 
+function Find-VsInstallation {
+    # Try to find Visual Studio installation using vswhere
+    $vswherePaths = @(
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe",
+        "${env:ProgramFiles}\Microsoft Visual Studio\Installer\vswhere.exe"
+    )
+
+    foreach ($vswhere in $vswherePaths) {
+        if (Test-Path $vswhere) {
+            $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+            if ($vsPath -and (Test-Path $vsPath)) {
+                return $vsPath
+            }
+        }
+    }
+
+    # Fallback: check common installation paths
+    $commonPaths = @(
+        "${env:ProgramFiles}\Microsoft Visual Studio\2022\BuildTools",
+        "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community",
+        "${env:ProgramFiles}\Microsoft Visual Studio\2022\Professional",
+        "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\BuildTools",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Community"
+    )
+
+    foreach ($path in $commonPaths) {
+        $vcTools = Join-Path $path "VC\Tools\MSVC"
+        if (Test-Path $vcTools) {
+            return $path
+        }
+    }
+
+    return $null
+}
+
+function Test-MsvcToolchain {
+    $vsPath = Find-VsInstallation
+    if (-not $vsPath) {
+        return $false
+    }
+
+    # Check if VC tools exist
+    $vcToolsPath = Join-Path $vsPath "VC\Tools\MSVC"
+    if (-not (Test-Path $vcToolsPath)) {
+        return $false
+    }
+
+    # Check if there's at least one toolset version
+    $toolsets = Get-ChildItem -Path $vcToolsPath -Directory -ErrorAction SilentlyContinue
+    return ($toolsets.Count -gt 0)
+}
+
+function Install-VsBuildTools {
+    Write-Step "Installing Visual Studio Build Tools"
+
+    # Check if already installed
+    if (Test-MsvcToolchain) {
+        Write-Info "Visual Studio Build Tools already installed"
+        return $true
+    }
+
+    Write-Info "Downloading Visual Studio Build Tools installer..."
+
+    $installerUrl = "https://aka.ms/vs/17/release/vs_buildtools.exe"
+    $installerPath = "$env:TEMP\vs_buildtools.exe"
+
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing
+    } catch {
+        Write-Warn "Failed to download VS Build Tools installer: $_"
+        Write-Warn "Please install manually from: https://visualstudio.microsoft.com/visual-cpp-build-tools/"
+        return $false
+    }
+
+    Write-Info "Installing Visual Studio Build Tools (this may take several minutes)..."
+    Write-Info "Installing components: VC Tools, x64/x86 build tools, Windows SDK"
+
+    # Build the argument list
+    $installArgs = @(
+        "--quiet",
+        "--wait",
+        "--norestart"
+    ) + $VsBuildToolsWorkloadArgs
+
+    try {
+        $process = Start-Process -FilePath $installerPath -ArgumentList $installArgs -Wait -PassThru
+
+        # Exit codes: 0 = success, 3010 = success but reboot required
+        if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
+            Write-Info "Visual Studio Build Tools installed successfully"
+            if ($process.ExitCode -eq 3010) {
+                Write-Warn "A system restart may be required for full functionality"
+            }
+            return $true
+        } else {
+            Write-Warn "VS Build Tools installer exited with code: $($process.ExitCode)"
+            return $false
+        }
+    } catch {
+        Write-Warn "Failed to run VS Build Tools installer: $_"
+        return $false
+    } finally {
+        Remove-Item $installerPath -ErrorAction SilentlyContinue
+    }
+}
+
+function Initialize-VsEnvironment {
+    # Find VS installation
+    $vsPath = Find-VsInstallation
+    if (-not $vsPath) {
+        return $false
+    }
+
+    # Find vcvarsall.bat
+    $vcvarsall = Join-Path $vsPath "VC\Auxiliary\Build\vcvarsall.bat"
+    if (-not (Test-Path $vcvarsall)) {
+        Write-Warn "vcvarsall.bat not found at: $vcvarsall"
+        return $false
+    }
+
+    Write-Info "Initializing Visual Studio environment..."
+
+    # Run vcvarsall.bat and capture environment variables
+    $arch = "x64"
+    $cmd = "`"$vcvarsall`" $arch >nul 2>&1 && set"
+
+    try {
+        $envVars = cmd /c $cmd
+        foreach ($line in $envVars) {
+            if ($line -match "^([^=]+)=(.*)$") {
+                $varName = $Matches[1]
+                $varValue = $Matches[2]
+                [Environment]::SetEnvironmentVariable($varName, $varValue, "Process")
+            }
+        }
+        Write-Info "Visual Studio environment initialized for $arch"
+        return $true
+    } catch {
+        Write-Warn "Failed to initialize VS environment: $_"
+        return $false
+    }
+}
+
 function Test-AndInstallDependencies {
     Write-Step "Checking and Installing Dependencies"
 
@@ -238,6 +391,24 @@ function Test-AndInstallDependencies {
         Write-Info "LIBCLANG_PATH=$env:LIBCLANG_PATH OK"
     }
 
+    # Check and install Visual Studio Build Tools (MSVC linker)
+    if (-not (Test-MsvcToolchain)) {
+        if ($SkipInstall) {
+            Write-Error-Custom "Visual Studio Build Tools not found. The MSVC linker (link.exe) is required."
+            Write-Warn "Install Visual Studio Build Tools from: https://visualstudio.microsoft.com/visual-cpp-build-tools/"
+            Write-Warn "Or run this script without -SkipInstall to install automatically"
+        } else {
+            $installed = Install-VsBuildTools
+            if (-not $installed) {
+                Write-Error-Custom "Failed to install Visual Studio Build Tools. Please install manually."
+            }
+            $needsPathRefresh = $true
+        }
+    } else {
+        $vsPath = Find-VsInstallation
+        Write-Info "Visual Studio Build Tools OK ($vsPath)"
+    }
+
     # Verify dependencies after installation
     if ($needsPathRefresh) {
         Write-Info ""
@@ -279,6 +450,12 @@ function Test-AndInstallDependencies {
         $allOk = $false
     }
 
+    if (-not (Test-MsvcToolchain)) {
+        Write-Warn "Visual Studio Build Tools not found. Build will fail."
+        Write-Warn "You may need to restart your terminal after installation."
+        $allOk = $false
+    }
+
     if ($allOk) {
         Write-Info "All dependencies OK"
     } else {
@@ -289,6 +466,14 @@ function Test-AndInstallDependencies {
 
 function Build-Debug {
     Write-Step "Building Debug Configuration"
+
+    # Initialize VS environment if needed
+    if (-not (Get-Command link.exe -ErrorAction SilentlyContinue)) {
+        if (-not (Initialize-VsEnvironment)) {
+            Write-Error-Custom "Failed to initialize Visual Studio environment. Cannot find MSVC linker."
+        }
+    }
+
     cargo build --workspace --all-features
     if ($LASTEXITCODE -ne 0) {
         Write-Error-Custom "Build failed"
@@ -298,6 +483,14 @@ function Build-Debug {
 
 function Build-Release {
     Write-Step "Building Release Configuration"
+
+    # Initialize VS environment if needed
+    if (-not (Get-Command link.exe -ErrorAction SilentlyContinue)) {
+        if (-not (Initialize-VsEnvironment)) {
+            Write-Error-Custom "Failed to initialize Visual Studio environment. Cannot find MSVC linker."
+        }
+    }
+
     cargo build --workspace --all-features --release
     if ($LASTEXITCODE -ne 0) {
         Write-Error-Custom "Build failed"
