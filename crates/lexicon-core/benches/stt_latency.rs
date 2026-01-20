@@ -19,6 +19,7 @@
 //! - STT tiny model: p95 < 400ms for 5 seconds of audio
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+#[allow(unused_imports)]
 use std::path::PathBuf;
 
 /// Generate synthetic speech-like audio for benchmarking
@@ -81,7 +82,7 @@ fn find_model_path() -> Option<PathBuf> {
 mod stt_benchmarks {
     use super::*;
     use criterion::black_box;
-    use lexicon_core::stt::{TranscriptionConfig, Transcriber};
+    use lexicon_core::stt::{TranscriptionConfig, Transcriber, WhisperTranscriber};
 
     pub fn bench_stt_transcription(c: &mut Criterion) {
         let model_path = match find_model_path() {
@@ -96,7 +97,7 @@ mod stt_benchmarks {
         eprintln!("Using model: {}", model_path.display());
 
         // Create transcriber
-        let mut transcriber = match Transcriber::new() {
+        let mut transcriber = match WhisperTranscriber::new() {
             Ok(t) => t,
             Err(e) => {
                 eprintln!("Failed to create transcriber: {e}");
@@ -141,7 +142,7 @@ mod stt_benchmarks {
             None => return,
         };
 
-        let mut transcriber = match Transcriber::new() {
+        let mut transcriber = match WhisperTranscriber::new() {
             Ok(t) => t,
             Err(_) => return,
         };

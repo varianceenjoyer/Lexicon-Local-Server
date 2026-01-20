@@ -1894,10 +1894,10 @@ Test Plan specifies `criterion` for performance benchmarks (line 861), but:
 - Create `BENCHMARKS.md` documenting results and methodology
 
 **Completion Criteria:**
-- [ ] `cargo bench` runs without errors
-- [ ] STT latency benchmark exists
-- [ ] TTS latency benchmark exists
-- [ ] Results documented in BENCHMARKS.md
+- [x] `cargo bench` runs without errors
+- [x] STT latency benchmark exists
+- [x] TTS latency benchmark exists
+- [x] Results documented in BENCHMARKS.md
 - [ ] CI optionally runs benchmarks
 
 **References:** Test Plan lines 861, 1035-1036, 1068, Beta Exit Criteria line 739
