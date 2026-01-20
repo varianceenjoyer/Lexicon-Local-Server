@@ -45,6 +45,7 @@ uniffi = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 uniffi = { workspace = true, features = ["bindgen-tests"] }
+tempfile.workspace = true
 
 # Override workspace lint for FFI crate (UniFFI requires unsafe)
 [lints.rust]

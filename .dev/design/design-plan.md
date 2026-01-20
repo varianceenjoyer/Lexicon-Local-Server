@@ -1898,7 +1898,7 @@ Test Plan specifies `criterion` for performance benchmarks (line 861), but:
 - [x] STT latency benchmark exists
 - [x] TTS latency benchmark exists
 - [x] Results documented in BENCHMARKS.md
-- [ ] CI optionally runs benchmarks
+- [x] CI optionally runs benchmarks (nightly schedule + manual trigger)
 
 **References:** Test Plan lines 861, 1035-1036, 1068, Beta Exit Criteria line 739
 
@@ -2088,10 +2088,10 @@ Estimated coverage: 0% vs. 75% target.
 - Document FFI safety guarantees
 
 **Completion Criteria:**
-- [ ] Panics do not cross FFI boundary
-- [ ] Concurrent FFI calls are thread-safe
-- [ ] 100-cycle test shows no memory growth
-- [ ] All FFI errors map to appropriate error codes
+- [x] Panics do not cross FFI boundary
+- [x] Concurrent FFI calls are thread-safe
+- [x] 100-cycle test shows no memory growth
+- [x] All FFI errors map to appropriate error codes
 
 **References:** WP-FFI test requirements, lines 1086-1104
 
