@@ -1425,7 +1425,7 @@ cargo bench
 - [x] First launch downloads models before allowing transcription (D1)
 - [ ] Transcribe command produces valid SRT
 - [x] FTS5 search works across sessions
-- [ ] No memory leaks detected in 100-cycle test
+- [x] No memory leaks detected in 100-cycle test
 - [x] Security tests for model verification pass
 
 ---
@@ -1713,10 +1713,10 @@ MVP exit criterion "No memory leaks detected in 100-cycle test" is unchecked. Th
 - Document acceptable memory behavior (e.g., model cache)
 
 **Completion Criteria:**
-- [ ] Automated memory test runs in CI (Linux)
-- [ ] Test passes with no detected leaks
-- [ ] Mobile memory testing documented (manual process)
-- [ ] Memory behavior expectations documented
+- [x] Automated memory test runs in CI (Linux)
+- [x] Test passes with no detected leaks
+- [x] Mobile memory testing documented (manual process)
+- [x] Memory behavior expectations documented
 
 **References:** MVP Exit Criteria Checklist, Test Plan WP-FFI
 
