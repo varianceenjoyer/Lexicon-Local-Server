@@ -117,6 +117,57 @@ impl AudioSource for CpalAudioSource { ... }
 
 ---
 
+#### WP-AUDIOCONV: Audio Format Conversion
+
+**Deliverable:** MP3 to WAV conversion for broad file format compatibility
+
+**Scope:**
+- MP3 decoding using `symphonia` crate (pure Rust, no system dependencies)
+- Conversion to 16kHz mono WAV (Whisper-compatible format)
+- Support for common MP3 variants (MPEG-1 Layer III, MPEG-2 Layer III)
+- Streaming conversion for large files (no full file buffering)
+- Progress reporting during conversion
+- Additional format support (OGG, FLAC, M4A) via symphonia codecs
+
+**Interface Contract:**
+```rust
+// lexicon-core/src/audio/convert.rs
+pub struct AudioConverter {
+    target_sample_rate: u32,
+    target_channels: u16,
+}
+
+impl AudioConverter {
+    pub fn new() -> Self;
+    pub fn convert_file(&self, input: &Path, output: &Path, progress: impl Fn(f32)) -> Result<AudioMetadata, ConversionError>;
+    pub fn convert_to_samples(&self, input: &Path) -> Result<Vec<f32>, ConversionError>;
+    pub fn supported_formats() -> Vec<&'static str>;
+}
+
+pub struct AudioMetadata {
+    pub duration_ms: u64,
+    pub original_sample_rate: u32,
+    pub original_channels: u16,
+}
+
+pub enum ConversionError {
+    UnsupportedFormat(String),
+    DecodingError(String),
+    IoError(std::io::Error),
+}
+```
+
+**Completion Criteria:**
+- [ ] Converts MP3 files to 16kHz mono WAV
+- [ ] Handles variable bitrate (VBR) MP3 files correctly
+- [ ] Streaming conversion keeps memory usage bounded
+- [ ] Progress callback reports conversion progress
+- [ ] Graceful error handling for corrupted/truncated files
+
+**Architecture Refs:** Audio Pipeline, WP-AUDIO
+
+---
+
 #### WP-DB: Storage Layer
 
 **Deliverable:** SQLite database with FTS5 search
@@ -780,6 +831,7 @@ cargo build --workspace --all-features
 Layer 1 (Parallel)
 ├── WP-CORE ─────────┐
 ├── WP-AUDIO ────────┤
+├── WP-AUDIOCONV ────┤
 ├── WP-DB ───────────┼──▶ Layer 2 (Parallel)
 └── WP-MODEL ────────┤    ├── WP-STT ──────┐
                      │    └── WP-TTS ──────┼──▶ Layer 3 (Parallel)
@@ -811,6 +863,7 @@ Work packages communicate through defined traits and structs. Developers can wor
 | Interface | Defined In | Used By |
 |-----------|-----------|---------|
 | `AudioSource` | WP-AUDIO | WP-STT |
+| `AudioConverter` | WP-AUDIOCONV | WP-CLI, WP-SERVER |
 | `Transcriber` | WP-STT | WP-FFI, WP-SERVER, WP-CLI |
 | `Synthesizer` | WP-TTS | WP-FFI, WP-SERVER, WP-CLI |
 | `Database` | WP-DB | WP-FFI, WP-SERVER, WP-CLI |
@@ -947,6 +1000,38 @@ tests/
 **Depends On:** WP-CORE
 
 **Blocks:** WP-STT
+
+---
+
+#### WP-AUDIOCONV: Audio Format Conversion
+
+**Test Categories:** Unit, Integration
+
+**Test Requirements:**
+
+| Test | Type | Pass Criteria |
+|------|------|---------------|
+| `convert_mp3_to_wav` | Integration | MP3 file converts to valid WAV |
+| `convert_vbr_mp3` | Integration | Variable bitrate MP3 handled correctly |
+| `convert_stereo_to_mono` | Unit | Stereo input produces mono output |
+| `convert_resample_to_16k` | Unit | Output is exactly 16kHz |
+| `convert_progress_callback` | Unit | Progress updates received (0.0 → 1.0) |
+| `convert_streaming_memory` | Performance | Memory stays bounded for large files |
+| `convert_corrupted_file` | Unit | Graceful error, no crash |
+| `convert_truncated_file` | Unit | Partial conversion or error |
+| `convert_ogg_vorbis` | Integration | OGG file converts correctly |
+| `convert_flac` | Integration | FLAC file converts correctly |
+| `convert_m4a_aac` | Integration | M4A/AAC file converts correctly |
+| `supported_formats_list` | Unit | Returns expected format list |
+| `bench_conversion_speed` | Performance | 1 minute audio converts in <5s |
+
+**Coverage Target:** >85% line coverage
+
+**Mock:** Test audio files in `tests/fixtures/audio/`
+
+**Depends On:** WP-CORE
+
+**Blocks:** WP-CLI, WP-SERVER (for file upload transcription)
 
 ---
 
@@ -1528,6 +1613,7 @@ cargo bench
 |---------|------|-------------|-------|
 | WP-CORE | 95% | N/A | 90% |
 | WP-AUDIO | 85% | 75% | 85% |
+| WP-AUDIOCONV | 85% | 80% | 85% |
 | WP-DB | 95% | 85% | 90% |
 | WP-MODEL | 95% | 90% | 90% |
 | WP-STT | 80% | 75% | 80% |
@@ -2196,6 +2282,47 @@ WP-STT test requirement `stability_30min` (line 1037) is missing. Long-running t
 
 ---
 
+### WP-ROADBLOCK-21: Audio Resampling for Arbitrary Input Lengths
+
+**Priority:** CRITICAL | **Phase:** MVP Blocker
+
+**Problem:**
+When transcribing audio files with sample rates other than 16kHz (e.g., 44.1kHz WAV files), the resampler fails with:
+```
+Resampling failed: Insufficient buffer size 33765 for input channel 0, expected 44100
+```
+
+The resampler allocates fixed-size buffers expecting full "chunk" sizes, but file-based transcription may provide partial buffers at the end of the file or variable-sized chunks. The current implementation assumes input will always be a full second (44100 samples at 44.1kHz) but the actual file has a partial final chunk.
+
+**Root Cause Analysis:**
+The `rubato` resampler requires:
+1. Input buffer size must match the configured `chunk_size`
+2. The final chunk of a file will almost never be exactly `chunk_size` samples
+3. Current code does not handle partial chunks or pad them appropriately
+
+**Scope:**
+- Investigate resampler initialization in audio pipeline
+- Implement proper handling for variable-length input buffers:
+  - Option 1: Pad final chunks with silence to match expected size
+  - Option 2: Use `rubato`'s `process_partial_into_buffer()` for final chunks
+  - Option 3: Accumulate samples and only process complete chunks, flushing remainder at end
+- Add tests for:
+  - Files with non-standard lengths (not multiples of chunk size)
+  - Various sample rates (44.1kHz, 48kHz, 22.05kHz)
+  - Edge case: very short files (<1 second)
+- Update CLI transcribe command to handle resampling errors gracefully
+
+**Completion Criteria:**
+- [ ] 44.1kHz WAV files transcribe successfully
+- [ ] 48kHz WAV files transcribe successfully
+- [ ] Files of any length (including partial final chunks) process correctly
+- [ ] No audio artifacts at chunk boundaries
+- [ ] Test coverage for variable-length resampling
+
+**Architecture Refs:** WP-AUDIO (resampling), WP-CLI (transcribe command)
+
+---
+
 ### Roadblock Priority Summary
 
 | ID | Description | Phase | Effort |
@@ -2220,28 +2347,30 @@ WP-STT test requirement `stability_30min` (line 1037) is missing. Long-running t
 | WP-ROADBLOCK-18 | Server Graceful Shutdown Tests | Beta | Low |
 | WP-ROADBLOCK-19 | TTS Fallback Integration Tests | Beta | Medium |
 | WP-ROADBLOCK-20 | Long-Running STT Stability Tests | Beta | Medium |
+| WP-ROADBLOCK-21 | Audio Resampling for Arbitrary Lengths | MVP | Medium |
 
 **Recommended Order:**
-1. WP-ROADBLOCK-02 (quick fix, eliminates warnings)
-2. WP-ROADBLOCK-08 (documentation, enables others)
-3. WP-ROADBLOCK-09 (build automation)
-4. WP-ROADBLOCK-07 (CI/CD - critical for quality)
-5. WP-ROADBLOCK-01 (enables remaining MVP tests)
-6. WP-ROADBLOCK-05 (completes MVP exit criteria)
-7. WP-ROADBLOCK-16 (CLI E2E tests - MVP exit criterion)
-8. WP-ROADBLOCK-13 (Platform TTS - critical for Beta)
-9. WP-ROADBLOCK-10 (WebSocket tests for Beta)
-10. WP-ROADBLOCK-11 (benchmarks for Beta validation)
-11. WP-ROADBLOCK-14 (rate limiting for Beta)
-12. WP-ROADBLOCK-17 (FFI safety tests for mobile platforms)
-13. WP-ROADBLOCK-19 (TTS fallback tests)
-14. WP-ROADBLOCK-18 (graceful shutdown tests)
-15. WP-ROADBLOCK-03 (improves Beta quality)
-16. WP-ROADBLOCK-04 (Beta mobile UX)
-17. WP-ROADBLOCK-06 (Beta audio quality)
-18. WP-ROADBLOCK-20 (long-running stability)
-19. WP-ROADBLOCK-12 (Release preparation)
-20. WP-ROADBLOCK-15 (Release authentication)
+1. WP-ROADBLOCK-21 (critical - blocks file transcription entirely)
+2. WP-ROADBLOCK-02 (quick fix, eliminates warnings)
+3. WP-ROADBLOCK-08 (documentation, enables others)
+4. WP-ROADBLOCK-09 (build automation)
+5. WP-ROADBLOCK-07 (CI/CD - critical for quality)
+6. WP-ROADBLOCK-01 (enables remaining MVP tests)
+7. WP-ROADBLOCK-05 (completes MVP exit criteria)
+8. WP-ROADBLOCK-16 (CLI E2E tests - MVP exit criterion)
+9. WP-ROADBLOCK-13 (Platform TTS - critical for Beta)
+10. WP-ROADBLOCK-10 (WebSocket tests for Beta)
+11. WP-ROADBLOCK-11 (benchmarks for Beta validation)
+12. WP-ROADBLOCK-14 (rate limiting for Beta)
+13. WP-ROADBLOCK-17 (FFI safety tests for mobile platforms)
+14. WP-ROADBLOCK-19 (TTS fallback tests)
+15. WP-ROADBLOCK-18 (graceful shutdown tests)
+16. WP-ROADBLOCK-03 (improves Beta quality)
+17. WP-ROADBLOCK-04 (Beta mobile UX)
+18. WP-ROADBLOCK-06 (Beta audio quality)
+19. WP-ROADBLOCK-20 (long-running stability)
+20. WP-ROADBLOCK-12 (Release preparation)
+21. WP-ROADBLOCK-15 (Release authentication)
 
 ---
 

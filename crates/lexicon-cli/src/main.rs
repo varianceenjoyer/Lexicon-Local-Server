@@ -466,13 +466,24 @@ fn load_raw_pcm(path: &Path) -> Result<Vec<f32>> {
 fn resample_to_16k(samples: &[f32], source_rate: u32) -> Result<Vec<f32>> {
     use lexicon_core::Resampler;
 
-    // Calculate chunk size for resampling
-    let chunk_size = samples.len().min(source_rate as usize); // Up to 1 second chunks
+    // Use 1 second chunks for resampling (or less if file is shorter)
+    let chunk_size = samples.len().min(source_rate as usize);
     let mut resampler = Resampler::new(source_rate, 1, chunk_size)?;
 
     let mut output = Vec::new();
-    for chunk in samples.chunks(chunk_size) {
-        let resampled = resampler.process(chunk)?;
+    let chunks: Vec<&[f32]> = samples.chunks(chunk_size).collect();
+    let num_chunks = chunks.len();
+
+    for (i, chunk) in chunks.into_iter().enumerate() {
+        let is_last_chunk = i == num_chunks - 1;
+        let is_partial = chunk.len() < chunk_size;
+
+        let resampled = if is_last_chunk && is_partial {
+            // Use process_partial for the final chunk if it's smaller than chunk_size
+            resampler.process_partial(chunk)?
+        } else {
+            resampler.process(chunk)?
+        };
         output.extend(resampled);
     }
 
