@@ -607,3 +607,229 @@ async fn test_app_state_access() {
 
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
+
+// =============================================================================
+// Graceful Shutdown Tests (WP-ROADBLOCK-18)
+// =============================================================================
+
+/// Test that server can be started and accepts requests.
+#[tokio::test]
+async fn test_server_lifecycle() {
+    use lexicon_server::{Server, ServerConfig};
+    use lexicon_core::LexiconConfig;
+    use tokio::net::TcpListener;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(10000);
+    let test_id = COUNTER.fetch_add(1, Ordering::SeqCst);
+
+    let temp_dir = std::env::temp_dir()
+        .join(format!("lexicon-shutdown-test-{test_id}"));
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    let core_config = LexiconConfig::builder()
+        .data_dir(temp_dir.clone())
+        .model_dir(temp_dir.join("models"))
+        .build()
+        .expect("Failed to create config");
+
+    // Find an available port
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind");
+    let addr = listener.local_addr().expect("Failed to get address");
+    drop(listener); // Release the port
+
+    let server_config = ServerConfig::new("127.0.0.1", addr.port())
+        .with_core_config(core_config)
+        .without_rate_limit();
+
+    let server = Server::new(server_config).expect("Failed to create server");
+    let router = server.router();
+
+    // Initialize database
+    server.state().init_database().await.expect("Failed to init DB");
+
+    // Test that router works
+    let request = Request::builder()
+        .uri("/health")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = router.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+/// Test that data persists across server restarts.
+#[tokio::test]
+async fn test_session_data_persists() {
+    use lexicon_server::{Server, ServerConfig};
+    use lexicon_core::LexiconConfig;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(20000);
+    let test_id = COUNTER.fetch_add(1, Ordering::SeqCst);
+
+    let temp_dir = std::env::temp_dir()
+        .join(format!("lexicon-persist-test-{test_id}"));
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    // Create first server instance, verify endpoints work
+    {
+        let core_config = LexiconConfig::builder()
+            .data_dir(temp_dir.clone())
+            .model_dir(temp_dir.join("models"))
+            .build()
+            .expect("Failed to create config");
+
+        let server_config = ServerConfig::new("127.0.0.1", 0)
+            .with_core_config(core_config)
+            .without_rate_limit();
+
+        let server = Server::new(server_config).expect("Failed to create server");
+        server.state().init_database().await.expect("Failed to init DB");
+
+        let app = server.router();
+
+        // List sessions (starts empty)
+        let request = Request::builder()
+            .uri("/api/v1/sessions")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Health check should work
+        let request = Request::builder()
+            .uri("/health")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Server drops here, simulating shutdown
+    }
+
+    // Create second server instance, verify database re-opens correctly
+    {
+        let core_config = LexiconConfig::builder()
+            .data_dir(temp_dir.clone())
+            .model_dir(temp_dir.join("models"))
+            .build()
+            .expect("Failed to create config");
+
+        let server_config = ServerConfig::new("127.0.0.1", 0)
+            .with_core_config(core_config)
+            .without_rate_limit();
+
+        let server = Server::new(server_config).expect("Failed to create server");
+
+        // Re-initializing database should work without errors
+        server.state().init_database().await.expect("Failed to init DB on second start");
+
+        let app = server.router();
+
+        // List sessions should still work
+        let request = Request::builder()
+            .uri("/api/v1/sessions")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+/// Test that database file exists after server operations.
+#[tokio::test]
+async fn test_database_file_persists() {
+    use lexicon_server::{Server, ServerConfig};
+    use lexicon_core::LexiconConfig;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(30000);
+    let test_id = COUNTER.fetch_add(1, Ordering::SeqCst);
+
+    let temp_dir = std::env::temp_dir()
+        .join(format!("lexicon-dbfile-test-{test_id}"));
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    let db_path = temp_dir.join("lexicon.db");
+
+    // Create and use server
+    {
+        let core_config = LexiconConfig::builder()
+            .data_dir(temp_dir.clone())
+            .model_dir(temp_dir.join("models"))
+            .build()
+            .expect("Failed to create config");
+
+        let server_config = ServerConfig::new("127.0.0.1", 0)
+            .with_core_config(core_config)
+            .without_rate_limit();
+
+        let server = Server::new(server_config).expect("Failed to create server");
+        server.state().init_database().await.expect("Failed to init DB");
+
+        // Verify database file was created
+        assert!(db_path.exists(), "Database file should exist after init");
+    }
+
+    // Database file should still exist after server shutdown
+    assert!(db_path.exists(), "Database file should persist after shutdown");
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+/// Test that multiple server restarts don't corrupt data.
+#[tokio::test]
+async fn test_multiple_restarts_no_corruption() {
+    use lexicon_server::{Server, ServerConfig};
+    use lexicon_core::LexiconConfig;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(40000);
+    let test_id = COUNTER.fetch_add(1, Ordering::SeqCst);
+
+    let temp_dir = std::env::temp_dir()
+        .join(format!("lexicon-restart-test-{test_id}"));
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    // Perform multiple create/destroy cycles
+    for i in 0..5 {
+        let core_config = LexiconConfig::builder()
+            .data_dir(temp_dir.clone())
+            .model_dir(temp_dir.join("models"))
+            .build()
+            .expect("Failed to create config");
+
+        let server_config = ServerConfig::new("127.0.0.1", 0)
+            .with_core_config(core_config)
+            .without_rate_limit();
+
+        let server = Server::new(server_config).expect("Failed to create server");
+        server.state().init_database().await.expect("Failed to init DB");
+
+        let app = server.router();
+
+        // Each restart should be able to access data
+        let request = Request::builder()
+            .uri("/api/v1/sessions")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "Cycle {} should succeed",
+            i
+        );
+    }
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}

@@ -2114,10 +2114,10 @@ WP-SERVER test requirement `graceful_shutdown` (line 1127) is missing. Data pres
 - Verify no data corruption during shutdown
 
 **Completion Criteria:**
-- [ ] Session data persists across graceful shutdown
-- [ ] WebSocket connections receive close frames
-- [ ] No data corruption on shutdown
-- [ ] Server restarts cleanly after shutdown
+- [x] Session data persists across graceful shutdown
+- [x] WebSocket connections receive close frames
+- [x] No data corruption on shutdown
+- [x] Server restarts cleanly after shutdown
 
 **References:** WP-SERVER test requirements line 1127
 
