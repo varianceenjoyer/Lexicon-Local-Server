@@ -2374,6 +2374,491 @@ The `rubato` resampler requires:
 
 ---
 
+## Android Emulation Strategy
+
+> **Added**: 2026-01-20 | **Decision**: Self-hosted Cuttlefish
+
+### Decision Summary
+
+For automated Android testing, the project will use **Google Cuttlefish** as the self-hosted Android emulator solution. This enables agents and CI systems to verify Rust builds on Android without requiring physical devices.
+
+### Why Cuttlefish
+
+| Option | Pros | Cons | Decision |
+|--------|------|------|----------|
+| **Firebase Test Lab** | No infrastructure, API-driven | Per-test costs, external dependency | Rejected (cost at scale) |
+| **GitHub Actions Emulator** | Easy CI integration | Limited control, slow startup | Rejected (performance) |
+| **Standard Android Emulator** | Familiar tooling | Heavy, slow, not CI-optimized | Rejected (not CI-friendly) |
+| **Cuttlefish** ✓ | CI-optimized, headless, KVM-accelerated, Google-maintained | Requires Linux VM with KVM | **Selected** |
+
+### Cuttlefish Overview
+
+Cuttlefish is Google's reference virtual Android device, designed specifically for:
+- **CI/CD environments**: Headless operation, fast boot times
+- **Cloud deployment**: Works on GCP, AWS, Azure, or bare metal with KVM
+- **Automated testing**: ADB-accessible, scriptable lifecycle
+- **Multiple instances**: Run parallel tests on multiple virtual devices
+
+### Infrastructure Requirements
+
+| Component | Requirement |
+|-----------|-------------|
+| Host OS | Linux (Ubuntu 20.04+ recommended) |
+| Virtualization | KVM support required |
+| CPU | 4+ cores recommended per instance |
+| RAM | 4GB minimum per instance (8GB recommended) |
+| Storage | 20GB per Android image |
+| Network | Host networking or bridge mode for ADB |
+
+### Integration with WP-ANDROID
+
+Cuttlefish supports the WP-ANDROID test requirements:
+
+| Test | Cuttlefish Support |
+|------|-------------------|
+| `library_builds_arm64` | ✓ ARM64 emulation via QEMU |
+| `kotlin_api_compiles` | ✓ Full Android SDK available |
+| `foreground_service` | ✓ Full Android framework |
+| `xnnpack_acceleration` | ⚠ CPU-only (no real NPU) |
+| `thermal_headroom_api29` | ⚠ Returns mock values |
+| `example_app_runs` | ✓ Full E2E testing |
+
+**Limitations:**
+- No hardware NPU/GPU acceleration (XNNPACK runs on CPU)
+- Thermal APIs return mock/simulated values
+- Bluetooth testing requires real devices
+
+---
+
+## Work Plans: Cuttlefish Setup Documentation
+
+> **Purpose**: Guide software developers through setting up and configuring Cuttlefish for Android testing.
+>
+> **Output Location**: `.dev/docs/android-emulation/`
+
+---
+
+### WP-CUTTLEFISH-01: Environment Setup Documentation
+
+**Priority:** HIGH | **Phase:** Release Infrastructure
+
+**Deliverable:** `.dev/docs/android-emulation/01-environment-setup.md`
+
+**Scope:**
+Document the complete environment setup for running Cuttlefish:
+
+1. **Host Requirements**
+   - Linux distribution requirements (Ubuntu 20.04/22.04 LTS)
+   - KVM verification and setup
+   - Required packages and dependencies
+   - User permissions (kvm, cvdnetwork groups)
+
+2. **Cloud Provider Setup** (optional sections)
+   - GCP: Nested virtualization setup
+   - AWS: Metal instances or nested virt
+   - Azure: Nested virtualization configuration
+
+3. **Network Configuration**
+   - Bridge networking for ADB access
+   - Firewall rules for remote ADB
+   - Port forwarding for CI agents
+
+4. **Verification Steps**
+   - KVM functionality test
+   - Network bridge verification
+   - Storage space validation
+
+**Documentation Structure:**
+```markdown
+# Cuttlefish Environment Setup
+
+## Prerequisites
+### Hardware Requirements
+### Software Requirements
+### KVM Verification
+
+## Installation
+### Ubuntu Package Installation
+### User Group Configuration
+### Network Bridge Setup
+
+## Cloud Provider Guides
+### Google Cloud Platform
+### Amazon Web Services
+### Microsoft Azure
+
+## Verification
+### Testing KVM
+### Testing Network
+### Troubleshooting Common Issues
+```
+
+**Completion Criteria:**
+- [ ] Fresh Ubuntu 22.04 VM can follow guide successfully
+- [ ] KVM verification commands documented
+- [ ] Network setup enables remote ADB access
+- [ ] At least one cloud provider guide complete
+- [ ] Troubleshooting section covers top 5 issues
+
+**References:** WP-ANDROID, WP-BUILD
+
+---
+
+### WP-CUTTLEFISH-02: Cuttlefish Installation Documentation
+
+**Priority:** HIGH | **Phase:** Release Infrastructure
+
+**Deliverable:** `.dev/docs/android-emulation/02-cuttlefish-installation.md`
+
+**Scope:**
+Document Cuttlefish binary and image installation:
+
+1. **Obtaining Cuttlefish**
+   - Download from Android CI (ci.android.com)
+   - Building from AOSP source (reference only)
+   - Version selection (API level mapping)
+
+2. **Image Selection**
+   - API 30+ for thermal headroom testing (API 29+)
+   - ARM64 vs x86_64 considerations
+   - GSI (Generic System Image) options
+
+3. **Installation Process**
+   - Extracting cvd-host-package
+   - Installing Android system images
+   - Directory structure and permissions
+
+4. **Configuration**
+   - cuttlefish.config options
+   - Memory and CPU allocation
+   - Display configuration (headless)
+   - Storage configuration
+
+**Documentation Structure:**
+```markdown
+# Cuttlefish Installation
+
+## Downloading Cuttlefish
+### From Android CI
+### Version Selection Guide
+
+## Installing Host Tools
+### Extracting cvd-host-package
+### Setting Up PATH
+### Verifying Installation
+
+## Android System Images
+### Selecting API Level
+### ARM64 vs x86_64
+### Downloading Images
+
+## Initial Configuration
+### cuttlefish.config Reference
+### Resource Allocation
+### Headless Mode Setup
+```
+
+**Completion Criteria:**
+- [ ] Download URLs and commands documented
+- [ ] API level selection guidance provided
+- [ ] Installation verified on clean system
+- [ ] Configuration options explained with examples
+- [ ] Version compatibility matrix included
+
+**References:** WP-ANDROID test requirements
+
+---
+
+### WP-CUTTLEFISH-03: Running and Managing Cuttlefish
+
+**Priority:** HIGH | **Phase:** Release Infrastructure
+
+**Deliverable:** `.dev/docs/android-emulation/03-running-cuttlefish.md`
+
+**Scope:**
+Document day-to-day Cuttlefish operation:
+
+1. **Launching Cuttlefish**
+   - `launch_cvd` command and options
+   - Headless vs display mode
+   - Starting multiple instances
+   - Boot verification
+
+2. **ADB Connection**
+   - Connecting via local ADB
+   - Remote ADB over network
+   - ADB over VSock (preferred for CI)
+   - Multiple device handling
+
+3. **Lifecycle Management**
+   - Graceful shutdown (`stop_cvd`)
+   - Force termination
+   - Snapshot/restore (if available)
+   - Log collection
+
+4. **Health Monitoring**
+   - Boot completion detection
+   - Device health checks
+   - Resource utilization monitoring
+   - Crash recovery
+
+**Documentation Structure:**
+```markdown
+# Running Cuttlefish
+
+## Starting Cuttlefish
+### Basic Launch
+### Headless Mode
+### Multiple Instances
+### Boot Verification
+
+## ADB Access
+### Local Connection
+### Remote Connection
+### Multi-Device Setup
+
+## Lifecycle Management
+### Starting and Stopping
+### Log Collection
+### Crash Recovery
+
+## Health Checks
+### Boot Detection Scripts
+### Resource Monitoring
+### Automated Recovery
+```
+
+**Completion Criteria:**
+- [ ] Launch commands work on documented environment
+- [ ] ADB connects reliably (local and remote)
+- [ ] Shutdown procedures documented
+- [ ] Health check scripts provided
+- [ ] Multi-instance operation documented
+
+**References:** WP-ANDROID, WP-BUILD CI integration
+
+---
+
+### WP-CUTTLEFISH-04: CI/CD Integration Documentation
+
+**Priority:** MEDIUM | **Phase:** Release Infrastructure
+
+**Deliverable:** `.dev/docs/android-emulation/04-ci-integration.md`
+
+**Scope:**
+Document integrating Cuttlefish with CI/CD pipelines:
+
+1. **Self-Hosted Runner Setup**
+   - GitHub Actions self-hosted runner on Cuttlefish host
+   - Runner permissions and capabilities
+   - Concurrent job handling
+
+2. **Workflow Integration**
+   - Pre-job device startup
+   - Test execution via ADB
+   - Post-job cleanup
+   - Artifact collection (logs, screenshots)
+
+3. **Agent Automation**
+   - Scripted device lifecycle
+   - Test orchestration patterns
+   - Parallel test execution
+   - Result aggregation
+
+4. **Example Workflows**
+   - GitHub Actions workflow for Android tests
+   - Shell scripts for agent automation
+   - Integration with existing CI matrix
+
+**Documentation Structure:**
+```markdown
+# CI/CD Integration
+
+## Self-Hosted Runner Setup
+### GitHub Actions Runner Installation
+### Permissions Configuration
+### Concurrent Job Handling
+
+## Workflow Patterns
+### Device Lifecycle in CI
+### Test Execution
+### Artifact Collection
+
+## Agent Automation
+### Scripted Device Management
+### Parallel Testing
+### Result Reporting
+
+## Example Configurations
+### GitHub Actions Workflow
+### Automation Scripts
+### Integration with WP-BUILD
+```
+
+**Completion Criteria:**
+- [ ] Self-hosted runner setup documented
+- [ ] Example GitHub Actions workflow provided
+- [ ] Automation scripts for agents provided
+- [ ] Artifact collection (logs, APKs) documented
+- [ ] Integration with existing ci.yml outlined
+
+**References:** WP-BUILD, WP-ANDROID
+
+---
+
+### WP-CUTTLEFISH-05: Rust/Android Testing Integration
+
+**Priority:** MEDIUM | **Phase:** Release Infrastructure
+
+**Deliverable:** `.dev/docs/android-emulation/05-rust-android-testing.md`
+
+**Scope:**
+Document testing Rust code on Cuttlefish:
+
+1. **Cross-Compilation Setup**
+   - Android NDK installation
+   - `cargo-ndk` configuration
+   - Target architecture selection (aarch64-linux-android)
+
+2. **Deploying Rust Binaries**
+   - Pushing shared libraries via ADB
+   - Test harness deployment
+   - Library path configuration
+
+3. **Running Rust Tests**
+   - `cargo-dinghy` for on-device testing
+   - Manual test execution via ADB shell
+   - JNI/Kotlin integration testing
+
+4. **Debugging**
+   - `lldb-server` for remote debugging
+   - Log collection from Rust code
+   - Crash dump analysis
+
+**Documentation Structure:**
+```markdown
+# Rust/Android Testing on Cuttlefish
+
+## Build Setup
+### Android NDK Installation
+### cargo-ndk Configuration
+### Cross-Compilation Targets
+
+## Deployment
+### Pushing Libraries to Device
+### Test Harness Setup
+### Library Path Configuration
+
+## Test Execution
+### cargo-dinghy Integration
+### Manual ADB Testing
+### Kotlin/JNI Tests
+
+## Debugging
+### Remote Debugging Setup
+### Log Collection
+### Crash Analysis
+```
+
+**Completion Criteria:**
+- [ ] Cross-compilation commands documented
+- [ ] Library deployment scripts provided
+- [ ] cargo-dinghy or equivalent integration documented
+- [ ] Debugging workflow documented
+- [ ] Integration with WP-FFI and WP-ANDROID verified
+
+**References:** WP-FFI, WP-ANDROID, Rust cross-compilation
+
+---
+
+### WP-CUTTLEFISH-06: Troubleshooting and Maintenance
+
+**Priority:** LOW | **Phase:** Release Infrastructure
+
+**Deliverable:** `.dev/docs/android-emulation/06-troubleshooting.md`
+
+**Scope:**
+Document common issues and maintenance procedures:
+
+1. **Common Issues**
+   - KVM permission denied
+   - Network bridge failures
+   - Boot loops and hangs
+   - ADB connection failures
+   - Disk space exhaustion
+
+2. **Performance Tuning**
+   - CPU pinning for stability
+   - Memory balloon configuration
+   - I/O scheduler optimization
+   - Boot time optimization
+
+3. **Maintenance Tasks**
+   - Image updates
+   - Host package updates
+   - Log rotation
+   - Disk cleanup
+
+4. **Recovery Procedures**
+   - Corrupted instance recovery
+   - Network reset procedures
+   - Clean reinstallation
+
+**Documentation Structure:**
+```markdown
+# Troubleshooting and Maintenance
+
+## Common Issues
+### KVM Problems
+### Network Issues
+### Boot Failures
+### ADB Connectivity
+
+## Performance Tuning
+### CPU Configuration
+### Memory Optimization
+### I/O Tuning
+
+## Maintenance
+### Updating Images
+### Log Management
+### Disk Cleanup
+
+## Recovery
+### Instance Recovery
+### Clean Reinstall
+```
+
+**Completion Criteria:**
+- [ ] Top 10 common issues documented with solutions
+- [ ] Performance tuning recommendations provided
+- [ ] Maintenance schedule/checklist created
+- [ ] Recovery procedures tested and documented
+
+**References:** WP-BUILD operations
+
+---
+
+### Cuttlefish Work Plan Summary
+
+| ID | Deliverable | Priority | Dependencies |
+|----|-------------|----------|--------------|
+| WP-CUTTLEFISH-01 | Environment Setup | HIGH | None |
+| WP-CUTTLEFISH-02 | Installation | HIGH | WP-CUTTLEFISH-01 |
+| WP-CUTTLEFISH-03 | Running & Managing | HIGH | WP-CUTTLEFISH-02 |
+| WP-CUTTLEFISH-04 | CI/CD Integration | MEDIUM | WP-CUTTLEFISH-03 |
+| WP-CUTTLEFISH-05 | Rust/Android Testing | MEDIUM | WP-CUTTLEFISH-03 |
+| WP-CUTTLEFISH-06 | Troubleshooting | LOW | WP-CUTTLEFISH-01-05 |
+
+**Recommended Order:**
+1. WP-CUTTLEFISH-01 (environment setup - foundation)
+2. WP-CUTTLEFISH-02 (installation - required for any testing)
+3. WP-CUTTLEFISH-03 (operation - enables manual testing)
+4. WP-CUTTLEFISH-04 & WP-CUTTLEFISH-05 (parallel - CI and Rust testing)
+5. WP-CUTTLEFISH-06 (troubleshooting - as issues are discovered)
+
+---
+
 ## References
 
 - [architecture.md](architecture.md) — System architecture (authoritative)
