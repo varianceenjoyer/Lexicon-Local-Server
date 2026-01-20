@@ -1054,3 +1054,372 @@ async fn test_auth_www_authenticate_header() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     assert!(response.headers().contains_key("www-authenticate"));
 }
+
+// =============================================================================
+// Rate Limiting Tests
+// =============================================================================
+
+/// Test: Rate limit headers are present in responses.
+#[tokio::test]
+async fn test_rate_limit_headers_present() {
+    use lexicon_server::{Server, ServerConfig, RateLimitConfig};
+    use lexicon_core::LexiconConfig;
+
+    let temp_dir = std::env::temp_dir().join("lexicon-rate-limit-headers-test");
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    let core_config = LexiconConfig::builder()
+        .data_dir(temp_dir.clone())
+        .model_dir(temp_dir.join("models"))
+        .build()
+        .expect("Failed to create config");
+
+    let rate_limit_config = RateLimitConfig::default()
+        .with_default_rpm(100)
+        .with_burst_multiplier(1.0);
+
+    let server_config = ServerConfig::new("127.0.0.1", 0)
+        .with_core_config(core_config)
+        .with_rate_limit(rate_limit_config);
+
+    let server = Server::new(server_config).expect("Failed to create server");
+    server.state().init_database().await.expect("Failed to init database");
+
+    let app = server.router();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .header("x-forwarded-for", "192.168.1.100")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // Rate limit headers should be present
+    assert!(
+        response.headers().contains_key("x-ratelimit-limit"),
+        "X-RateLimit-Limit header should be present"
+    );
+    assert!(
+        response.headers().contains_key("x-ratelimit-remaining"),
+        "X-RateLimit-Remaining header should be present"
+    );
+    assert!(
+        response.headers().contains_key("x-ratelimit-reset"),
+        "X-RateLimit-Reset header should be present"
+    );
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+/// Test: Rate limiting returns 429 when limit exceeded.
+#[tokio::test]
+async fn test_rate_limit_returns_429() {
+    use lexicon_server::{Server, ServerConfig, RateLimitConfig};
+    use lexicon_core::LexiconConfig;
+
+    let temp_dir = std::env::temp_dir().join("lexicon-rate-limit-429-test");
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    let core_config = LexiconConfig::builder()
+        .data_dir(temp_dir.clone())
+        .model_dir(temp_dir.join("models"))
+        .build()
+        .expect("Failed to create config");
+
+    // Very low limit for testing: 2 requests per minute, no burst
+    let rate_limit_config = RateLimitConfig::default()
+        .with_default_rpm(2)
+        .with_burst_multiplier(1.0);
+
+    let server_config = ServerConfig::new("127.0.0.1", 0)
+        .with_core_config(core_config)
+        .with_rate_limit(rate_limit_config);
+
+    let server = Server::new(server_config).expect("Failed to create server");
+    server.state().init_database().await.expect("Failed to init database");
+
+    // First 2 requests should succeed
+    for i in 0..2 {
+        let app = server.router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .header("x-forwarded-for", "10.0.0.1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "Request {} should succeed",
+            i + 1
+        );
+    }
+
+    // Third request should be rate limited
+    let app = server.router();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .header("x-forwarded-for", "10.0.0.1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::TOO_MANY_REQUESTS,
+        "Third request should be rate limited (429)"
+    );
+
+    // Check Retry-After header
+    assert!(
+        response.headers().contains_key("retry-after"),
+        "Retry-After header should be present"
+    );
+
+    // Check response body
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(json["code"], "RATE_LIMIT_EXCEEDED");
+    assert!(json["retry_after_secs"].is_number());
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+/// Test: Rate limiting is per-IP.
+#[tokio::test]
+async fn test_rate_limit_per_ip() {
+    use lexicon_server::{Server, ServerConfig, RateLimitConfig};
+    use lexicon_core::LexiconConfig;
+
+    let temp_dir = std::env::temp_dir().join("lexicon-rate-limit-per-ip-test");
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    let core_config = LexiconConfig::builder()
+        .data_dir(temp_dir.clone())
+        .model_dir(temp_dir.join("models"))
+        .build()
+        .expect("Failed to create config");
+
+    // 2 requests per minute, no burst
+    let rate_limit_config = RateLimitConfig::default()
+        .with_default_rpm(2)
+        .with_burst_multiplier(1.0);
+
+    let server_config = ServerConfig::new("127.0.0.1", 0)
+        .with_core_config(core_config)
+        .with_rate_limit(rate_limit_config);
+
+    let server = Server::new(server_config).expect("Failed to create server");
+    server.state().init_database().await.expect("Failed to init database");
+
+    // Exhaust IP1's limit
+    for _ in 0..2 {
+        let app = server.router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .header("x-forwarded-for", "10.0.0.1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    // IP1 should now be rate limited
+    let app = server.router();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .header("x-forwarded-for", "10.0.0.1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+
+    // But IP2 should still work
+    let app = server.router();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .header("x-forwarded-for", "10.0.0.2")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Different IP should not be rate limited"
+    );
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+/// Test: Heavy endpoints have stricter rate limits.
+#[tokio::test]
+async fn test_rate_limit_heavy_endpoints() {
+    use lexicon_server::{Server, ServerConfig, RateLimitConfig};
+    use lexicon_core::LexiconConfig;
+
+    let temp_dir = std::env::temp_dir().join("lexicon-rate-limit-heavy-test");
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    let core_config = LexiconConfig::builder()
+        .data_dir(temp_dir.clone())
+        .model_dir(temp_dir.join("models"))
+        .build()
+        .expect("Failed to create config");
+
+    // Default: 10 req/min, Heavy: 2 req/min
+    let rate_limit_config = RateLimitConfig::default()
+        .with_default_rpm(10)
+        .with_heavy_rpm(2)
+        .with_burst_multiplier(1.0);
+
+    let server_config = ServerConfig::new("127.0.0.1", 0)
+        .with_core_config(core_config)
+        .with_rate_limit(rate_limit_config);
+
+    let server = Server::new(server_config).expect("Failed to create server");
+    server.state().init_database().await.expect("Failed to init database");
+
+    // Exhaust heavy endpoint limit (transcribe is a heavy endpoint)
+    // Note: These will return errors (no model loaded), but rate limiting still counts
+    for i in 0..2 {
+        let app = server.router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/transcribe")
+                    .header("x-forwarded-for", "10.0.0.50")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"audio": ""}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // May return 400 (bad request) or other errors, but not 429 yet
+        assert_ne!(
+            response.status(),
+            StatusCode::TOO_MANY_REQUESTS,
+            "Request {} should not be rate limited yet",
+            i + 1
+        );
+    }
+
+    // Third transcribe request should be rate limited
+    let app = server.router();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/transcribe")
+                .header("x-forwarded-for", "10.0.0.50")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"audio": ""}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::TOO_MANY_REQUESTS,
+        "Third transcribe request should be rate limited"
+    );
+
+    // But general endpoints should still work (different bucket)
+    let app = server.router();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/models")
+                .header("x-forwarded-for", "10.0.0.50")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "General endpoints should still work (different rate limit bucket)"
+    );
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+/// Test: Rate limiting disabled via config.
+#[tokio::test]
+async fn test_rate_limit_disabled() {
+    use lexicon_server::{Server, ServerConfig};
+    use lexicon_core::LexiconConfig;
+
+    let temp_dir = std::env::temp_dir().join("lexicon-rate-limit-disabled-test");
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    let core_config = LexiconConfig::builder()
+        .data_dir(temp_dir.clone())
+        .model_dir(temp_dir.join("models"))
+        .build()
+        .expect("Failed to create config");
+
+    // Disabled rate limiting
+    let server_config = ServerConfig::new("127.0.0.1", 0)
+        .with_core_config(core_config)
+        .without_rate_limit();
+
+    let server = Server::new(server_config).expect("Failed to create server");
+    server.state().init_database().await.expect("Failed to init database");
+
+    // Many requests should all succeed
+    for i in 0..50 {
+        let app = server.router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .header("x-forwarded-for", "10.0.0.1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "Request {} should succeed (rate limiting disabled)",
+            i + 1
+        );
+    }
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
