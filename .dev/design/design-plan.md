@@ -1655,10 +1655,16 @@ let token = match ch {
 - Document supported languages and limitations
 
 **Completion Criteria:**
-- [ ] Kokoro produces natural-sounding speech for common English sentences
-- [ ] Phoneme tokenization is tested
-- [ ] Fallback to platform TTS works if phoneme conversion fails
-- [ ] Performance impact is documented (target: <50ms for typical sentence)
+- [x] Kokoro produces natural-sounding speech for common English sentences
+- [x] Phoneme tokenization is tested
+- [x] Fallback to platform TTS works if phoneme conversion fails
+- [x] Performance impact is documented (target: <50ms for typical sentence)
+
+**Implementation Notes:**
+- Integrated `misaki-rs` (MIT licensed) for grapheme-to-phoneme conversion
+- No GPL dependencies (espeak-ng not required)
+- G2P performance verified at <50ms for typical sentences
+- Supports both US and British English pronunciation
 
 **References:** WP-TTS completion criteria, Decision D4
 

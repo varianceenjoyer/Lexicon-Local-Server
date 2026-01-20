@@ -10,7 +10,7 @@ rust-version.workspace = true
 [features]
 default = ["stt", "tts", "storage", "audio"]
 stt = ["dep:whisper-rs"]
-tts = ["dep:ort", "dep:ndarray", "dep:tts"]
+tts = ["dep:ort", "dep:ndarray", "dep:tts", "dep:misaki-rs"]
 storage = ["dep:rusqlite"]
 audio = ["dep:cpal", "dep:rubato", "dep:webrtc-vad", "dep:ringbuf"]
 server = []
@@ -64,6 +64,7 @@ whisper-rs = { workspace = true, optional = true }
 ort = { workspace = true, optional = true }
 ndarray = { workspace = true, optional = true }
 tts = { workspace = true, optional = true }
+misaki-rs = { version = "0.1", optional = true }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true

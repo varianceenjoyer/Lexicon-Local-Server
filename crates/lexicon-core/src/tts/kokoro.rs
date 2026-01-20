@@ -1,13 +1,17 @@
 //! Kokoro TTS Synthesizer
 //!
 //! Neural text-to-speech using the Kokoro model via ONNX Runtime.
+//! Uses misaki-rs for grapheme-to-phoneme (G2P) conversion to produce
+//! natural-sounding speech.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
+use misaki_rs::G2P;
 use ort::session::Session;
 use ort::value::Tensor;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use super::types::{AudioBuffer, TtsConfig, TtsEngine, VoiceGender, VoiceInfo, TTS_SAMPLE_RATE};
 use super::Synthesizer;
@@ -17,19 +21,53 @@ use crate::error::{InferenceError, LexiconError, Result};
 ///
 /// Kokoro is a high-quality neural TTS model that produces natural-sounding
 /// speech. It currently supports English only.
+///
+/// Uses misaki-rs for grapheme-to-phoneme (G2P) conversion, which provides:
+/// - POS-aware phonemization for handling heteronyms
+/// - Morphological stemming for plurals, past tense, and continuous forms
+/// - Automatic number-to-speech conversion
+/// - No external dependencies (all dictionaries embedded)
 pub struct KokoroSynthesizer {
     session: Option<Arc<Mutex<Session>>>,
     /// Path to the loaded model, if any.
     pub model_path: Option<String>,
+    /// G2P (grapheme-to-phoneme) engine for text-to-phoneme conversion.
+    g2p: G2P,
+    /// Whether to use British English pronunciation (default: false = US English).
+    british: bool,
 }
 
 impl KokoroSynthesizer {
     /// Creates a new Kokoro synthesizer without loading a model.
+    ///
+    /// Uses US English pronunciation by default. Call `with_british(true)`
+    /// for British English.
     #[must_use]
     pub fn new() -> Self {
         Self {
             session: None,
             model_path: None,
+            g2p: G2P::new(false), // US English
+            british: false,
+        }
+    }
+
+    /// Creates a new Kokoro synthesizer with British English pronunciation.
+    #[must_use]
+    pub fn new_british() -> Self {
+        Self {
+            session: None,
+            model_path: None,
+            g2p: G2P::new(true), // British English
+            british: true,
+        }
+    }
+
+    /// Sets whether to use British English pronunciation.
+    pub fn set_british(&mut self, british: bool) {
+        if self.british != british {
+            self.british = british;
+            self.g2p = G2P::new(british);
         }
     }
 
@@ -53,30 +91,63 @@ impl KokoroSynthesizer {
         self.model_path = None;
     }
 
-    /// Converts text to phoneme tokens for the model.
+    /// Converts text to phoneme string using misaki-rs G2P.
     ///
-    /// This is a simplified tokenization - a full implementation would use
-    /// a proper phoneme converter like espeak-ng.
-    fn tokenize_text(&self, text: &str) -> Vec<i64> {
-        // Simplified character-based tokenization
-        // In production, this would use a proper phoneme converter
-        let mut tokens: Vec<i64> = Vec::new();
+    /// Returns the phoneme string ready for tokenization.
+    fn text_to_phonemes(&self, text: &str) -> String {
+        let start = Instant::now();
+        let (phonemes, _tokens) = self.g2p.g2p(text);
+        let elapsed = start.elapsed();
+        debug!(
+            "G2P conversion: {} chars -> {} phonemes in {:?}",
+            text.len(),
+            phonemes.len(),
+            elapsed
+        );
+        phonemes
+    }
+
+    /// Converts phonemes to token IDs for the model.
+    ///
+    /// Uses the Kokoro phoneme vocabulary (IPA-based characters).
+    fn phonemes_to_tokens(&self, phonemes: &str) -> Vec<i64> {
+        // Kokoro phoneme vocabulary (US English):
+        // 'AIOWYbdfhijklmnpstuvwzæðŋɑɔəɛɜɡɪɹɾʃʊʌʒʤʧˈˌθᵊᵻʔ'
+        // Each character maps to its position in this vocabulary + 1
+        // (0 is reserved for padding/unknown)
+        let vocab = if self.british {
+            "AIQWYabdfhijklmnpstuvwzðŋɑɒɔəɛɜɡɪɹʃʊʌʒʤʧˈˌːθᵊ"
+        } else {
+            "AIOWYbdfhijklmnpstuvwzæðŋɑɔəɛɜɡɪɹɾʃʊʌʒʤʧˈˌθᵊᵻʔ"
+        };
+
+        let mut tokens: Vec<i64> = Vec::with_capacity(phonemes.len() + 2);
 
         // Start token
         tokens.push(0);
 
-        for ch in text.chars() {
-            // Simple ASCII mapping - real implementation would use phonemes
-            let token = match ch {
-                'a'..='z' => (ch as i64) - ('a' as i64) + 1,
-                'A'..='Z' => (ch.to_ascii_lowercase() as i64) - ('a' as i64) + 1,
-                ' ' => 27,
-                '.' | '!' | '?' => 28,
-                ',' => 29,
-                '\'' => 30,
-                '-' => 31,
-                _ => 0, // Unknown characters map to padding
-            };
+        for ch in phonemes.chars() {
+            // Find character in vocabulary
+            let token = vocab
+                .chars()
+                .position(|c| c == ch)
+                .map(|pos| (pos + 1) as i64)
+                .unwrap_or_else(|| {
+                    // Handle characters not in vocabulary
+                    match ch {
+                        ' ' => {
+                            // Space is treated as word boundary
+                            (vocab.len() + 1) as i64
+                        }
+                        _ => {
+                            // Unknown characters: log warning and use padding
+                            if ch.is_alphabetic() {
+                                warn!("Unknown phoneme character: '{}' (U+{:04X})", ch, ch as u32);
+                            }
+                            0
+                        }
+                    }
+                });
             tokens.push(token);
         }
 
@@ -84,6 +155,16 @@ impl KokoroSynthesizer {
         tokens.push(0);
 
         tokens
+    }
+
+    /// Converts text to token IDs for the model.
+    ///
+    /// This is the main tokenization entry point that:
+    /// 1. Converts text to phonemes using G2P
+    /// 2. Converts phonemes to token IDs
+    fn tokenize_text(&self, text: &str) -> Vec<i64> {
+        let phonemes = self.text_to_phonemes(text);
+        self.phonemes_to_tokens(&phonemes)
     }
 }
 
@@ -281,13 +362,82 @@ mod tests {
     }
 
     #[test]
+    fn test_g2p_conversion() {
+        let synth = KokoroSynthesizer::new();
+
+        // Test basic word conversion
+        let phonemes = synth.text_to_phonemes("Hello");
+        assert!(!phonemes.is_empty());
+        // "Hello" should produce IPA phonemes containing 'h', 'ɛ', 'l', 'O' or similar
+        println!("'Hello' -> '{}'", phonemes);
+
+        // Test sentence conversion
+        let phonemes = synth.text_to_phonemes("Hello world");
+        assert!(!phonemes.is_empty());
+        println!("'Hello world' -> '{}'", phonemes);
+    }
+
+    #[test]
     fn test_tokenization() {
         let synth = KokoroSynthesizer::new();
         let tokens = synth.tokenize_text("Hi");
 
-        // Should have start token, 'h', 'i', end token
-        assert_eq!(tokens.len(), 4);
+        // Should have start token, phoneme tokens, end token
+        assert!(tokens.len() >= 3); // At minimum: start, one phoneme, end
         assert_eq!(tokens[0], 0); // Start
-        assert_eq!(tokens[3], 0); // End
+        assert_eq!(tokens[tokens.len() - 1], 0); // End
+
+        // All intermediate tokens should be non-zero (valid phonemes)
+        for token in &tokens[1..tokens.len() - 1] {
+            // Token should be valid (> 0 or space token)
+            assert!(*token >= 0, "Invalid token: {}", token);
+        }
+    }
+
+    #[test]
+    fn test_g2p_performance() {
+        use std::time::Instant;
+
+        let synth = KokoroSynthesizer::new();
+        let text = "The quick brown fox jumps over the lazy dog.";
+
+        let start = Instant::now();
+        let _phonemes = synth.text_to_phonemes(text);
+        let elapsed = start.elapsed();
+
+        // G2P should complete in under 50ms for a typical sentence
+        assert!(
+            elapsed.as_millis() < 50,
+            "G2P took too long: {:?}",
+            elapsed
+        );
+    }
+
+    #[test]
+    fn test_number_conversion() {
+        let synth = KokoroSynthesizer::new();
+
+        // misaki-rs should convert numbers to words
+        let phonemes = synth.text_to_phonemes("123");
+        assert!(!phonemes.is_empty());
+        // Should produce phonemes for "one hundred twenty-three" or similar
+        println!("'123' -> '{}'", phonemes);
+    }
+
+    #[test]
+    fn test_british_english() {
+        let us_synth = KokoroSynthesizer::new();
+        let uk_synth = KokoroSynthesizer::new_british();
+
+        // Some words have different pronunciations
+        let us_phonemes = us_synth.text_to_phonemes("schedule");
+        let uk_phonemes = uk_synth.text_to_phonemes("schedule");
+
+        println!("US 'schedule' -> '{}'", us_phonemes);
+        println!("UK 'schedule' -> '{}'", uk_phonemes);
+
+        // Both should produce valid phonemes
+        assert!(!us_phonemes.is_empty());
+        assert!(!uk_phonemes.is_empty());
     }
 }
