@@ -11,12 +11,17 @@
 | Priority | Work Plan | Phase | Effort | Status |
 |----------|-----------|-------|--------|--------|
 | 1 | MVP Validation | MVP | Low | 🟡 In Progress |
-| 2 | Benchmark Validation | Beta | Low | 🟡 In Progress |
+| 2 | Benchmark Validation | Beta | Low | ✅ Complete |
 | 3 | TTS Phoneme Tokenization | Beta | High | ⬜ Not Started |
 | 4 | Server Rate Limiting | Beta | Medium | ✅ Complete |
 | 5 | FFI Download Cancellation | Beta | Medium | ⬜ Not Started |
 | 6 | Bluetooth HFP 1.6 | Beta | High | ⬜ Not Started |
-| 7 | Security Audit Prep | Release | Medium | ⬜ Not Started |
+| 7 | Security Audit Prep | Release | Medium | ✅ Complete |
+| 8 | CLI E2E Tests | MVP | Medium | ✅ Complete |
+| 9 | FFI Boundary Safety Tests | Beta | Medium | ✅ Complete |
+| 10 | Server Graceful Shutdown Tests | Beta | Low | ✅ Complete |
+| 11 | TTS Fallback Integration Tests | Beta | Medium | ✅ Complete |
+| 12 | Long-Running STT Stability Tests | Beta | Medium | ⬜ Not Started |
 
 ---
 
