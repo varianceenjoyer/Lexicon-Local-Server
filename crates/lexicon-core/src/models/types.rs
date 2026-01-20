@@ -187,6 +187,8 @@ pub enum DownloadState {
     Ready,
     /// Download or verification failed
     Failed,
+    /// Download was cancelled by user
+    Cancelled,
 }
 
 impl std::fmt::Display for DownloadState {
@@ -197,6 +199,7 @@ impl std::fmt::Display for DownloadState {
             DownloadState::PendingVerification => write!(f, "pending_verification"),
             DownloadState::Ready => write!(f, "ready"),
             DownloadState::Failed => write!(f, "failed"),
+            DownloadState::Cancelled => write!(f, "cancelled"),
         }
     }
 }
