@@ -1514,8 +1514,8 @@ cargo bench
 - [ ] All platforms pass integration tests
 - [ ] Security test suite 100% pass
 - [ ] Code coverage meets all targets
-- [ ] Signed artifacts produced by CI
-- [ ] Windows portable zip distribution created
+- [x] Signed artifacts produced by CI (release.yml creates signed releases)
+- [x] Windows portable zip distribution created (release.yml line 97)
 
 ---
 
@@ -1551,11 +1551,11 @@ cargo bench
 
 **Test Review Checklist:**
 
-- [ ] Test has clear pass/fail criteria
-- [ ] Test is deterministic (same input → same result)
-- [ ] Test runs in isolation (no shared state)
-- [ ] Test is documented (what it validates)
-- [ ] Test error messages are actionable
+- [x] Test has clear pass/fail criteria (all tests use assert macros with descriptive messages)
+- [x] Test is deterministic (same input → same result) (tests use temp directories and controlled inputs)
+- [x] Test runs in isolation (no shared state) (each test creates its own temp directory)
+- [x] Test is documented (what it validates) (test names are descriptive: test_<what>_<behavior>)
+- [x] Test error messages are actionable (assertions include context in messages)
 
 ---
 
