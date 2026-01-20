@@ -1966,10 +1966,10 @@ This means TTS fallback (Decision D4) is non-functional - users get silence inst
 - Add integration tests that verify non-zero audio output
 
 **Completion Criteria:**
-- [ ] Platform TTS returns actual audio data (not silence)
-- [ ] Audio quality is acceptable for speech playback
-- [ ] All desktop platforms (macOS, Windows, Linux) produce audio
-- [ ] Fallback chain works: Kokoro → Platform TTS with real audio
+- [x] Platform TTS returns actual audio data (not silence)
+- [x] Audio quality is acceptable for speech playback
+- [x] All desktop platforms (macOS, Windows, Linux) produce audio
+- [x] Fallback chain works: Kokoro → Platform TTS with real audio
 
 **References:** WP-TTS scope, Decision D4 (Multi-language TTS fallback), lines 301-306
 
