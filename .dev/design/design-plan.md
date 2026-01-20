@@ -1861,11 +1861,11 @@ WebSocket STT and TTS streaming endpoints are implemented (`routes.rs:686-920`) 
 - Use `tokio-tungstenite` for WebSocket client in tests
 
 **Completion Criteria:**
-- [ ] WebSocket client connects to STT endpoint
-- [ ] WebSocket client receives streaming segments
-- [ ] WebSocket TTS produces audio output
-- [ ] Concurrent connection handling tested
-- [ ] Error cases covered
+- [x] WebSocket client connects to STT endpoint
+- [x] WebSocket client receives streaming segments
+- [x] WebSocket TTS produces audio output
+- [x] Concurrent connection handling tested
+- [x] Error cases covered
 
 **References:** WP-SERVER test requirements, Beta Exit Criteria line 733
 
