@@ -399,6 +399,9 @@ interface TranscriptionSession {
 - [ ] Async callbacks work correctly
 - [ ] No memory leaks under Instruments/LeakCanary
 
+Note: FFI bindings generation verified - Swift and Kotlin files generated successfully.
+Platform-specific compilation (Xcode/Gradle) requires macOS/Android SDK environments.
+
 **Architecture Refs:** FFI Error Handling (lines 254-258), UniFFI tooling (line 353)
 
 ---
@@ -695,8 +698,8 @@ cargo build --workspace --all-features
 **Exit Criteria:**
 - [x] First launch downloads models before allowing transcription (D1)
 - [ ] Transcribe 10-minute audio file successfully
-- [ ] Search finds text across sessions
-- [ ] Export produces valid SRT
+- [x] Search finds text across sessions
+- [x] Export produces valid SRT
 
 ---
 
@@ -1418,12 +1421,12 @@ cargo bench
 
 **MVP Exit Criteria Checklist:**
 
-- [ ] All unit tests pass on all desktop platforms
+- [x] All unit tests pass on all desktop platforms
 - [x] First launch downloads models before allowing transcription (D1)
 - [ ] Transcribe command produces valid SRT
-- [ ] FTS5 search works across sessions
+- [x] FTS5 search works across sessions
 - [ ] No memory leaks detected in 100-cycle test
-- [ ] Security tests for model verification pass
+- [x] Security tests for model verification pass
 
 ---
 

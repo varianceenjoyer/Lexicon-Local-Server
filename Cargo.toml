@@ -96,3 +96,22 @@ unsafe_code = "deny"
 [workspace.lints.clippy]
 all = "warn"
 pedantic = "warn"
+
+# Workspace-level package for E2E tests
+[package]
+name = "lexicon-workspace"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+lexicon-core = { path = "crates/lexicon-core" }
+lexicon-server = { path = "crates/lexicon-server" }
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["full", "test-util"] }
+
+[[test]]
+name = "e2e_tests"
+path = "tests/e2e_tests.rs"

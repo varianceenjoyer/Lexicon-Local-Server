@@ -196,9 +196,9 @@ mod model_tests {
 
         let registry = ModelRegistry::new(&temp_dir).unwrap();
 
-        // Should have empty model list initially
-        let available = registry.list_available();
-        // May be empty or have defaults depending on implementation
+        // Should have empty model list initially (no manifest loaded)
+        let available = registry.list_models();
+        assert!(available.is_empty(), "Should have no models without manifest");
 
         cleanup_test_dir(&temp_dir);
     }
@@ -220,9 +220,9 @@ mod model_tests {
         use lexicon_core::DeviceProfile;
 
         let profile = DeviceProfile::detect();
-        let tier = profile.suggested_tier();
+        let tier = profile.recommended_tier();
 
-        // Should suggest a valid tier
+        // Should recommend a valid tier
         assert!(matches!(
             tier,
             ModelTier::MobileLow | ModelTier::MobileMid | ModelTier::Desktop | ModelTier::Server
