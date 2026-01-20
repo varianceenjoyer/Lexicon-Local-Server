@@ -39,8 +39,11 @@
 //! val result = transcriber.transcribe(audioData, config)
 //! ```
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
+
+use tokio_util::sync::CancellationToken;
 
 // Include the generated UniFFI scaffolding
 uniffi::include_scaffolding!("lexicon");
@@ -212,6 +215,7 @@ pub trait DownloadCallback: Send + Sync {
     fn on_progress(&self, progress: DownloadProgress);
     fn on_complete(&self, model_id: String);
     fn on_error(&self, model_id: String, error: String);
+    fn on_cancelled(&self, model_id: String);
 }
 
 /// Callback for streaming transcription.
@@ -628,6 +632,8 @@ impl Synthesizer {
 pub struct ModelDownloader {
     model_dir: PathBuf,
     runtime: tokio::runtime::Runtime,
+    /// Cancellation tokens for active downloads, keyed by model_id.
+    cancel_tokens: Arc<Mutex<HashMap<String, CancellationToken>>>,
 }
 
 impl ModelDownloader {
@@ -646,6 +652,7 @@ impl ModelDownloader {
         Ok(Self {
             model_dir: path,
             runtime,
+            cancel_tokens: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -657,12 +664,29 @@ impl ModelDownloader {
     ) -> Result<(), LexiconFfiError> {
         let model_dir = self.model_dir.clone();
         let callback: Arc<dyn DownloadCallback> = Arc::from(callback);
+        let cancel_tokens = Arc::clone(&self.cancel_tokens);
+
+        // Create a cancellation token for this download
+        let cancel_token = CancellationToken::new();
+        {
+            let mut tokens = cancel_tokens.lock().map_err(|_| {
+                LexiconFfiError::InitializationFailed("Failed to acquire lock".to_string())
+            })?;
+            tokens.insert(model_id.clone(), cancel_token.clone());
+        }
+
+        let model_id_for_cleanup = model_id.clone();
+        let cancel_tokens_for_cleanup = Arc::clone(&cancel_tokens);
 
         self.runtime.spawn(async move {
             let mut registry = match lexicon_core::ModelRegistry::new(&model_dir) {
                 Ok(r) => r,
                 Err(e) => {
                     callback.on_error(model_id.clone(), e.to_string());
+                    // Clean up token
+                    if let Ok(mut tokens) = cancel_tokens_for_cleanup.lock() {
+                        tokens.remove(&model_id_for_cleanup);
+                    }
                     return;
                 }
             };
@@ -670,35 +694,90 @@ impl ModelDownloader {
             // Fetch manifest
             if let Err(e) = registry.fetch_manifest().await {
                 callback.on_error(model_id.clone(), format!("Failed to fetch manifest: {e}"));
+                // Clean up token
+                if let Ok(mut tokens) = cancel_tokens_for_cleanup.lock() {
+                    tokens.remove(&model_id_for_cleanup);
+                }
                 return;
             }
 
-            // Download with progress
+            // Check if cancelled before starting download
+            if cancel_token.is_cancelled() {
+                callback.on_cancelled(model_id.clone());
+                if let Ok(mut tokens) = cancel_tokens_for_cleanup.lock() {
+                    tokens.remove(&model_id_for_cleanup);
+                }
+                return;
+            }
+
+            // Download with progress and cancellation support
             let cb = Arc::clone(&callback);
             let mid = model_id.clone();
+            let cancel_token_for_progress = cancel_token.clone();
 
-            let result = registry.download_model(&model_id, move |progress| {
-                cb.on_progress(DownloadProgress {
-                    model_id: mid.clone(),
-                    downloaded_bytes: progress.downloaded_bytes,
-                    total_bytes: progress.total_bytes,
-                    speed_bps: progress.speed_bps.unwrap_or(0),
-                    eta_seconds: progress.eta_seconds,
-                });
-            }).await;
+            let result = registry.download_model_cancellable(
+                &model_id,
+                move |progress| {
+                    cb.on_progress(DownloadProgress {
+                        model_id: mid.clone(),
+                        downloaded_bytes: progress.downloaded_bytes,
+                        total_bytes: progress.total_bytes,
+                        speed_bps: progress.speed_bps.unwrap_or(0),
+                        eta_seconds: progress.eta_seconds,
+                    });
+                    // Return false to cancel, true to continue
+                    !cancel_token_for_progress.is_cancelled()
+                },
+            ).await;
+
+            // Clean up token
+            if let Ok(mut tokens) = cancel_tokens_for_cleanup.lock() {
+                tokens.remove(&model_id_for_cleanup);
+            }
 
             match result {
                 Ok(_path) => callback.on_complete(model_id),
-                Err(e) => callback.on_error(model_id, e.to_string()),
+                Err(e) => {
+                    let error_str = e.to_string();
+                    if error_str.contains("cancelled") || cancel_token.is_cancelled() {
+                        callback.on_cancelled(model_id);
+                    } else {
+                        callback.on_error(model_id, error_str);
+                    }
+                }
             }
         });
 
         Ok(())
     }
 
-    /// Cancel a download (placeholder - actual cancellation not yet implemented).
-    pub fn cancel_download(&self, _model_id: String) {
-        // TODO: Implement download cancellation
-        tracing::warn!("Download cancellation not yet implemented");
+    /// Cancel an active download.
+    ///
+    /// If a download with the given model_id is in progress, it will be cancelled
+    /// and the callback's `on_cancelled` method will be called.
+    ///
+    /// Returns `true` if a download was cancelled, `false` if no active download was found.
+    pub fn cancel_download(&self, model_id: String) -> bool {
+        if let Ok(tokens) = self.cancel_tokens.lock() {
+            if let Some(token) = tokens.get(&model_id) {
+                tracing::info!("Cancelling download for model: {}", model_id);
+                token.cancel();
+                true
+            } else {
+                tracing::warn!("No active download found for model: {}", model_id);
+                false
+            }
+        } else {
+            tracing::error!("Failed to acquire lock for cancel_download");
+            false
+        }
+    }
+
+    /// Check if a download is active.
+    pub fn is_downloading(&self, model_id: &str) -> bool {
+        self.cancel_tokens
+            .lock()
+            .map(|tokens| tokens.contains_key(model_id))
+            .unwrap_or(false)
     }
 }

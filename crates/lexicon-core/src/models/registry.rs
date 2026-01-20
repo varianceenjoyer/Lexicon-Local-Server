@@ -287,6 +287,88 @@ impl ModelRegistry {
         }
     }
 
+    /// Downloads a model with progress reporting and cancellation support.
+    ///
+    /// The progress callback returns a boolean: `true` to continue, `false` to cancel.
+    /// On cancellation, the download state is set to `Cancelled` and partial files are cleaned up.
+    #[instrument(skip(self, progress_callback))]
+    pub async fn download_model_cancellable<F>(
+        &self,
+        model_id: &str,
+        progress_callback: F,
+    ) -> Result<PathBuf>
+    where
+        F: Fn(DownloadProgress) -> bool + Send + Sync + 'static,
+    {
+        let manifest = self.manifest.as_ref().ok_or_else(|| ModelError::ManifestError {
+            message: "No manifest loaded. Call fetch_manifest() first.".to_string(),
+        })?;
+
+        let entry = manifest.get_model(model_id).ok_or_else(|| ModelError::NotFound {
+            path: PathBuf::from(model_id),
+        })?;
+
+        let dest_path = self.model_path(entry);
+        let model_id_owned = ModelId::new(model_id);
+
+        // Check if already downloaded and verified
+        if dest_path.exists() {
+            if self.verify_model_hash(&dest_path, &entry.hash_sha256).is_ok() {
+                debug!("Model {} already downloaded and verified", model_id);
+                return Ok(dest_path);
+            }
+            warn!("Model {} failed verification, re-downloading", model_id);
+            std::fs::remove_file(&dest_path).ok();
+        }
+
+        // Update download state
+        {
+            let mut states = self.download_states.write().await;
+            states.insert(model_id_owned.clone(), DownloadState::Downloading);
+        }
+
+        let download_url = entry.download_url(&manifest.base_url);
+        info!("Downloading model {} from {}", model_id, download_url);
+
+        // Download with streaming hash verification and cancellation
+        match self
+            .download_with_verification_cancellable(
+                &download_url,
+                &dest_path,
+                entry.size_bytes,
+                &entry.hash_sha256,
+                model_id_owned.clone(),
+                progress_callback,
+            )
+            .await
+        {
+            Ok(completed) => {
+                if completed {
+                    let mut states = self.download_states.write().await;
+                    states.insert(model_id_owned, DownloadState::Ready);
+                    info!("Model {} downloaded and verified", model_id);
+                    Ok(dest_path)
+                } else {
+                    // Download was cancelled
+                    let mut states = self.download_states.write().await;
+                    states.insert(model_id_owned, DownloadState::Cancelled);
+                    info!("Model {} download cancelled", model_id);
+                    Err(ModelError::DownloadFailed {
+                        model_id: model_id.to_string(),
+                        message: "Download cancelled by user".to_string(),
+                    }
+                    .into())
+                }
+            }
+            Err(e) => {
+                let mut states = self.download_states.write().await;
+                states.insert(model_id_owned, DownloadState::Failed);
+                error!("Failed to download model {}: {}", model_id, e);
+                Err(e)
+            }
+        }
+    }
+
     /// Verifies a downloaded model's integrity.
     #[must_use]
     pub fn verify_model(&self, model_id: &str) -> bool {
@@ -948,6 +1030,104 @@ impl ModelRegistry {
         Ok(())
     }
 
+    /// Downloads a file with streaming hash verification and cancellation support.
+    ///
+    /// Returns `Ok(true)` if download completed, `Ok(false)` if cancelled.
+    async fn download_with_verification_cancellable<F>(
+        &self,
+        url: &str,
+        dest_path: &Path,
+        expected_size: u64,
+        expected_hash: &str,
+        model_id: ModelId,
+        progress_callback: F,
+    ) -> Result<bool>
+    where
+        F: Fn(DownloadProgress) -> bool + Send + Sync + 'static,
+    {
+        // Create parent directory if needed
+        if let Some(parent) = dest_path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                LexiconError::Config(format!("Failed to create model directory: {}", e))
+            })?;
+        }
+
+        // Start download
+        let response = reqwest::get(url).await.map_err(|e| ModelError::DownloadFailed {
+            model_id: model_id.to_string(),
+            message: format!("HTTP request failed: {}", e),
+        })?;
+
+        if !response.status().is_success() {
+            return Err(ModelError::DownloadFailed {
+                model_id: model_id.to_string(),
+                message: format!("HTTP {}: {}", response.status(), url),
+            }
+            .into());
+        }
+
+        let total_size = response.content_length().unwrap_or(expected_size);
+
+        // Create temp file for download
+        let temp_path = dest_path.with_extension("tmp");
+        let mut file = std::fs::File::create(&temp_path).map_err(|e| ModelError::DownloadFailed {
+            model_id: model_id.to_string(),
+            message: format!("Failed to create temp file: {}", e),
+        })?;
+
+        let mut hasher = Sha256::new();
+        let mut downloaded: u64 = 0;
+        let mut stream = response.bytes_stream();
+
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result.map_err(|e| ModelError::DownloadFailed {
+                model_id: model_id.to_string(),
+                message: format!("Download stream error: {}", e),
+            })?;
+
+            // Write to file
+            file.write_all(&chunk).map_err(|e| ModelError::DownloadFailed {
+                model_id: model_id.to_string(),
+                message: format!("Failed to write to file: {}", e),
+            })?;
+
+            // Update hash
+            hasher.update(&chunk);
+
+            // Update progress and check for cancellation
+            downloaded += chunk.len() as u64;
+            let progress = DownloadProgress::new(model_id.clone(), downloaded, total_size);
+            let should_continue = progress_callback(progress);
+
+            if !should_continue {
+                // Cancellation requested - clean up temp file
+                drop(file); // Close file handle before removing
+                std::fs::remove_file(&temp_path).ok();
+                info!("Download cancelled for model {}", model_id);
+                return Ok(false);
+            }
+        }
+
+        // Verify hash
+        let computed_hash = format!("{:x}", hasher.finalize());
+        if computed_hash != expected_hash {
+            std::fs::remove_file(&temp_path).ok();
+            return Err(ModelError::VerificationFailed {
+                expected: expected_hash.to_string(),
+                actual: computed_hash,
+            }
+            .into());
+        }
+
+        // Move temp file to final location
+        std::fs::rename(&temp_path, dest_path).map_err(|e| ModelError::DownloadFailed {
+            model_id: model_id.to_string(),
+            message: format!("Failed to finalize download: {}", e),
+        })?;
+
+        Ok(true)
+    }
+
     /// Returns the local path for a model entry.
     fn model_path(&self, entry: &ModelEntry) -> PathBuf {
         let filename = entry.download_path.rsplit('/').next().unwrap_or(&entry.id);
@@ -1384,6 +1564,46 @@ mod tests {
 
         let state = registry.download_state("whisper-tiny-q5_1").await;
         assert_eq!(state, DownloadState::NotDownloaded);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_download_state_cancelled_display() {
+        assert_eq!(format!("{}", DownloadState::Cancelled), "cancelled");
+        assert_eq!(format!("{}", DownloadState::NotDownloaded), "not_downloaded");
+        assert_eq!(format!("{}", DownloadState::Downloading), "downloading");
+        assert_eq!(format!("{}", DownloadState::Ready), "ready");
+        assert_eq!(format!("{}", DownloadState::Failed), "failed");
+    }
+
+    #[tokio::test]
+    async fn test_download_model_cancellable_no_manifest() {
+        let temp_dir = std::env::temp_dir().join("lexicon-cancel-no-manifest-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        // Should fail without manifest
+        let result = registry
+            .download_model_cancellable("whisper-tiny", |_| true)
+            .await;
+        assert!(result.is_err());
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_download_model_cancellable_model_not_found() {
+        let temp_dir = std::env::temp_dir().join("lexicon-cancel-not-found-test");
+        let mut registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        // Load manifest
+        registry.load_unsigned_manifest(sample_manifest_json()).unwrap();
+
+        // Should fail with non-existent model
+        let result = registry
+            .download_model_cancellable("non-existent-model", |_| true)
+            .await;
+        assert!(result.is_err());
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }

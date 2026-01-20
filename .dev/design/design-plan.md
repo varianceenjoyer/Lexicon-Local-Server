@@ -1688,10 +1688,10 @@ This affects mobile users who need to abort large model downloads (up to 3GB).
 - Handle cancellation gracefully in progress callbacks
 
 **Completion Criteria:**
-- [ ] `cancel_download()` aborts an active download
-- [ ] Partial files are cleaned up on cancellation
-- [ ] Cancellation callback fires with appropriate error type
-- [ ] Re-downloading after cancellation works correctly
+- [x] `cancel_download()` aborts an active download
+- [x] Partial files are cleaned up on cancellation
+- [x] Cancellation callback fires with appropriate error type
+- [x] Re-downloading after cancellation works correctly
 
 **References:** WP-FFI scope, Mobile platform requirements
 

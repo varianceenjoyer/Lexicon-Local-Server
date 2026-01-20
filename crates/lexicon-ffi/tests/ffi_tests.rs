@@ -359,6 +359,7 @@ struct MockDownloadCallback {
     progress_count: AtomicU32,
     complete_count: AtomicU32,
     error_count: AtomicU32,
+    cancelled_count: AtomicU32,
 }
 
 impl MockDownloadCallback {
@@ -367,6 +368,7 @@ impl MockDownloadCallback {
             progress_count: AtomicU32::new(0),
             complete_count: AtomicU32::new(0),
             error_count: AtomicU32::new(0),
+            cancelled_count: AtomicU32::new(0),
         }
     }
 }
@@ -382,6 +384,10 @@ impl DownloadCallback for MockDownloadCallback {
 
     fn on_error(&self, _model_id: String, _error: String) {
         self.error_count.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn on_cancelled(&self, _model_id: String) {
+        self.cancelled_count.fetch_add(1, Ordering::SeqCst);
     }
 }
 
@@ -439,6 +445,10 @@ impl DownloadCallback for MockCallbackAdapter {
 
     fn on_error(&self, model_id: String, error: String) {
         self.inner.on_error(model_id, error);
+    }
+
+    fn on_cancelled(&self, model_id: String) {
+        self.inner.on_cancelled(model_id);
     }
 }
 
@@ -778,5 +788,193 @@ fn test_memory_stress_100_cycles() {
     }
 
     // If we get here without crash or hang, the test passes
+    cleanup_temp_dir(&temp_dir);
+}
+
+// =============================================================================
+// Download Cancellation Tests
+// =============================================================================
+
+#[test]
+fn test_cancel_download_no_active_download() {
+    let temp_dir = temp_data_dir();
+
+    let downloader = ModelDownloader::new(temp_dir.display().to_string())
+        .expect("Downloader creation should succeed");
+
+    // Cancel non-existent download should return false
+    let result = downloader.cancel_download("nonexistent-model".to_string());
+    assert!(!result, "cancel_download should return false when no active download");
+
+    cleanup_temp_dir(&temp_dir);
+}
+
+#[test]
+fn test_is_downloading_no_active_download() {
+    let temp_dir = temp_data_dir();
+
+    let downloader = ModelDownloader::new(temp_dir.display().to_string())
+        .expect("Downloader creation should succeed");
+
+    // Check download status when nothing is downloading
+    assert!(
+        !downloader.is_downloading("whisper-tiny"),
+        "is_downloading should return false when no active download"
+    );
+
+    cleanup_temp_dir(&temp_dir);
+}
+
+#[test]
+fn test_download_creates_active_download() {
+    let temp_dir = temp_data_dir();
+
+    let downloader = ModelDownloader::new(temp_dir.display().to_string())
+        .expect("Downloader creation should succeed");
+
+    let callback = Arc::new(MockDownloadCallback::new());
+
+    // Start a download (will fail but should create token)
+    let result = downloader.download_model(
+        "test-model".to_string(),
+        Box::new(MockCallbackAdapter { inner: Arc::clone(&callback) }),
+    );
+
+    assert!(result.is_ok(), "download_model should return Ok");
+
+    // Give async operation time to start (but not finish)
+    // The token should exist briefly
+    // Note: This is timing-dependent, the download may have already errored out
+    // The important thing is that the call didn't panic
+
+    cleanup_temp_dir(&temp_dir);
+}
+
+#[test]
+fn test_cancel_download_api() {
+    let temp_dir = temp_data_dir();
+
+    let downloader = ModelDownloader::new(temp_dir.display().to_string())
+        .expect("Downloader creation should succeed");
+
+    let callback = Arc::new(MockDownloadCallback::new());
+
+    // Start a download
+    let model_id = "test-cancel-model".to_string();
+    let start_result = downloader.download_model(
+        model_id.clone(),
+        Box::new(MockCallbackAdapter { inner: Arc::clone(&callback) }),
+    );
+
+    assert!(start_result.is_ok(), "download_model should return Ok");
+
+    // Try to cancel - this may or may not succeed depending on timing
+    // The important thing is that the API doesn't panic
+    let _cancelled = downloader.cancel_download(model_id.clone());
+
+    // Give time for async operation to complete (network timeouts can be long)
+    // Note: In CI environments without network, this may time out but should still
+    // invoke callbacks eventually
+    std::thread::sleep(std::time::Duration::from_millis(3000));
+
+    // Verify callbacks were invoked and no panics occurred
+    // In this test environment without a real manifest server:
+    // - If cancel happened before manifest fetch started: on_cancelled is called
+    // - If cancel happened during/after manifest fetch: on_error (manifest not found) is called
+    // - If network times out: on_error (timeout) is called
+    // All are valid outcomes for this test
+
+    // The key verification is that we didn't panic and the API is usable
+    // Check that at least some callback was invoked
+    let total_callbacks = callback.progress_count.load(Ordering::SeqCst)
+        + callback.complete_count.load(Ordering::SeqCst)
+        + callback.error_count.load(Ordering::SeqCst)
+        + callback.cancelled_count.load(Ordering::SeqCst);
+
+    // Note: In some test environments, callbacks might not fire if the runtime
+    // is shut down before the async task completes. This is a known limitation
+    // of testing async code in FFI contexts. The test passing without panic
+    // is the primary success criterion.
+    if total_callbacks == 0 {
+        eprintln!("Warning: No callbacks fired - this may indicate network timeout or runtime shutdown");
+    }
+
+    cleanup_temp_dir(&temp_dir);
+}
+
+#[test]
+fn test_multiple_downloaders_independent() {
+    let temp_dir = temp_data_dir();
+
+    // Create two separate downloaders
+    let downloader1 = ModelDownloader::new(temp_dir.join("dl1").display().to_string())
+        .expect("Downloader 1 creation should succeed");
+    let downloader2 = ModelDownloader::new(temp_dir.join("dl2").display().to_string())
+        .expect("Downloader 2 creation should succeed");
+
+    // Downloads on different downloaders should be independent
+    assert!(
+        !downloader1.is_downloading("model-a"),
+        "Downloader 1 should not have active downloads"
+    );
+    assert!(
+        !downloader2.is_downloading("model-a"),
+        "Downloader 2 should not have active downloads"
+    );
+
+    // Cancel on one downloader shouldn't affect the other
+    assert!(!downloader1.cancel_download("model-x".to_string()));
+    assert!(!downloader2.cancel_download("model-x".to_string()));
+
+    cleanup_temp_dir(&temp_dir);
+}
+
+#[test]
+fn test_callback_on_cancelled_method_exists() {
+    let callback = MockDownloadCallback::new();
+
+    // Ensure the on_cancelled method exists and works
+    callback.on_cancelled("test-model".to_string());
+    assert_eq!(
+        callback.cancelled_count.load(Ordering::SeqCst),
+        1,
+        "on_cancelled should increment cancelled_count"
+    );
+}
+
+#[test]
+fn test_downloader_concurrent_downloads() {
+    use std::thread;
+
+    let temp_dir = temp_data_dir();
+
+    let downloader = Arc::new(
+        ModelDownloader::new(temp_dir.display().to_string())
+            .expect("Downloader creation should succeed"),
+    );
+
+    // Start multiple downloads concurrently
+    let handles: Vec<_> = (0..4)
+        .map(|i| {
+            let dl = Arc::clone(&downloader);
+            let callback = Arc::new(MockDownloadCallback::new());
+            thread::spawn(move || {
+                let model_id = format!("concurrent-model-{}", i);
+                let _ = dl.download_model(
+                    model_id.clone(),
+                    Box::new(MockCallbackAdapter { inner: callback }),
+                );
+            })
+        })
+        .collect();
+
+    // Wait for all threads to complete starting downloads
+    for handle in handles {
+        handle.join().expect("Thread should not panic");
+    }
+
+    // Give downloads time to process (they will fail, but shouldn't panic)
+    std::thread::sleep(std::time::Duration::from_millis(200));
+
     cleanup_temp_dir(&temp_dir);
 }

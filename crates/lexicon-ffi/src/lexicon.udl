@@ -181,6 +181,7 @@ callback interface DownloadCallback {
     void on_progress(DownloadProgress progress);
     void on_complete(string model_id);
     void on_error(string model_id, string error);
+    void on_cancelled(string model_id);
 };
 
 // Callback interface for streaming transcription
@@ -196,10 +197,13 @@ interface ModelDownloader {
     [Throws=LexiconFfiError]
     constructor(string model_dir);
 
-    // Download a model asynchronously
+    // Download a model asynchronously with cancellation support
     [Throws=LexiconFfiError]
     void download_model(string model_id, DownloadCallback callback);
 
-    // Cancel a download
-    void cancel_download(string model_id);
+    // Cancel an active download. Returns true if a download was cancelled.
+    boolean cancel_download(string model_id);
+
+    // Check if a download is active
+    boolean is_downloading([ByRef] string model_id);
 };
