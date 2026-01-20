@@ -1776,10 +1776,10 @@ Without CI/CD, there is no automated testing or release process.
   - Publish to storage/CDN
 
 **Completion Criteria:**
-- [ ] CI runs on every PR
-- [ ] All platforms build in CI
-- [ ] Tests pass on all platforms
-- [ ] Release workflow creates signed artifacts
+- [x] CI runs on every PR
+- [x] All platforms build in CI
+- [x] Tests pass on all platforms
+- [x] Release workflow creates signed artifacts
 - [ ] Model manifest signing automated
 
 **References:** WP-BUILD scope, lines 652-665
@@ -1805,10 +1805,10 @@ WP-WIN completion criterion "BUILD.md updated with Windows native section" refer
 - Document GPU acceleration build options (CUDA, Metal, Vulkan)
 
 **Completion Criteria:**
-- [ ] BUILD.md exists with all platform sections
-- [ ] Windows native build instructions complete
-- [ ] GPU acceleration options documented
-- [ ] Troubleshooting section covers common errors
+- [x] BUILD.md exists with all platform sections
+- [x] Windows native build instructions complete
+- [x] GPU acceleration options documented
+- [x] Troubleshooting section covers common errors
 
 **References:** WP-WIN completion criteria, lines 627-634
 
@@ -1833,10 +1833,10 @@ WP-WIN references `scripts/build-windows.ps1` but no `scripts/` directory exists
 - Include verbose/debug modes
 
 **Completion Criteria:**
-- [ ] `scripts/` directory exists
-- [ ] `scripts/build-windows.ps1` builds on Windows
-- [ ] All scripts are executable and documented
-- [ ] Scripts check for required dependencies
+- [x] `scripts/` directory exists
+- [x] `scripts/build-windows.ps1` builds on Windows
+- [x] All scripts are executable and documented
+- [x] Scripts check for required dependencies
 
 **References:** WP-WIN scope, line 629
 
