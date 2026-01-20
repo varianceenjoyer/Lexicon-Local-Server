@@ -2030,6 +2030,156 @@ WP-SERVER scope (line 417) specifies "Authentication (optional, configurable)" b
 
 ---
 
+### WP-ROADBLOCK-16: CLI End-to-End Tests
+
+**Priority:** CRITICAL | **Phase:** MVP Blocker
+
+**Problem:**
+The CLI test file (`crates/lexicon-cli/tests/cli_tests.rs`) contains only structural validation tests that don't actually invoke the CLI binary. 21 tests validate formats and helper functions, but 0 tests invoke the `lexicon` binary. MVP exit criterion "Transcribe command produces valid SRT" cannot be validated.
+
+**Scope:**
+- Add `assert_cmd` and `predicates` to lexicon-cli dev-dependencies
+- Implement actual CLI binary invocation tests:
+  - `test_cli_help` - Verify help output
+  - `test_cli_version` - Verify version output
+  - `test_cli_transcribe_file` - Transcribe test audio to SRT
+  - `test_cli_transcribe_progress` - Verify progress output
+  - `test_cli_transcribe_missing_file` - Error handling
+  - `test_cli_models_list` - List available models
+  - `test_cli_serve_starts` - Server starts on default port
+  - `test_cli_export_srt` - Export session to SRT
+  - `test_cli_exit_codes` - Verify correct exit codes
+- Generate shell completion scripts in tests
+
+**Completion Criteria:**
+- [ ] All CLI commands invoke actual binary
+- [ ] Help and version commands work
+- [ ] Transcribe produces valid SRT output
+- [ ] Exit codes follow Unix conventions (0=success, 1=error, 2=usage)
+
+**References:** WP-CLI test requirements, MVP Exit Criteria line 1426
+
+---
+
+### WP-ROADBLOCK-17: FFI Boundary Safety Tests
+
+**Priority:** HIGH | **Phase:** Beta Blocker
+
+**Problem:**
+No tests exist for the FFI layer (`crates/lexicon-ffi/`). Critical safety requirements are untested:
+- Panic safety (panics must not cross FFI boundary)
+- Thread safety (concurrent FFI calls)
+- Memory leaks (Arc/reference counting)
+- Error mapping (Rust errors → platform exceptions)
+
+Estimated coverage: 0% vs. 75% target.
+
+**Scope:**
+- Create `crates/lexicon-ffi/tests/` directory
+- Implement safety tests:
+  - `test_panic_does_not_cross_ffi` - Verify panic is caught
+  - `test_concurrent_ffi_calls` - Thread safety
+  - `test_error_mapping` - Rust error → FFI error
+  - `test_context_lifecycle` - Create/destroy without leak
+  - `test_session_lifecycle` - Start/stop without leak
+  - `test_callback_invocation` - Progress callbacks work
+  - `test_null_pointer_handling` - Invalid inputs don't crash
+- Add leak detection test (100 cycle create/destroy)
+- Document FFI safety guarantees
+
+**Completion Criteria:**
+- [ ] Panics do not cross FFI boundary
+- [ ] Concurrent FFI calls are thread-safe
+- [ ] 100-cycle test shows no memory growth
+- [ ] All FFI errors map to appropriate error codes
+
+**References:** WP-FFI test requirements, lines 1086-1104
+
+---
+
+### WP-ROADBLOCK-18: Server Graceful Shutdown Tests
+
+**Priority:** MEDIUM | **Phase:** Beta
+
+**Problem:**
+WP-SERVER test requirement `graceful_shutdown` (line 1127) is missing. Data preservation on server shutdown is untested.
+
+**Scope:**
+- Add graceful shutdown test to `integration_tests.rs`:
+  - Start server with session data
+  - Send SIGTERM/shutdown signal
+  - Verify session data persisted
+  - Restart server, verify data retrievable
+- Test WebSocket connection cleanup on shutdown
+- Verify no data corruption during shutdown
+
+**Completion Criteria:**
+- [ ] Session data persists across graceful shutdown
+- [ ] WebSocket connections receive close frames
+- [ ] No data corruption on shutdown
+- [ ] Server restarts cleanly after shutdown
+
+**References:** WP-SERVER test requirements line 1127
+
+---
+
+### WP-ROADBLOCK-19: TTS Fallback Integration Tests
+
+**Priority:** HIGH | **Phase:** Beta
+
+**Problem:**
+TTS fallback tests are incomplete. Test requirements from design-plan.md are partially covered:
+- `fallback_non_english_auto` - Partially tested
+- `fallback_model_failure` - Not fully tested
+- `platform_tts_*` - Now enabled since WP-ROADBLOCK-13 is complete
+
+**Scope:**
+- Add TTS fallback integration tests:
+  - `test_fallback_non_english_triggers_platform_tts` - French text triggers fallback
+  - `test_fallback_on_kokoro_load_failure` - Missing model triggers fallback
+  - `test_fallback_user_preference` - User can force platform TTS
+  - `test_platform_tts_produces_audio` - Verify non-zero audio output
+- Add platform-specific TTS tests (conditional compilation)
+- Test fallback chain: Kokoro → Platform → Error
+
+**Completion Criteria:**
+- [ ] Non-English text triggers platform TTS fallback
+- [ ] Missing Kokoro model triggers platform fallback
+- [ ] User preference for platform TTS works
+- [ ] Platform TTS produces non-zero audio on all platforms
+
+**References:** WP-TTS test requirements lines 1062-1067
+
+---
+
+### WP-ROADBLOCK-20: Long-Running STT Stability Tests
+
+**Priority:** MEDIUM | **Phase:** Beta
+
+**Problem:**
+WP-STT test requirement `stability_30min` (line 1037) is missing. Long-running transcription stability is untested. This is critical for production confidence.
+
+**Scope:**
+- Create stability test infrastructure
+- Implement 30-minute transcription test:
+  - Generate or obtain 30-minute test audio
+  - Transcribe entire file
+  - Monitor memory usage throughout
+  - Verify no memory growth pattern (< 10% growth)
+  - Verify transcription quality consistent
+- Add as optional CI test (runs nightly, not per-PR)
+- Document memory behavior expectations
+
+**Completion Criteria:**
+- [ ] 30-minute transcription completes without crash
+- [ ] Memory growth < 10% over duration
+- [ ] Transcription quality consistent (no degradation)
+- [ ] Test runs in CI on schedule (nightly)
+
+**References:** WP-STT test requirements line 1037
+
+---
+
 ### Roadblock Priority Summary
 
 | ID | Description | Phase | Effort |
@@ -2049,6 +2199,11 @@ WP-SERVER scope (line 417) specifies "Authentication (optional, configurable)" b
 | WP-ROADBLOCK-13 | Platform TTS Audio Capture | Beta | High |
 | WP-ROADBLOCK-14 | Server Rate Limiting | Beta | Medium |
 | WP-ROADBLOCK-15 | Server Authentication | Release | Medium |
+| WP-ROADBLOCK-16 | CLI End-to-End Tests | MVP | Medium |
+| WP-ROADBLOCK-17 | FFI Boundary Safety Tests | Beta | Medium |
+| WP-ROADBLOCK-18 | Server Graceful Shutdown Tests | Beta | Low |
+| WP-ROADBLOCK-19 | TTS Fallback Integration Tests | Beta | Medium |
+| WP-ROADBLOCK-20 | Long-Running STT Stability Tests | Beta | Medium |
 
 **Recommended Order:**
 1. WP-ROADBLOCK-02 (quick fix, eliminates warnings)
@@ -2057,15 +2212,20 @@ WP-SERVER scope (line 417) specifies "Authentication (optional, configurable)" b
 4. WP-ROADBLOCK-07 (CI/CD - critical for quality)
 5. WP-ROADBLOCK-01 (enables remaining MVP tests)
 6. WP-ROADBLOCK-05 (completes MVP exit criteria)
-7. WP-ROADBLOCK-13 (Platform TTS - critical for Beta)
-8. WP-ROADBLOCK-10 (WebSocket tests for Beta)
-9. WP-ROADBLOCK-11 (benchmarks for Beta validation)
-10. WP-ROADBLOCK-14 (rate limiting for Beta)
-11. WP-ROADBLOCK-03 (improves Beta quality)
-12. WP-ROADBLOCK-04 (Beta mobile UX)
-13. WP-ROADBLOCK-06 (Beta audio quality)
-14. WP-ROADBLOCK-12 (Release preparation)
-15. WP-ROADBLOCK-15 (Release authentication)
+7. WP-ROADBLOCK-16 (CLI E2E tests - MVP exit criterion)
+8. WP-ROADBLOCK-13 (Platform TTS - critical for Beta)
+9. WP-ROADBLOCK-10 (WebSocket tests for Beta)
+10. WP-ROADBLOCK-11 (benchmarks for Beta validation)
+11. WP-ROADBLOCK-14 (rate limiting for Beta)
+12. WP-ROADBLOCK-17 (FFI safety tests for mobile platforms)
+13. WP-ROADBLOCK-19 (TTS fallback tests)
+14. WP-ROADBLOCK-18 (graceful shutdown tests)
+15. WP-ROADBLOCK-03 (improves Beta quality)
+16. WP-ROADBLOCK-04 (Beta mobile UX)
+17. WP-ROADBLOCK-06 (Beta audio quality)
+18. WP-ROADBLOCK-20 (long-running stability)
+19. WP-ROADBLOCK-12 (Release preparation)
+20. WP-ROADBLOCK-15 (Release authentication)
 
 ---
 
