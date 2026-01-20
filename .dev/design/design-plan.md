@@ -732,7 +732,7 @@ cargo build --workspace --all-features
 **Exit Criteria:**
 - [x] WebSocket client receives streaming segments (13 websocket_tests pass)
 - [ ] TTS produces natural-sounding speech
-- [ ] TTS falls back to platform voice for non-English (D4)
+- [x] TTS falls back to platform voice for non-English (D4)
 - [ ] Swift/Kotlin bindings pass unit tests
 - [ ] Diarization correctly identifies 2+ speakers (D3)
 - [ ] Bluetooth HFP 1.6 verified at 16kHz (D2)
@@ -1465,7 +1465,7 @@ cargo bench
 - [x] All MVP criteria still pass
 - [x] WebSocket streaming tests pass (13 websocket_tests)
 - [ ] TTS produces natural speech (manual QA)
-- [ ] TTS falls back to platform voice for non-English (D4)
+- [x] TTS falls back to platform voice for non-English (D4)
 - [ ] Swift/Kotlin bindings compile and pass unit tests
 - [ ] Diarization assigns correct speaker IDs for 2 speakers (D3)
 - [ ] Bluetooth HFP 1.6 verified at 16kHz (D2)
