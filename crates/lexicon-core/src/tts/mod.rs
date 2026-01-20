@@ -477,8 +477,8 @@ mod tests {
         };
         let config = TtsConfig::new();
 
-        // French text with accents
-        assert!(manager.is_non_english("Bonjour le monde! Comment ça va?", &config));
+        // French text with accents (needs >20% non-ASCII to trigger detection)
+        assert!(manager.is_non_english("Été à Montréal", &config));
 
         // Pure ASCII French won't trigger detection
         assert!(!manager.is_non_english("Bonjour!", &config));

@@ -268,15 +268,31 @@ fn cmd_transcribe(
     // Initialize configuration
     let config = LexiconConfig::builder().build()?;
 
-    // Find model path
-    let model_id = format!("whisper-{model}");
-    let model_path = config.model_dir.join(format!("{model_id}.bin"));
+    // Find model path - check multiple naming conventions
+    let model_name = model.strip_prefix("whisper-").unwrap_or(&model);
+    let possible_paths = [
+        // Hugging Face ggml-* naming
+        config.model_dir.join(format!("ggml-{model_name}.bin")),
+        // Quantized variants
+        config.model_dir.join(format!("ggml-{model_name}-q5_1.bin")),
+        // Legacy whisper-* naming
+        config.model_dir.join(format!("whisper-{model_name}.bin")),
+    ];
 
-    if !model_path.exists() {
-        eprintln!("Error: Model '{model}' not found at {}", model_path.display());
-        eprintln!("Run 'lexicon models download {model}' to download it first.");
-        std::process::exit(1);
-    }
+    let model_path = possible_paths.iter().find(|p| p.exists());
+
+    let model_path = match model_path {
+        Some(path) => path.clone(),
+        None => {
+            eprintln!("Error: Model '{model}' not found.");
+            eprintln!("Searched locations:");
+            for path in &possible_paths {
+                eprintln!("  - {}", path.display());
+            }
+            eprintln!("\nRun 'lexicon models download {model}' to download it first.");
+            std::process::exit(1);
+        }
+    };
 
     // Create transcriber and load model
     eprintln!("Loading model: {model}...");

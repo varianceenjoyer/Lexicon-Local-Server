@@ -572,14 +572,15 @@ mod tests {
         std::fs::create_dir_all(&temp_dir).unwrap();
         let config_path = temp_dir.join("config.toml");
 
+        // Use forward slashes for TOML compatibility (backslashes are escape sequences)
+        let data_dir = temp_dir.join("data").to_string_lossy().replace('\\', "/");
+        let model_dir = temp_dir.join("models").to_string_lossy().replace('\\', "/");
         let toml_content = format!(
             r#"
-            data_dir = "{}"
-            model_dir = "{}"
+            data_dir = "{data_dir}"
+            model_dir = "{model_dir}"
             log_level = "warn"
-        "#,
-            temp_dir.join("data").display(),
-            temp_dir.join("models").display()
+        "#
         );
 
         let mut file = std::fs::File::create(&config_path).unwrap();

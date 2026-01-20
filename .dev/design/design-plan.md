@@ -728,6 +728,9 @@ cargo build --workspace --all-features
 4. Real-time STT latency <800ms
 5. Speaker diarization assigns IDs when enabled
 6. Bluetooth audio works at 16kHz
+7. **Re-implement hash verification for fallback model downloads** (currently skipped - see note below)
+
+> **Note:** Hash verification is currently skipped for fallback downloads (hash is set to "skip") since Hugging Face uses HTTPS with valid certificates and the models are from a trusted source. For Beta release, proper SHA-256 hash verification must be re-implemented for fallback model downloads to match the security guarantees of primary downloads.
 
 **Exit Criteria:**
 - [x] WebSocket client receives streaming segments (13 websocket_tests pass)
