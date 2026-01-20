@@ -3,6 +3,8 @@
 //! These tests verify the complete system behavior across all components.
 //! They require the full workspace to be built and may take longer to run.
 
+#![allow(dead_code)]
+
 use std::path::PathBuf;
 
 /// Get the project root directory.
@@ -110,6 +112,7 @@ mod core_tests {
 
 #[cfg(feature = "storage")]
 mod storage_tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]
@@ -236,6 +239,7 @@ mod model_tests {
 
 #[cfg(feature = "audio")]
 mod audio_tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]
@@ -244,8 +248,9 @@ mod audio_tests {
 
         let config = AudioConfig::default();
 
-        assert_eq!(config.sample_rate, 16000);
-        assert_eq!(config.channels, 1);
+        // AudioConfig has chunk_ms, vad_enabled, vad_mode, device_name fields
+        assert!(config.chunk_ms > 0);
+        assert!(config.vad_enabled);
     }
 
     #[test]
@@ -253,7 +258,8 @@ mod audio_tests {
         use lexicon_core::AudioChunk;
 
         let samples = vec![0.0f32; 16000]; // 1 second of silence
-        let chunk = AudioChunk::new(samples.clone(), 0);
+        // AudioChunk::new(samples, has_speech, timestamp_ms)
+        let chunk = AudioChunk::new(samples.clone(), false, 0);
 
         assert_eq!(chunk.samples.len(), 16000);
         assert!(!chunk.has_speech); // No speech detected in silence
@@ -263,8 +269,8 @@ mod audio_tests {
     fn test_vad_config() {
         use lexicon_core::VoiceActivityDetector;
 
-        // VAD should be creatable with default settings
-        let vad = VoiceActivityDetector::new();
+        // VAD should be creatable with a mode (0-3)
+        let vad = VoiceActivityDetector::new(1);
         assert!(vad.is_ok());
     }
 
@@ -288,6 +294,7 @@ mod audio_tests {
 
 #[cfg(feature = "tts")]
 mod tts_tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]
@@ -348,6 +355,7 @@ mod tts_tests {
 
 #[cfg(feature = "stt")]
 mod stt_tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]
@@ -414,6 +422,7 @@ mod stt_tests {
 // =============================================================================
 
 mod integration_tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]
@@ -465,6 +474,7 @@ mod integration_tests {
 
 #[cfg(feature = "storage")]
 mod mvp_validation_tests {
+    #[allow(unused_imports)]
     use super::*;
 
     /// Tests FTS5 search finds text across multiple sessions.
@@ -495,7 +505,7 @@ mod mvp_validation_tests {
         assert!(results.len() >= 2, "FTS5 should find 'quarterly' in multiple sessions");
 
         // Verify results come from different sessions
-        let unique_sessions: std::collections::HashSet<_> = results.iter().map(|r| r.session_id).collect();
+        let unique_sessions: std::collections::HashSet<_> = results.iter().map(|r| r.segment.session_id).collect();
         assert!(unique_sessions.len() >= 2, "Results should come from at least 2 different sessions");
 
         // Search for term that appears in one session
@@ -680,7 +690,7 @@ mod mvp_validation_tests {
     fn test_tts_streaming_returns_chunks() {
         use lexicon_core::tts::streaming_channel;
 
-        let (mut sender, mut receiver) = streaming_channel(24000);
+        let (mut sender, receiver) = streaming_channel(24000);
 
         // Simulate streaming synthesis
         sender.send(vec![0.0; 2400], false).unwrap(); // 100ms chunk
@@ -710,6 +720,7 @@ mod mvp_validation_tests {
 
 #[cfg(feature = "bench")]
 mod benchmarks {
+    #[allow(unused_imports)]
     use super::*;
 
     // Placeholder for performance benchmarks

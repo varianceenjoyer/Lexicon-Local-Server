@@ -104,6 +104,14 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
+[features]
+default = ["storage", "audio", "stt", "tts"]
+storage = ["lexicon-core/storage"]
+audio = ["lexicon-core/audio"]
+stt = ["lexicon-core/stt"]
+tts = ["lexicon-core/tts"]
+bench = []
+
 [dependencies]
 lexicon-core = { path = "crates/lexicon-core" }
 lexicon-server = { path = "crates/lexicon-server" }

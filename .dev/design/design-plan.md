@@ -1559,6 +1559,516 @@ cargo bench
 
 ---
 
+## Roadblock Work Packages
+
+> **Added**: 2026-01-20 | **Status**: Identified roadblocks blocking MVP/Beta completion
+
+The following work packages address identified roadblocks in the current implementation. These should be completed before advancing to the next phase.
+
+---
+
+### WP-ROADBLOCK-01: Test Fixtures Infrastructure
+
+**Priority:** HIGH | **Phase:** MVP Blocker
+
+**Problem:**
+Test fixture directories exist but are empty (`tests/fixtures/audio/`, `tests/fixtures/manifests/`, `tests/fixtures/models/`). This prevents:
+- Running the `Transcribe 10-minute audio file successfully` MVP exit criterion
+- Validating model signature verification with real fixtures
+- Comprehensive E2E audio processing tests
+
+**Scope:**
+- Create/obtain short audio test files (CC0/MIT licensed):
+  - `5_second_english.wav` - Clear English speech
+  - `silence_10s.wav` - Pure silence for VAD testing
+  - `30_second_multilingual.wav` - Multi-language test (optional)
+- Create test manifest fixtures:
+  - `valid_signed.json` - Properly signed manifest
+  - `invalid_signature.json` - Manifest with bad signature
+  - `tampered_content.json` - Modified content with valid signature
+- Document fixture provenance in `tests/fixtures/README.md`
+
+**Completion Criteria:**
+- [ ] Audio fixtures exist and are loadable
+- [ ] Manifest fixtures cover valid/invalid signature cases
+- [ ] `cargo test` passes with fixture-dependent tests enabled
+- [ ] Fixture README documents sources and licensing
+
+**References:** Test Plan (lines 867-889)
+
+---
+
+### WP-ROADBLOCK-02: E2E Test Feature Flags
+
+**Priority:** MEDIUM | **Phase:** MVP
+
+**Problem:**
+The workspace-level E2E tests (`tests/e2e_tests.rs`) use `#[cfg(feature = "...")]` attributes, but the root `Cargo.toml` doesn't define these features. This causes:
+- Compiler warnings (`unexpected cfg condition value`)
+- Tests being silently skipped
+
+**Scope:**
+- Add feature definitions to workspace root `Cargo.toml`:
+  ```toml
+  [features]
+  storage = ["lexicon-core/storage"]
+  audio = ["lexicon-core/audio"]
+  stt = ["lexicon-core/stt"]
+  tts = ["lexicon-core/tts"]
+  bench = []
+  ```
+- Alternatively, remove feature gates from E2E tests and rely on `lexicon-core`'s default features
+- Clean up unused imports (`super::*`, `project_root()`, `fixtures_dir()`)
+
+**Completion Criteria:**
+- [x] `cargo test --workspace` produces no feature-related warnings
+- [x] All E2E tests run when appropriate features are enabled
+- [x] Dead code warnings resolved
+
+**References:** Lines 111, 237, 289, 349, 466 of `tests/e2e_tests.rs`
+
+---
+
+### WP-ROADBLOCK-03: Kokoro TTS Phoneme Tokenization
+
+**Priority:** MEDIUM | **Phase:** Beta Quality
+
+**Problem:**
+The Kokoro TTS tokenizer uses simplified ASCII character-to-token mapping instead of proper phoneme conversion (`crates/lexicon-core/src/tts/kokoro.rs:60-87`). This results in lower synthesis quality than the model is capable of.
+
+**Current Implementation:**
+```rust
+// Simple ASCII mapping - real implementation would use phonemes
+let token = match ch {
+    'a'..='z' => (ch as i64) - ('a' as i64) + 1,
+    // ...
+};
+```
+
+**Scope:**
+- Research Kokoro model's expected input format
+- Options (in order of preference):
+  1. Integrate espeak-ng via `espeakng-sys` crate for phoneme generation
+  2. Implement text-to-phoneme rules for English (CMU pronouncing dictionary)
+  3. Use a pre-trained G2P (grapheme-to-phoneme) model
+- Add phoneme tokenization tests
+- Document supported languages and limitations
+
+**Completion Criteria:**
+- [ ] Kokoro produces natural-sounding speech for common English sentences
+- [ ] Phoneme tokenization is tested
+- [ ] Fallback to platform TTS works if phoneme conversion fails
+- [ ] Performance impact is documented (target: <50ms for typical sentence)
+
+**References:** WP-TTS completion criteria, Decision D4
+
+---
+
+### WP-ROADBLOCK-04: FFI Download Cancellation
+
+**Priority:** LOW | **Phase:** Beta
+
+**Problem:**
+Model download cancellation is not implemented in the FFI layer (`crates/lexicon-ffi/src/lib.rs:699-703`):
+```rust
+/// Cancel a download (placeholder - actual cancellation not yet implemented).
+pub fn cancel_download(&self, _model_id: String) {
+    // TODO: Implement download cancellation
+    tracing::warn!("Download cancellation not yet implemented");
+}
+```
+
+This affects mobile users who need to abort large model downloads (up to 3GB).
+
+**Scope:**
+- Add cancellation token support to `ModelRegistry::download_model()`
+- Store active download handles in `ModelDownloader`
+- Implement `cancel_download()` to abort in-progress downloads
+- Clean up partial downloads on cancellation
+- Handle cancellation gracefully in progress callbacks
+
+**Completion Criteria:**
+- [ ] `cancel_download()` aborts an active download
+- [ ] Partial files are cleaned up on cancellation
+- [ ] Cancellation callback fires with appropriate error type
+- [ ] Re-downloading after cancellation works correctly
+
+**References:** WP-FFI scope, Mobile platform requirements
+
+---
+
+### WP-ROADBLOCK-05: Memory Leak Testing
+
+**Priority:** MEDIUM | **Phase:** MVP Exit Criterion
+
+**Problem:**
+MVP exit criterion "No memory leaks detected in 100-cycle test" is unchecked. There's no automated memory leak test in the test suite.
+
+**Scope:**
+- Add valgrind/heaptrack test for desktop platforms:
+  - 100 cycles of: create context → load model → transcribe → unload → destroy
+  - Verify no growth in RSS over cycles
+- Add iOS Instruments leak test documentation
+- Add Android LeakCanary integration for FFI bindings
+- Document acceptable memory behavior (e.g., model cache)
+
+**Completion Criteria:**
+- [ ] Automated memory test runs in CI (Linux)
+- [ ] Test passes with no detected leaks
+- [ ] Mobile memory testing documented (manual process)
+- [ ] Memory behavior expectations documented
+
+**References:** MVP Exit Criteria Checklist, Test Plan WP-FFI
+
+---
+
+### WP-ROADBLOCK-06: Bluetooth HFP 1.6 Support
+
+**Priority:** LOW | **Phase:** Beta
+
+**Problem:**
+WP-AUDIO completion criterion "Bluetooth HFP 1.6 negotiates 16kHz when available" is unchecked. The audio pipeline handles route changes but doesn't actively negotiate HFP codec selection.
+
+**Scope:**
+- Research platform-specific HFP negotiation:
+  - macOS: CoreBluetooth/AVAudioSession
+  - Windows: Windows.Devices.Bluetooth
+  - Linux: BlueZ/PulseAudio
+- Implement HFP codec preference (16kHz wideband over 8kHz narrowband)
+- Add route change handler that rebuilds stream with optimal codec
+- Test with common Bluetooth headsets
+
+**Completion Criteria:**
+- [ ] HFP 1.6 devices connect at 16kHz when supported
+- [ ] Graceful fallback to 8kHz with automatic resampling
+- [ ] Audio quality difference is documented
+- [ ] Tested with at least 2 different Bluetooth headsets
+
+**References:** WP-AUDIO scope, Decision D2
+
+---
+
+### WP-ROADBLOCK-07: CI/CD Workflow Infrastructure
+
+**Priority:** HIGH | **Phase:** MVP/Release Blocker
+
+**Problem:**
+The `.github/workflows/` directory does not exist. WP-BUILD specifies three workflows:
+- `ci.yml` - Build and test on PR
+- `release.yml` - Build releases on tag
+- `models.yml` - Sign and publish model manifests
+
+Without CI/CD, there is no automated testing or release process.
+
+**Scope:**
+- Create `.github/workflows/` directory
+- Implement `ci.yml`:
+  - Matrix build for macOS, Windows, Linux
+  - Run `cargo test --workspace`
+  - Run `cargo clippy`
+  - Check formatting with `cargo fmt --check`
+- Implement `release.yml`:
+  - Trigger on version tags (v*)
+  - Build release binaries for all platforms
+  - Create GitHub Release with artifacts
+- Implement `models.yml`:
+  - Model manifest signing automation
+  - Publish to storage/CDN
+
+**Completion Criteria:**
+- [ ] CI runs on every PR
+- [ ] All platforms build in CI
+- [ ] Tests pass on all platforms
+- [ ] Release workflow creates signed artifacts
+- [ ] Model manifest signing automated
+
+**References:** WP-BUILD scope, lines 652-665
+
+---
+
+### WP-ROADBLOCK-08: BUILD.md Documentation
+
+**Priority:** MEDIUM | **Phase:** MVP
+
+**Problem:**
+WP-WIN completion criterion "BUILD.md updated with Windows native section" references a BUILD.md file that doesn't exist. No build documentation exists for any platform.
+
+**Scope:**
+- Create `BUILD.md` with sections:
+  - Prerequisites (Rust toolchain, system dependencies)
+  - macOS build instructions
+  - Linux build instructions
+  - Windows native build instructions (MSVC, LLVM, CMake)
+  - Cross-compilation guide
+  - Troubleshooting common build errors
+- Include environment variable setup
+- Document GPU acceleration build options (CUDA, Metal, Vulkan)
+
+**Completion Criteria:**
+- [ ] BUILD.md exists with all platform sections
+- [ ] Windows native build instructions complete
+- [ ] GPU acceleration options documented
+- [ ] Troubleshooting section covers common errors
+
+**References:** WP-WIN completion criteria, lines 627-634
+
+---
+
+### WP-ROADBLOCK-09: Build Scripts Directory
+
+**Priority:** MEDIUM | **Phase:** MVP
+
+**Problem:**
+WP-WIN references `scripts/build-windows.ps1` but no `scripts/` directory exists. Build automation scripts are missing for all platforms.
+
+**Scope:**
+- Create `scripts/` directory
+- Implement build scripts:
+  - `scripts/build-windows.ps1` - Windows native build
+  - `scripts/build-macos.sh` - macOS build (universal binary)
+  - `scripts/build-linux.sh` - Linux build
+  - `scripts/test-all.sh` - Run full test suite
+  - `scripts/package.sh` - Create distribution packages
+- Scripts should handle dependency checks and environment setup
+- Include verbose/debug modes
+
+**Completion Criteria:**
+- [ ] `scripts/` directory exists
+- [ ] `scripts/build-windows.ps1` builds on Windows
+- [ ] All scripts are executable and documented
+- [ ] Scripts check for required dependencies
+
+**References:** WP-WIN scope, line 629
+
+---
+
+### WP-ROADBLOCK-10: WebSocket Integration Tests
+
+**Priority:** HIGH | **Phase:** Beta Blocker
+
+**Problem:**
+WebSocket STT and TTS streaming endpoints are implemented (`routes.rs:686-920`) but have no integration tests. Beta exit criteria "WebSocket streaming tests pass" cannot be validated.
+
+**Scope:**
+- Add WebSocket test utilities to `lexicon-server/tests/`
+- Implement tests:
+  - `test_ws_stt_connection` - Connection establishment
+  - `test_ws_stt_audio_streaming` - Send audio, receive segments
+  - `test_ws_stt_error_handling` - Invalid input handling
+  - `test_ws_tts_connection` - Connection establishment
+  - `test_ws_tts_synthesis` - Send text, receive audio
+  - `test_ws_concurrent_connections` - Multiple clients
+- Use `tokio-tungstenite` for WebSocket client in tests
+
+**Completion Criteria:**
+- [ ] WebSocket client connects to STT endpoint
+- [ ] WebSocket client receives streaming segments
+- [ ] WebSocket TTS produces audio output
+- [ ] Concurrent connection handling tested
+- [ ] Error cases covered
+
+**References:** WP-SERVER test requirements, Beta Exit Criteria line 733
+
+---
+
+### WP-ROADBLOCK-11: Performance Benchmark Infrastructure
+
+**Priority:** MEDIUM | **Phase:** Beta
+
+**Problem:**
+Test Plan specifies `criterion` for performance benchmarks (line 861), but:
+- `criterion` is not in any Cargo.toml dependencies
+- No benchmark files exist
+- Beta exit criteria "Latency benchmarks documented" is unchecked
+
+**Scope:**
+- Add `criterion` to workspace dev-dependencies
+- Create `benches/` directory structure:
+  - `benches/stt_latency.rs` - STT transcription benchmarks
+  - `benches/tts_latency.rs` - TTS synthesis benchmarks
+  - `benches/audio_pipeline.rs` - Audio processing benchmarks
+- Define benchmark targets:
+  - STT: p95 < 800ms for base model, 5s audio
+  - TTS: first chunk < 200ms
+  - VAD: p95 < 100ms
+- Create `BENCHMARKS.md` documenting results and methodology
+
+**Completion Criteria:**
+- [ ] `cargo bench` runs without errors
+- [ ] STT latency benchmark exists
+- [ ] TTS latency benchmark exists
+- [ ] Results documented in BENCHMARKS.md
+- [ ] CI optionally runs benchmarks
+
+**References:** Test Plan lines 861, 1035-1036, 1068, Beta Exit Criteria line 739
+
+---
+
+### WP-ROADBLOCK-12: Security Audit Preparation
+
+**Priority:** LOW | **Phase:** Release
+
+**Problem:**
+Release exit criterion "Security audit completed" (line 768) has no preparation. No security documentation or audit checklist exists.
+
+**Scope:**
+- Create `SECURITY.md` with:
+  - Security contact information
+  - Vulnerability disclosure policy
+  - Supported versions
+- Create security audit checklist:
+  - Model signature verification coverage
+  - FFI boundary safety (no panics across FFI)
+  - Input validation (audio data, API inputs)
+  - SQL injection prevention (parameterized queries)
+  - Path traversal prevention
+  - Memory safety (unsafe code audit)
+- Document threat model
+- Prepare for external audit engagement
+
+**Completion Criteria:**
+- [ ] SECURITY.md exists with disclosure policy
+- [ ] Security checklist documented
+- [ ] All unsafe code blocks reviewed
+- [ ] FFI boundary tests verify no panics
+- [ ] Input validation documented
+
+**References:** Release Exit Criteria line 768, Test Plan security tests
+
+---
+
+### WP-ROADBLOCK-13: Platform TTS Audio Capture
+
+**Priority:** HIGH | **Phase:** Beta Blocker
+
+**Problem:**
+The `PlatformSynthesizer::synthesize()` method in `crates/lexicon-core/src/tts/platform.rs:140-182` does NOT actually capture audio. It speaks the text via `tts-rs` but returns a **silent buffer** of estimated duration instead of real audio data.
+
+**Current Implementation (broken):**
+```rust
+// Speak the text (this will play audio but we can't capture it directly)
+let _utterance_id = tts.speak(text, false).map_err(...)?;
+
+// Return a silent buffer of the estimated length
+warn!("Platform TTS audio capture not implemented - returning estimated silence");
+Ok(AudioBuffer::new(vec![0.0; estimated_samples], TTS_SAMPLE_RATE, 1))
+```
+
+This means TTS fallback (Decision D4) is non-functional - users get silence instead of speech.
+
+**Scope:**
+- Research platform-specific audio capture approaches:
+  - macOS: Use AVSpeechSynthesizer with write-to-buffer API
+  - Windows: Use SAPI with ISpStream to capture audio
+  - Linux: Use speech-dispatcher with output redirection or espeak-ng directly
+- Implement actual audio buffer capture for each platform
+- Consider using `cpal` for audio loopback capture as fallback
+- Add integration tests that verify non-zero audio output
+
+**Completion Criteria:**
+- [ ] Platform TTS returns actual audio data (not silence)
+- [ ] Audio quality is acceptable for speech playback
+- [ ] All desktop platforms (macOS, Windows, Linux) produce audio
+- [ ] Fallback chain works: Kokoro → Platform TTS with real audio
+
+**References:** WP-TTS scope, Decision D4 (Multi-language TTS fallback), lines 301-306
+
+---
+
+### WP-ROADBLOCK-14: Server Rate Limiting
+
+**Priority:** MEDIUM | **Phase:** Beta
+
+**Problem:**
+WP-SERVER scope (line 419) specifies "Rate limiting" as a feature, but no rate limiting implementation exists in the server code. This leaves the API vulnerable to abuse.
+
+**Scope:**
+- Add `tower` rate limiting middleware
+- Implement configurable limits:
+  - Per-IP request rate (e.g., 100 req/min)
+  - Per-endpoint limits (transcribe endpoints should have lower limits)
+  - Burst allowance configuration
+- Add rate limit headers to responses (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`)
+- Return 429 Too Many Requests when exceeded
+- Add configuration options in `ServerConfig`
+
+**Completion Criteria:**
+- [ ] Rate limiting middleware integrated
+- [ ] Per-IP rate limits enforced
+- [ ] Rate limit headers included in responses
+- [ ] 429 responses returned when limits exceeded
+- [ ] Limits configurable via ServerConfig
+
+**References:** WP-SERVER scope line 419, WP-SERVER test requirements
+
+---
+
+### WP-ROADBLOCK-15: Server Authentication (Optional)
+
+**Priority:** LOW | **Phase:** Release
+
+**Problem:**
+WP-SERVER scope (line 417) specifies "Authentication (optional, configurable)" but no authentication mechanism exists. For production deployments, API security is essential.
+
+**Scope:**
+- Implement optional API key authentication:
+  - `X-API-Key` header validation
+  - Configurable via `ServerConfig`
+  - Bypass for health check endpoint
+- Consider future OAuth2/JWT support (document only for now)
+- Add authentication tests
+- Document authentication setup in API docs
+
+**Completion Criteria:**
+- [ ] API key authentication implemented
+- [ ] Authentication is optional (configurable)
+- [ ] Health check bypasses authentication
+- [ ] 401 Unauthorized returned for invalid keys
+- [ ] Authentication documented in API reference
+
+**References:** WP-SERVER scope line 417
+
+---
+
+### Roadblock Priority Summary
+
+| ID | Description | Phase | Effort |
+|----|-------------|-------|--------|
+| WP-ROADBLOCK-01 | Test Fixtures | MVP | Low |
+| WP-ROADBLOCK-02 | E2E Feature Flags | MVP | Low |
+| WP-ROADBLOCK-03 | TTS Phoneme Tokenization | Beta | High |
+| WP-ROADBLOCK-04 | FFI Download Cancellation | Beta | Medium |
+| WP-ROADBLOCK-05 | Memory Leak Testing | MVP | Medium |
+| WP-ROADBLOCK-06 | Bluetooth HFP 1.6 | Beta | High |
+| WP-ROADBLOCK-07 | CI/CD Workflows | MVP | Medium |
+| WP-ROADBLOCK-08 | BUILD.md Documentation | MVP | Low |
+| WP-ROADBLOCK-09 | Build Scripts | MVP | Low |
+| WP-ROADBLOCK-10 | WebSocket Tests | Beta | Medium |
+| WP-ROADBLOCK-11 | Benchmark Infrastructure | Beta | Medium |
+| WP-ROADBLOCK-12 | Security Audit Prep | Release | Medium |
+| WP-ROADBLOCK-13 | Platform TTS Audio Capture | Beta | High |
+| WP-ROADBLOCK-14 | Server Rate Limiting | Beta | Medium |
+| WP-ROADBLOCK-15 | Server Authentication | Release | Medium |
+
+**Recommended Order:**
+1. WP-ROADBLOCK-02 (quick fix, eliminates warnings)
+2. WP-ROADBLOCK-08 (documentation, enables others)
+3. WP-ROADBLOCK-09 (build automation)
+4. WP-ROADBLOCK-07 (CI/CD - critical for quality)
+5. WP-ROADBLOCK-01 (enables remaining MVP tests)
+6. WP-ROADBLOCK-05 (completes MVP exit criteria)
+7. WP-ROADBLOCK-13 (Platform TTS - critical for Beta)
+8. WP-ROADBLOCK-10 (WebSocket tests for Beta)
+9. WP-ROADBLOCK-11 (benchmarks for Beta validation)
+10. WP-ROADBLOCK-14 (rate limiting for Beta)
+11. WP-ROADBLOCK-03 (improves Beta quality)
+12. WP-ROADBLOCK-04 (Beta mobile UX)
+13. WP-ROADBLOCK-06 (Beta audio quality)
+14. WP-ROADBLOCK-12 (Release preparation)
+15. WP-ROADBLOCK-15 (Release authentication)
+
+---
+
 ## References
 
 - [architecture.md](architecture.md) — System architecture (authoritative)

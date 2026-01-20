@@ -3,6 +3,8 @@
 //! These tests verify command-line argument parsing and basic CLI behavior.
 //! They use `assert_cmd` patterns for testing CLI applications.
 
+#![allow(dead_code)]
+
 use std::path::PathBuf;
 
 /// Get the path to test fixtures.
