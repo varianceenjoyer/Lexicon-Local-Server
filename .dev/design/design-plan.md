@@ -630,7 +630,7 @@ cargo build --workspace --all-features
 - [x] BUILD.md updated with Windows native section
 - [x] GitHub Actions workflow builds on `windows-latest`
 - [x] GPU acceleration (CUDA/DirectML) documented
-- [ ] Portable zip distribution created
+- [x] Portable zip distribution created (release.yml creates Windows zip on tag push)
 - [x] Windows Defender / SmartScreen considerations documented
 
 **Architecture Refs:** Cross-Platform Build (005), Windows target in CI matrix
@@ -659,7 +659,7 @@ cargo build --workspace --all-features
 - [x] Tests pass on all platforms
 - [x] Release creates signed artifacts
 - [ ] Model manifest signing automated
-- [ ] Windows builds produce portable zip and/or installer
+- [x] Windows builds produce portable zip (release.yml line 97)
 
 **Architecture Refs:** Cross-Platform Build (lines 332-367)
 
