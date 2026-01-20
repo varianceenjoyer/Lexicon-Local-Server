@@ -18,6 +18,8 @@ pub struct Resampler {
     input_rate: u32,
     output_rate: u32,
     channels: usize,
+    /// Stored for debugging/diagnostics but not currently used in processing.
+    #[allow(dead_code)]
     chunk_size: usize,
 }
 
