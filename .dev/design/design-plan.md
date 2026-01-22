@@ -2691,7 +2691,6 @@ fn generate_synthetic_audio(duration_secs: u32) -> Vec<f32> {
 
 **Remaining Open Work (Updated 2026-01-23):**
 1. WP-ROADBLOCK-06 (Bluetooth HFP 1.6 - Beta audio quality, HIGH effort)
-2. WP-ROADBLOCK-26 (benchmark regression detection - MEDIUM effort)
 
 ---
 
