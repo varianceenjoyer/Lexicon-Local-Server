@@ -166,12 +166,195 @@ jobs:
           files: lcov.info
           fail_ci_if_error: false
 
-  # Performance benchmarks (optional - runs nightly or on demand)
+  # Lightweight benchmark comparison for PRs (detects regressions)
+  benchmark-pr:
+    name: Benchmark PR
+    runs-on: ubuntu-latest
+    # Run on pull requests only
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libasound2-dev \
+            libclang-dev \
+            libspeechd-dev \
+            cmake
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-bench-pr-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bench-pr-
+
+      # Download baseline from main branch (if exists)
+      - name: Download baseline benchmarks
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: ci.yml
+          branch: main
+          name: benchmark-baseline
+          path: baseline
+        continue-on-error: true
+
+      # Run benchmarks on PR branch and save results
+      - name: Run PR benchmarks
+        run: |
+          cargo bench --workspace --all-features -- --noplot --save-baseline pr
+        continue-on-error: true
+
+      # Compare benchmarks and detect regressions
+      - name: Compare benchmarks
+        id: compare
+        run: |
+          # Check if baseline exists
+          if [ ! -d "baseline" ]; then
+            echo "No baseline found, skipping comparison"
+            echo "has_baseline=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "has_baseline=true" >> $GITHUB_OUTPUT
+
+          # Copy baseline to criterion directory for comparison
+          cp -r baseline/* target/criterion/ 2>/dev/null || true
+
+          # Run comparison using critcmp (if available) or parse manually
+          if command -v critcmp &> /dev/null; then
+            critcmp baseline pr > comparison.txt 2>&1 || true
+          else
+            # Manual comparison - extract key metrics
+            echo "## Benchmark Comparison (PR vs Main)" > comparison.txt
+            echo "" >> comparison.txt
+            echo "| Benchmark | PR Time | Change |" >> comparison.txt
+            echo "|-----------|---------|--------|" >> comparison.txt
+
+            # Parse criterion JSON for changes
+            for bench_dir in target/criterion/*/pr; do
+              if [ -d "$bench_dir" ]; then
+                bench_name=$(basename $(dirname $bench_dir))
+                estimate_file="$bench_dir/estimates.json"
+                if [ -f "$estimate_file" ]; then
+                  # Extract mean time in ns
+                  mean_ns=$(grep -o '"point_estimate":[0-9.]*' "$estimate_file" | head -1 | cut -d: -f2)
+                  if [ -n "$mean_ns" ]; then
+                    mean_ms=$(echo "scale=3; $mean_ns / 1000000" | bc 2>/dev/null || echo "$mean_ns ns")
+                    echo "| $bench_name | ${mean_ms}ms | - |" >> comparison.txt
+                  fi
+                fi
+              fi
+            done
+          fi
+
+          # Check for significant regressions (>10%)
+          regression_detected=false
+          # Simple heuristic: look for "regressed" or significant time increases in output
+          if grep -qi "regressed\|slower" comparison.txt 2>/dev/null; then
+            # Look for >10% regression
+            if grep -qE '\+[1-9][0-9]\.[0-9]+%|\+[0-9]{3,}\.[0-9]+%' comparison.txt 2>/dev/null; then
+              regression_detected=true
+            fi
+          fi
+
+          echo "regression_detected=$regression_detected" >> $GITHUB_OUTPUT
+
+          # Output comparison for logging
+          echo "=== Benchmark Comparison ==="
+          cat comparison.txt
+        continue-on-error: true
+
+      # Post comment on PR with benchmark results
+      - name: Comment PR with benchmark results
+        if: steps.compare.outputs.has_baseline == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let comparison = '';
+            try {
+              comparison = fs.readFileSync('comparison.txt', 'utf8');
+            } catch (e) {
+              comparison = 'Benchmark comparison not available';
+            }
+
+            const regressionDetected = '${{ steps.compare.outputs.regression_detected }}' === 'true';
+            const header = regressionDetected
+              ? '## ⚠️ Performance Regression Detected'
+              : '## ✅ Benchmark Results';
+
+            const body = `${header}
+
+            <details>
+            <summary>Click to expand benchmark comparison</summary>
+
+            \`\`\`
+            ${comparison}
+            \`\`\`
+
+            </details>
+
+            ${regressionDetected ? '\n> **Warning**: Some benchmarks show >10% regression. Please review before merging.' : ''}
+
+            *Benchmarks run on \`ubuntu-latest\`. Full benchmarks run nightly.*
+            `;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' &&
+              c.body.includes('Benchmark Results')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+        continue-on-error: true
+
+      - name: Upload PR benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-pr-results
+          path: target/criterion
+          retention-days: 7
+        if: always()
+
+  # Performance benchmarks (runs nightly to establish baseline)
   benchmarks:
     name: Benchmarks
     runs-on: ubuntu-latest
-    # Run on schedule, manual trigger with benchmarks enabled, or nightly
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_benchmarks == true)
+    # Run on schedule, manual trigger with benchmarks enabled, or push to main (for baseline)
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_benchmarks == true) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     steps:
       - uses: actions/checkout@v4
 
@@ -201,7 +384,7 @@ jobs:
             ${{ runner.os }}-cargo-bench-
 
       - name: Run benchmarks
-        run: cargo bench --workspace --all-features -- --noplot
+        run: cargo bench --workspace --all-features -- --noplot --save-baseline main
         continue-on-error: true
 
       - name: Upload benchmark results
@@ -211,6 +394,15 @@ jobs:
           path: target/criterion
           retention-days: 30
         if: always()
+
+      # Upload baseline for PR comparisons (only on main branch push)
+      - name: Upload benchmark baseline
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-baseline
+          path: target/criterion
+          retention-days: 90
 
   # Long-running stability tests (nightly only)
   stability:
