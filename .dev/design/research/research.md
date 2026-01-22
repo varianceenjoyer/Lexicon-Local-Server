@@ -31,6 +31,7 @@ The project will be implemented using Rust libraries instead of Go. This decisio
 | R-THR-01 | Thermal behavior of sustained inference | Performance | Throttling thresholds | ✅ Complete |
 | R-ERR-01 | Rust error handling for streaming pipelines | Architecture | Error handling guide | ✅ Complete |
 | R-BLE-01 | Bluetooth audio latency and disconnection | Edge cases | Compatibility matrix | ✅ Complete |
+| R-BLE-02 | Desktop HFP 1.6 codec negotiation | Audio | Implementation guide | ✅ Complete |
 | R-TTS-01 | Alternative TTS engines (non-GPL) | Legal | TTS engine recommendation | ✅ Complete |
 | R-LIC-01 | License audit (whisper-rs, ort, cpal, Piper) | Legal | License compatibility report | ✅ Complete |
 | R-UX-01 | Offline-first UX for model management | Design | UX recommendations | ✅ Complete |
@@ -60,6 +61,7 @@ The project will be implemented using Rust libraries instead of Go. This decisio
 - [x] [R-THR-01](R-THR-01-thermal-profiling.md) - Thermal Profiling ✅ **GO** (ANE/NPU 85% power reduction, adaptive throttling strategy)
 - [x] [R-UX-01](R-UX-01-offline-first-ux.md) - Offline-First UX — Immediate download recommended, Material Design patterns
 - [x] [R-BLE-01](R-BLE-01-bluetooth-audio.md) - Bluetooth Audio ✅ **SUPPORT WITH CAVEATS** (HFP 1.6 for 16kHz, LE Audio preferred)
+- [x] [R-BLE-02](R-BLE-02-desktop-hfp-negotiation.md) - Desktop HFP Negotiation ✅ **CONDITIONAL** (macOS/Windows auto, Linux BlueZ control)
 - [x] [R-TTS-01](R-TTS-01-alternative-tts-engines.md) - Alternative TTS Engines ✅ **Kokoro TTS recommended** (Apache 2.0, Misaki G2P avoids GPL)
 - [x] [R-DIA-01](R-DIA-01-speaker-diarization.md) - Speaker Diarization ✅ **ECAPA-TDNN recommended** for Release phase upgrade
 
