@@ -209,6 +209,13 @@ pub enum AudioError {
         /// Operation that timed out.
         operation: String,
     },
+
+    /// Audio format conversion error.
+    #[error("Audio conversion error: {message}")]
+    ConversionError {
+        /// Error message describing the conversion failure.
+        message: String,
+    },
 }
 
 /// Model management errors.
@@ -545,6 +552,7 @@ impl From<&LexiconError> for LexiconErrorCode {
                 AudioError::StreamBuildFailed { .. } => Self::AudioStreamError,
                 AudioError::StreamStartFailed { .. } => Self::AudioStreamError,
                 AudioError::Timeout { .. } => Self::AudioStreamError,
+                AudioError::ConversionError { .. } => Self::AudioUnsupportedFormat,
             },
             LexiconError::Model(e) => match e {
                 ModelError::NotFound { .. } => Self::ModelNotFound,

@@ -75,6 +75,7 @@ indicatif = "0.17"
 
 # Audio file reading
 hound = "3.5"
+symphonia = { version = "0.5", features = ["mp3", "ogg", "flac", "wav", "aac"] }
 
 # Encoding
 base64 = "0.22"

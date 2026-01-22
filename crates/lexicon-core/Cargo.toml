@@ -8,11 +8,12 @@ repository.workspace = true
 rust-version.workspace = true
 
 [features]
-default = ["stt", "tts", "storage", "audio"]
+default = ["stt", "tts", "storage", "audio", "audio-convert"]
 stt = ["dep:whisper-rs"]
 tts = ["dep:ort", "dep:ndarray", "dep:tts", "dep:misaki-rs"]
 storage = ["dep:rusqlite"]
 audio = ["dep:cpal", "dep:rubato", "dep:webrtc-vad", "dep:ringbuf"]
+audio-convert = ["dep:symphonia"]
 server = []
 ffi = []
 # Feature for test utilities (exposes functions useful for testing)
@@ -65,6 +66,9 @@ ort = { workspace = true, optional = true }
 ndarray = { workspace = true, optional = true }
 tts = { workspace = true, optional = true }
 misaki-rs = { version = "0.1", optional = true }
+
+# Audio format conversion
+symphonia = { workspace = true, optional = true }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true

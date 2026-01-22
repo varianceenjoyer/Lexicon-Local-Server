@@ -40,9 +40,15 @@ mod capture;
 mod resampler;
 mod vad;
 
+#[cfg(feature = "audio-convert")]
+mod convert;
+
 pub use capture::CpalAudioSource;
 pub use resampler::Resampler;
 pub use vad::VoiceActivityDetector;
+
+#[cfg(feature = "audio-convert")]
+pub use convert::{AudioConverter, AudioMetadata, ConversionError};
 
 use crate::error::{AudioError, LexiconError, Result};
 
