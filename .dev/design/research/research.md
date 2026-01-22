@@ -1,6 +1,6 @@
 # Research
 
-## Status Summary (Updated 2026-01-19)
+## Status Summary (Updated 2026-01-23)
 
 **Decision: Rust Implementation**
 
@@ -35,6 +35,7 @@ The project will be implemented using Rust libraries instead of Go. This decisio
 | R-LIC-01 | License audit (whisper-rs, ort, cpal, Piper) | Legal | License compatibility report | ✅ Complete |
 | R-UX-01 | Offline-first UX for model management | Design | UX recommendations | ✅ Complete |
 | R-DB-01 | SQLite schema for transcription storage | Architecture | Schema design doc | ✅ Complete |
+| R-DIA-01 | Speaker diarization algorithms | Algorithm | Upgrade path doc | ✅ Complete |
 
 ---
 
@@ -60,6 +61,7 @@ The project will be implemented using Rust libraries instead of Go. This decisio
 - [x] [R-UX-01](R-UX-01-offline-first-ux.md) - Offline-First UX — Immediate download recommended, Material Design patterns
 - [x] [R-BLE-01](R-BLE-01-bluetooth-audio.md) - Bluetooth Audio ✅ **SUPPORT WITH CAVEATS** (HFP 1.6 for 16kHz, LE Audio preferred)
 - [x] [R-TTS-01](R-TTS-01-alternative-tts-engines.md) - Alternative TTS Engines ✅ **Kokoro TTS recommended** (Apache 2.0, Misaki G2P avoids GPL)
+- [x] [R-DIA-01](R-DIA-01-speaker-diarization.md) - Speaker Diarization ✅ **ECAPA-TDNN recommended** for Release phase upgrade
 
 ## Archived
 
