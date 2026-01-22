@@ -390,7 +390,7 @@ impl TtsManager {
             }
 
             debug!("Streaming synthesis complete: {} samples in {} chunks",
-                total_samples, (total_samples + chunk_size - 1) / chunk_size);
+                total_samples, total_samples.div_ceil(chunk_size));
         });
 
         receiver

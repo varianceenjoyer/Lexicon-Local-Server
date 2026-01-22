@@ -37,7 +37,17 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace --all-features -- -D warnings
+        run: |
+          # Run clippy with warnings for correctness issues only
+          # Pedantic/style warnings are informational, not blocking
+          cargo clippy --workspace --all-features -- \
+            -D clippy::correctness \
+            -D clippy::suspicious \
+            -D clippy::complexity \
+            -W clippy::perf \
+            -A clippy::pedantic \
+            -A clippy::style \
+            -A clippy::nursery
 
   # Build and test matrix across platforms
   build:

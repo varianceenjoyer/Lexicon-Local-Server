@@ -266,13 +266,11 @@ impl LexiconContext {
 
     /// List available models.
     pub fn list_models(&self) -> Result<Vec<ModelFfiInfo>, LexiconFfiError> {
-        let models = vec![
-            ("whisper-tiny", "Whisper Tiny", "stt", 75_000_000u64),
+        let models = [("whisper-tiny", "Whisper Tiny", "stt", 75_000_000u64),
             ("whisper-base", "Whisper Base", "stt", 142_000_000),
             ("whisper-small", "Whisper Small", "stt", 466_000_000),
             ("whisper-medium", "Whisper Medium", "stt", 1_500_000_000),
-            ("whisper-large", "Whisper Large", "stt", 2_900_000_000),
-        ];
+            ("whisper-large", "Whisper Large", "stt", 2_900_000_000)];
 
         let model_dir = &self.config.model_dir;
         let results: Vec<ModelFfiInfo> = models

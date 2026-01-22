@@ -339,8 +339,7 @@ impl AudioConverter {
 
         let mut format = probed.format;
         let format_name = format.metadata().current()
-            .map(|m| m.tags().iter().find(|t| t.key == "format").map(|t| t.value.to_string()))
-            .flatten()
+            .and_then(|m| m.tags().iter().find(|t| t.key == "format").map(|t| t.value.to_string()))
             .unwrap_or_else(|| {
                 path.extension()
                     .and_then(|e| e.to_str())
@@ -362,11 +361,11 @@ impl AudioConverter {
         let duration_ms = if let (Some(n_frames), Some(sr)) =
             (codec_params.n_frames, codec_params.sample_rate)
         {
-            (n_frames as u64 * 1000) / sr as u64
+            (n_frames * 1000) / sr as u64
         } else if let Some(tb) = codec_params.time_base {
             // Try to get duration from time base
             codec_params.n_frames.map(|f| {
-                let duration = symphonia::core::units::Time::from(tb.calc_time(f));
+                let duration = tb.calc_time(f);
                 (duration.seconds * 1000) + (duration.frac * 1000.0) as u64
             }).unwrap_or(0)
         } else {

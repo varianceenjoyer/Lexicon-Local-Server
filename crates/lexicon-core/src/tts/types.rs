@@ -75,18 +75,15 @@ impl AudioBuffer {
 
 /// TTS engine type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum TtsEngine {
     /// Kokoro neural TTS (high quality, English only).
+    #[default]
     Kokoro,
     /// Platform-native TTS via tts-rs (multi-language support).
     Platform,
 }
 
-impl Default for TtsEngine {
-    fn default() -> Self {
-        Self::Kokoro
-    }
-}
 
 impl std::fmt::Display for TtsEngine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

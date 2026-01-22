@@ -1,0 +1,5 @@
+# Clippy configuration for Lexicon Local Server
+# https://doc.rust-lang.org/clippy/lint_configuration.html
+
+# Allow functions up to 150 lines (some audio/protocol handlers are complex)
+too-many-lines-threshold = 150

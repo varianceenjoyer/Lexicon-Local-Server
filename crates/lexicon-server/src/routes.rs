@@ -173,13 +173,11 @@ pub struct ModelResponse {
 
 /// List available models.
 pub async fn list_models(State(state): State<Arc<AppState>>) -> Json<Vec<ModelResponse>> {
-    let models = vec![
-        ("whisper-tiny", "Whisper Tiny", 75_000_000u64),
+    let models = [("whisper-tiny", "Whisper Tiny", 75_000_000u64),
         ("whisper-base", "Whisper Base", 142_000_000),
         ("whisper-small", "Whisper Small", 466_000_000),
         ("whisper-medium", "Whisper Medium", 1_500_000_000),
-        ("whisper-large", "Whisper Large", 2_900_000_000),
-    ];
+        ("whisper-large", "Whisper Large", 2_900_000_000)];
 
     let model_dir = &state.config.model_dir;
     let responses: Vec<ModelResponse> = models
