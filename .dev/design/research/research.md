@@ -37,6 +37,7 @@ The project will be implemented using Rust libraries instead of Go. This decisio
 | R-UX-01 | Offline-first UX for model management | Design | UX recommendations | ✅ Complete |
 | R-DB-01 | SQLite schema for transcription storage | Architecture | Schema design doc | ✅ Complete |
 | R-DIA-01 | Speaker diarization algorithms | Algorithm | Upgrade path doc | ✅ Complete |
+| R-SYS-01 | System profiling for model selection | Configuration | Implementation guide | ✅ Complete |
 
 ---
 
@@ -64,6 +65,7 @@ The project will be implemented using Rust libraries instead of Go. This decisio
 - [x] [R-BLE-02](R-BLE-02-desktop-hfp-negotiation.md) - Desktop HFP Negotiation ✅ **CONDITIONAL** (macOS/Windows auto, Linux BlueZ control)
 - [x] [R-TTS-01](R-TTS-01-alternative-tts-engines.md) - Alternative TTS Engines ✅ **Kokoro TTS recommended** (Apache 2.0, Misaki G2P avoids GPL)
 - [x] [R-DIA-01](R-DIA-01-speaker-diarization.md) - Speaker Diarization ✅ **ECAPA-TDNN recommended** for Release phase upgrade
+- [x] [R-SYS-01](R-SYS-01-system-profiling.md) - System Profiling ✅ **sysinfo + platform GPU detection** for WP-CONFIG model recommendations
 
 ## Archived
 
