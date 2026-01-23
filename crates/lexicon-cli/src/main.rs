@@ -403,6 +403,92 @@ fn main() -> Result<()> {
     }
 }
 
+/// Model definition with display name, size, and possible filenames.
+struct ModelDef {
+    /// Display name (e.g., "base-q5_1")
+    name: &'static str,
+    /// Human-readable size
+    size: &'static str,
+    /// Possible filenames to check (in order of preference)
+    /// Supports both legacy whisper-*.bin and ggml-*.bin naming conventions
+    filenames: &'static [&'static str],
+}
+
+impl ModelDef {
+    /// Find the first existing file path for this model in the given directory.
+    fn find_path(&self, model_dir: &Path) -> Option<PathBuf> {
+        for filename in self.filenames {
+            let path = model_dir.join(filename);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+        None
+    }
+}
+
+/// All supported Whisper models with their filename patterns.
+/// Listed in preference order for auto-detection (quantized first for faster startup).
+const MODEL_CANDIDATES: &[ModelDef] = &[
+    // Quantized models (smaller, faster) - preferred for auto-detection
+    ModelDef {
+        name: "tiny-q5_1",
+        size: "31 MB",
+        filenames: &["ggml-tiny-q5_1.bin", "whisper-tiny-q5_1.bin"],
+    },
+    ModelDef {
+        name: "base-q5_1",
+        size: "57 MB",
+        filenames: &["ggml-base-q5_1.bin", "whisper-base-q5_1.bin"],
+    },
+    ModelDef {
+        name: "small-q5_1",
+        size: "182 MB",
+        filenames: &["ggml-small-q5_1.bin", "whisper-small-q5_1.bin"],
+    },
+    // Non-quantized models (original quality)
+    ModelDef {
+        name: "tiny",
+        size: "75 MB",
+        filenames: &["ggml-tiny.bin", "whisper-tiny.bin", "ggml-tiny.en.bin", "whisper-tiny.en.bin"],
+    },
+    ModelDef {
+        name: "base",
+        size: "142 MB",
+        filenames: &["ggml-base.bin", "whisper-base.bin", "ggml-base.en.bin", "whisper-base.en.bin"],
+    },
+    ModelDef {
+        name: "small",
+        size: "466 MB",
+        filenames: &["ggml-small.bin", "whisper-small.bin", "ggml-small.en.bin", "whisper-small.en.bin"],
+    },
+    ModelDef {
+        name: "medium",
+        size: "1.5 GB",
+        filenames: &["ggml-medium.bin", "whisper-medium.bin", "ggml-medium.en.bin", "whisper-medium.en.bin"],
+    },
+    ModelDef {
+        name: "large-v3",
+        size: "2.9 GB",
+        filenames: &["ggml-large-v3.bin", "whisper-large-v3.bin", "ggml-large.bin", "whisper-large.bin"],
+    },
+    ModelDef {
+        name: "large-v3-turbo",
+        size: "1.5 GB",
+        filenames: &["ggml-large-v3-turbo.bin", "whisper-large-v3-turbo.bin"],
+    },
+];
+
+/// Find the first available model in the model directory.
+fn find_first_available_model(model_dir: &Path) -> Option<PathBuf> {
+    for model in MODEL_CANDIDATES {
+        if let Some(path) = model.find_path(model_dir) {
+            return Some(path);
+        }
+    }
+    None
+}
+
 /// Launch the diagnostic TUI.
 fn cmd_tui(
     device: Option<String>,
@@ -422,22 +508,7 @@ fn cmd_tui(
         Some(path)
     } else {
         // Try to find a model in the default model directory
-        let model_dir = &core_config.model_dir;
-
-        // Look for common Whisper model files
-        let candidates = [
-            "ggml-base.en.bin",
-            "ggml-base.bin",
-            "ggml-tiny.en.bin",
-            "ggml-tiny.bin",
-            "ggml-small.en.bin",
-            "ggml-small.bin",
-        ];
-
-        candidates
-            .iter()
-            .map(|name| model_dir.join(name))
-            .find(|path| path.exists())
+        find_first_available_model(&core_config.model_dir)
     };
 
     // Get database path from config
@@ -836,30 +907,6 @@ fn format_json(results: &[(PathBuf, TranscriptionResult)]) -> Result<String> {
     Ok(serde_json::to_string_pretty(&output)?)
 }
 
-/// Model definition with display name, size, and possible filenames.
-struct ModelDef {
-    /// Display name (e.g., "base-q5_1")
-    name: &'static str,
-    /// Human-readable size
-    size: &'static str,
-    /// Possible filenames to check (in order of preference)
-    /// Supports both legacy whisper-*.bin and ggml-*.bin naming conventions
-    filenames: &'static [&'static str],
-}
-
-impl ModelDef {
-    /// Find the first existing file path for this model in the given directory.
-    fn find_path(&self, model_dir: &Path) -> Option<PathBuf> {
-        for filename in self.filenames {
-            let path = model_dir.join(filename);
-            if path.exists() {
-                return Some(path);
-            }
-        }
-        None
-    }
-}
-
 /// Find an existing model file by name, checking all possible filename patterns.
 /// Returns the path if found, otherwise returns the expected ggml-*.bin path.
 fn find_model_path(model_dir: &Path, model_name: &str) -> (Option<PathBuf>, PathBuf) {
@@ -896,58 +943,7 @@ fn cmd_models_list(downloaded_only: bool) -> Result<()> {
     println!("{:<16} {:<10} {:<14} {}", "Model", "Size", "Status", "Path");
     println!("{}", "-".repeat(70));
 
-    // Models with both ggml-*.bin (HuggingFace) and whisper-*.bin (legacy) filename patterns
-    let models: &[ModelDef] = &[
-        // Quantized models (smaller, faster)
-        ModelDef {
-            name: "tiny-q5_1",
-            size: "31 MB",
-            filenames: &["ggml-tiny-q5_1.bin", "whisper-tiny-q5_1.bin"],
-        },
-        ModelDef {
-            name: "base-q5_1",
-            size: "57 MB",
-            filenames: &["ggml-base-q5_1.bin", "whisper-base-q5_1.bin"],
-        },
-        ModelDef {
-            name: "small-q5_1",
-            size: "182 MB",
-            filenames: &["ggml-small-q5_1.bin", "whisper-small-q5_1.bin"],
-        },
-        // Non-quantized models (original quality)
-        ModelDef {
-            name: "tiny",
-            size: "75 MB",
-            filenames: &["ggml-tiny.bin", "whisper-tiny.bin"],
-        },
-        ModelDef {
-            name: "base",
-            size: "142 MB",
-            filenames: &["ggml-base.bin", "whisper-base.bin"],
-        },
-        ModelDef {
-            name: "small",
-            size: "466 MB",
-            filenames: &["ggml-small.bin", "whisper-small.bin"],
-        },
-        ModelDef {
-            name: "medium",
-            size: "1.5 GB",
-            filenames: &["ggml-medium.bin", "whisper-medium.bin"],
-        },
-        ModelDef {
-            name: "large-v3",
-            size: "2.9 GB",
-            filenames: &["ggml-large-v3.bin", "whisper-large-v3.bin", "ggml-large.bin", "whisper-large.bin"],
-        },
-        ModelDef {
-            name: "large-v3-turbo",
-            size: "1.5 GB",
-            filenames: &["ggml-large-v3-turbo.bin", "whisper-large-v3-turbo.bin"],
-        },
-    ];
-
-    for model in models {
+    for model in MODEL_CANDIDATES {
         let found_path = model.find_path(&config.model_dir);
         let is_downloaded = found_path.is_some();
 
