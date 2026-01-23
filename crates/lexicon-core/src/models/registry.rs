@@ -247,9 +247,16 @@ impl ModelRegistry {
     ///
     /// Some CDNs and firewalls (particularly in corporate/WSL environments)
     /// block requests that don't have proper User-Agent headers.
+    /// Headers match the working curl command for Hugging Face downloads.
     fn build_http_client() -> Result<reqwest::Client> {
+        use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
+
+        let mut headers = HeaderMap::new();
+        headers.insert(ACCEPT, HeaderValue::from_static("*/*"));
+
         reqwest::Client::builder()
-            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .default_headers(headers)
             .build()
             .map_err(|e| LexiconError::Config(format!("Failed to create HTTP client: {e}")))
     }
