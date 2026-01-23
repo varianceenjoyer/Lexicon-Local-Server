@@ -134,8 +134,7 @@ impl std::str::FromStr for SystemTier {
             "high" => Ok(SystemTier::High),
             "ultra" => Ok(SystemTier::Ultra),
             _ => Err(LexiconError::Config(format!(
-                "Invalid system tier: '{}'. Valid values: minimal, low, medium, high, ultra",
-                s
+                "Invalid system tier: '{s}'. Valid values: minimal, low, medium, high, ultra"
             ))),
         }
     }
