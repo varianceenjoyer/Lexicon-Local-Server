@@ -2,7 +2,9 @@
 
 > **ID**: HO-TUI-001 | **Work Package**: WP-TUI
 >
-> **Created**: 2026-01-23 | **Status**: Ready for Implementation
+> **Created**: 2026-01-23 | **Status**: Core Scaffolding Complete
+>
+> **Last Updated**: 2026-01-23
 
 ---
 
@@ -788,50 +790,74 @@ cargo test -p lexicon-cli buffer
 
 ---
 
+## Implementation Progress (2026-01-23)
+
+### Completed
+- [x] TUI module structure created (`crates/lexicon-cli/src/tui/`)
+- [x] `lexicon tui` and `lexicon diag` CLI commands with options
+- [x] Audio device manager with real-time level monitoring via cpal
+- [x] Level meter widget with color-coded visualization
+- [x] Transcription buffer with scroll support
+- [x] Save dialog with text input and selection
+- [x] Saved transcriptions list view
+- [x] Main event loop with keyboard and mouse handling
+- [x] All core keyboard shortcuts (Ctrl+T/S/L/C)
+- [x] Device dropdown widget
+- [x] All tests passing
+
+### Remaining
+- [ ] Integration with WhisperTranscriber for real-time STT
+- [ ] Database integration for saving/loading transcripts
+- [ ] Database schema migration for `saved_transcripts` table
+- [ ] Voice input in save dialog
+- [ ] Export functionality
+
+---
+
 ## Acceptance Checklist
 
 ### Core TUI
-- [ ] TUI launches with `lexicon tui` command
-- [ ] Mouse support enabled by default
-- [ ] Clean exit with Esc key
-- [ ] Keyboard shortcuts documented in footer
+- [x] TUI launches with `lexicon tui` command
+- [x] Mouse support enabled by default
+- [x] Clean exit with Esc key
+- [x] Keyboard shortcuts documented in footer
 
 ### Audio
-- [ ] Device dropdown shows all input devices
-- [ ] Current device displayed at top
-- [ ] Device selection changes audio source
-- [ ] Level meter updates in real-time
+- [x] Device dropdown shows all input devices
+- [x] Current device displayed at top
+- [x] Device selection changes audio source
+- [x] Level meter updates in real-time
 
 ### Recording
-- [ ] Ctrl+T toggles recording
-- [ ] Recording indicator visible (● REC)
-- [ ] Transcription streams to text area
-- [ ] Char counter updates
+- [x] Ctrl+T toggles recording
+- [x] Recording indicator visible (● REC)
+- [ ] Transcription streams to text area (needs STT integration)
+- [x] Char counter updates
 
 ### Buffer
-- [ ] 100k char limit enforced
-- [ ] Auto-flush triggers at limit
+- [x] 100k char limit enforced
+- [x] Auto-flush triggers at limit
 - [ ] User notified of auto-flush
 
 ### Save/Rename
-- [ ] Ctrl+S opens dialog
-- [ ] Text input works
+- [x] Ctrl+S opens dialog
+- [x] Text input works
 - [ ] Voice input works (if recording)
-- [ ] Keyboard shortcuts work (Ctrl+A, Ctrl+X, Ctrl+arrows)
-- [ ] Enter confirms, Esc cancels
+- [x] Keyboard shortcuts work (Ctrl+A, Ctrl+X, Ctrl+arrows)
+- [x] Enter confirms, Esc cancels
 
 ### Copy
-- [ ] Copy button works
-- [ ] Text copied to system clipboard
-- [ ] Visual confirmation
+- [x] Copy button works
+- [x] Text copied to system clipboard
+- [x] Visual confirmation
 
 ### Saved List
-- [ ] Ctrl+L opens saved list
-- [ ] List shows name, preview, date
-- [ ] Selection with arrow keys
+- [x] Ctrl+L opens saved list
+- [x] List shows name, preview, date
+- [x] Selection with arrow keys
 - [ ] Enter opens transcript
 - [ ] Delete removes transcript
-- [ ] Back returns to main
+- [x] Back returns to main
 
 ---
 
