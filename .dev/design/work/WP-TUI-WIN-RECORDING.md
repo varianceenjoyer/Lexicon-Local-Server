@@ -1,7 +1,7 @@
 ---
 id: WP-TUI-WIN-RECORDING
 type: work-plan
-status: ready
+status: in_progress
 phase: beta
 created: 2026-01-23
 updated: 2026-01-23
@@ -266,3 +266,4 @@ Depending on root cause:
 | Date | Update |
 |------|--------|
 | 2026-01-23 | Work plan created based on Windows build testing |
+| 2026-01-23 | Diagnostic logging added to TUI startup, worker thread, and toggle_recording |
