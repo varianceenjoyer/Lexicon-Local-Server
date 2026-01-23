@@ -1,7 +1,7 @@
 ---
 id: WP-SSH-AUDIO-TUNNEL
 type: work-plan
-status: ready
+status: complete
 phase: beta
 created: 2026-01-23
 updated: 2026-01-23
@@ -128,13 +128,13 @@ This aligns with the existing docs structure and the testing focus of this confi
 
 ## Acceptance Criteria
 
-- [ ] Documentation created at `docs/testing/wsl-audio-setup.md`
-- [ ] Windows PulseAudio server configuration documented
-- [ ] WSL client configuration documented
-- [ ] All commands tested and verified working
-- [ ] Verification steps confirm audio is captured
-- [ ] TUI successfully receives audio via tunnel
-- [ ] Troubleshooting section covers common issues
+- [x] Documentation created at `docs/testing/wsl-audio-setup.md`
+- [x] Windows PulseAudio server configuration documented
+- [x] WSL client configuration documented
+- [x] All commands tested and verified working
+- [x] Verification steps confirm audio is captured
+- [x] TUI successfully receives audio via tunnel
+- [x] Troubleshooting section covers common issues
 
 ---
 
@@ -188,3 +188,4 @@ Before writing documentation, verify:
 | Date | Update |
 |------|--------|
 | 2026-01-23 | Work plan created for WSL audio testing documentation |
+| 2026-01-23 | Documentation complete: docs/testing/wsl-audio-setup.md |
