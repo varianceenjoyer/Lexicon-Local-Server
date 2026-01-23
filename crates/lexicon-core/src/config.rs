@@ -61,8 +61,7 @@ impl std::str::FromStr for LogLevel {
             "debug" => Ok(LogLevel::Debug),
             "trace" => Ok(LogLevel::Trace),
             _ => Err(LexiconError::Config(format!(
-                "Invalid log level: '{}'. Valid values: error, warn, info, debug, trace",
-                s
+                "Invalid log level: '{s}'. Valid values: error, warn, info, debug, trace"
             ))),
         }
     }
@@ -279,7 +278,7 @@ impl LexiconConfig {
     /// Returns an error if the TOML is invalid.
     pub fn from_toml(content: &str) -> Result<Self> {
         let config: Self = toml::from_str(content)
-            .map_err(|e| LexiconError::Config(format!("Invalid TOML configuration: {}", e)))?;
+            .map_err(|e| LexiconError::Config(format!("Invalid TOML configuration: {e}")))?;
         config.validate()?;
         Ok(config)
     }
@@ -399,9 +398,9 @@ impl LexiconConfig {
                       # Generated automatically. Edit with caution.\n\n";
 
         let toml_content = toml::to_string_pretty(self)
-            .map_err(|e| LexiconError::Config(format!("Failed to serialize config: {}", e)))?;
+            .map_err(|e| LexiconError::Config(format!("Failed to serialize config: {e}")))?;
 
-        Ok(format!("{}{}", header, toml_content))
+        Ok(format!("{header}{toml_content}"))
     }
 
     /// Checks if this is a first run (no config file exists).
@@ -552,7 +551,7 @@ impl ConfigBuilder {
         }
         if let Ok(val) = std::env::var("LEXICON_SERVER_PORT") {
             config.server.port = val.parse().map_err(|_| {
-                LexiconError::Config(format!("Invalid LEXICON_SERVER_PORT: {}", val))
+                LexiconError::Config(format!("Invalid LEXICON_SERVER_PORT: {val}"))
             })?;
         }
 
