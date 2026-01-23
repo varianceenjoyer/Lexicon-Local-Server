@@ -25,7 +25,7 @@ use lexicon_core::storage::{Database, NewSavedTranscript, SavedTranscriptId};
 
 use super::audio::AudioDeviceManager;
 use super::buffer::TranscriptionBuffer;
-use super::dialogs::{DialogAction, SaveDialog};
+use super::dialogs::{ConfirmAction, ConfirmDialog, DialogAction, SaveDialog};
 use super::transcription::{TranscriptionManager, TranscriptionManagerConfig, TranscriptionMessage};
 use super::views::{SavedTranscript, SavedTranscriptionsList};
 use super::widgets::LevelMeter;
@@ -46,6 +46,8 @@ pub enum TuiMode {
     SaveDialog,
     /// Browse saved transcriptions.
     SavedList,
+    /// Confirmation dialog (e.g., save before new).
+    ConfirmDialog,
 }
 
 /// Configuration for the TUI application.
@@ -64,6 +66,8 @@ pub struct TuiConfig {
     pub translate: bool,
     /// Path to the database file.
     pub database_path: Option<PathBuf>,
+    /// Whether to prompt before creating a new transcription with unsaved changes.
+    pub confirm_new_transcription: bool,
 }
 
 impl Default for TuiConfig {
@@ -76,6 +80,7 @@ impl Default for TuiConfig {
             language: Some("en".to_string()),
             translate: false,
             database_path: None,
+            confirm_new_transcription: true,
         }
     }
 }
@@ -94,6 +99,12 @@ pub struct TuiApp {
     should_quit: bool,
     /// Save dialog.
     save_dialog: SaveDialog,
+    /// Confirmation dialog (for new transcription).
+    confirm_dialog: ConfirmDialog,
+    /// Whether the current buffer has been saved since last modification.
+    buffer_saved: bool,
+    /// Whether to create a new transcription after saving (set by confirm dialog flow).
+    pending_new_after_save: bool,
     /// Saved transcriptions list.
     saved_list: SavedTranscriptionsList,
     /// Device dropdown open state.
@@ -114,6 +125,8 @@ pub struct TuiApp {
     model_status: Option<String>,
     /// Database connection for saving transcripts.
     database: Option<Database>,
+    /// Whether to prompt before creating a new transcription with unsaved changes.
+    confirm_new_transcription: bool,
 }
 
 impl TuiApp {
@@ -205,6 +218,9 @@ impl TuiApp {
             recording: false,
             should_quit: false,
             save_dialog: SaveDialog::new(),
+            confirm_dialog: ConfirmDialog::new(),
+            buffer_saved: true, // Empty buffer is considered "saved"
+            pending_new_after_save: false,
             saved_list,
             device_dropdown_open: false,
             dropdown_selection: 0,
@@ -215,6 +231,7 @@ impl TuiApp {
             transcription_enabled,
             model_status: None,
             database,
+            confirm_new_transcription: config.confirm_new_transcription,
         })
     }
 
@@ -288,14 +305,45 @@ impl TuiApp {
 
     /// Handles key events.
     fn handle_key(&mut self, code: KeyCode, modifiers: KeyModifiers) {
-        // Handle save dialog first if visible
+        // Handle confirm dialog first if visible
+        if self.confirm_dialog.is_visible() {
+            match self.confirm_dialog.handle_key(code, modifiers) {
+                ConfirmAction::Yes => {
+                    // User wants to save first, open save dialog
+                    self.pending_new_after_save = true;
+                    let default_name =
+                        chrono::Local::now().format("Recording %Y-%m-%d %H:%M").to_string();
+                    self.save_dialog.open_with_name(&default_name);
+                    self.mode = TuiMode::SaveDialog;
+                }
+                ConfirmAction::No => {
+                    // User doesn't want to save, just create new
+                    self.create_new_transcription();
+                    self.mode = TuiMode::Main;
+                }
+                ConfirmAction::Cancel => {
+                    // User cancelled, go back to main
+                    self.mode = TuiMode::Main;
+                }
+                ConfirmAction::None => {}
+            }
+            return;
+        }
+
+        // Handle save dialog if visible
         if self.save_dialog.is_visible() {
             match self.save_dialog.handle_key(code, modifiers) {
                 DialogAction::Confirm(name) => {
                     self.save_transcript(&name);
                     self.mode = TuiMode::Main;
+                    // If we were in confirm dialog flow, create new after save
+                    if self.pending_new_after_save {
+                        self.pending_new_after_save = false;
+                        self.create_new_transcription();
+                    }
                 }
                 DialogAction::Cancel => {
+                    self.pending_new_after_save = false;
                     self.mode = TuiMode::Main;
                 }
                 DialogAction::None => {}
@@ -317,7 +365,21 @@ impl TuiApp {
                     }
                 }
                 KeyCode::Enter => {
+                    // Update both the audio device manager (for level meter when no transcription)
+                    // and the transcription manager's audio capture device
                     let _ = self.audio.select_device(self.dropdown_selection);
+
+                    // Also update transcription manager's device if available
+                    if let Some(ref mut trans) = self.transcription {
+                        if let Some(device) = self.audio.selected_device() {
+                            if let Err(e) = trans.change_device(Some(device.name.clone())) {
+                                self.set_status(&format!("Device switch failed: {}", e));
+                            } else {
+                                self.set_status(&format!("Switched to: {}", device.name));
+                            }
+                        }
+                    }
+
                     self.device_dropdown_open = false;
                 }
                 KeyCode::Esc => {
@@ -399,6 +461,10 @@ impl TuiApp {
             (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                 self.copy_to_clipboard();
             }
+            // Ctrl+N: New transcription
+            (KeyCode::Char('n'), KeyModifiers::CONTROL) => {
+                self.handle_new_transcription();
+            }
             // Tab: Open device dropdown
             (KeyCode::Tab, _) => {
                 self.dropdown_selection = self.audio.selected_index();
@@ -450,6 +516,10 @@ impl TuiApp {
             TuiMode::SaveDialog => {
                 self.render_main(frame, area);
                 self.save_dialog.render(area, frame);
+            }
+            TuiMode::ConfirmDialog => {
+                self.render_main(frame, area);
+                self.confirm_dialog.render(area, frame);
             }
             TuiMode::SavedList => self.render_saved_list(frame, area),
         }
@@ -611,7 +681,7 @@ impl TuiApp {
         let help_text = if let Some((msg, _)) = &self.status_message {
             Span::styled(format!(" {} ", msg), Style::default().fg(Color::Green))
         } else {
-            Span::raw(" Ctrl+T: Record | Ctrl+S: Save | Ctrl+L: List | Ctrl+C: Copy | Tab: Device | Esc: Exit ")
+            Span::raw(" Ctrl+T: Record | Ctrl+S: Save | Ctrl+N: New | Ctrl+L: List | Ctrl+C: Copy | Tab: Device | Esc: Exit ")
         };
 
         let help = Paragraph::new(help_text)
@@ -700,6 +770,7 @@ impl TuiApp {
                         );
                     }
 
+                    self.buffer_saved = true;
                     self.set_status(&format!("Saved: {}", name));
                 }
                 Err(e) => {
@@ -814,6 +885,47 @@ impl TuiApp {
         }
     }
 
+    /// Handles Ctrl+N to create a new transcription.
+    fn handle_new_transcription(&mut self) {
+        // If buffer is empty, nothing to do
+        if self.buffer.is_empty() {
+            self.set_status("Already empty");
+            return;
+        }
+
+        // If buffer has been saved, just create new without prompting
+        if self.buffer_saved {
+            self.create_new_transcription();
+            return;
+        }
+
+        // If confirm_new_transcription is disabled, create new without prompting
+        if !self.confirm_new_transcription {
+            self.create_new_transcription();
+            return;
+        }
+
+        // Buffer has unsaved changes, prompt user
+        self.confirm_dialog.open("Save current transcription before creating new?");
+        self.mode = TuiMode::ConfirmDialog;
+    }
+
+    /// Creates a new empty transcription, clearing the buffer.
+    fn create_new_transcription(&mut self) {
+        // Stop recording if active
+        if self.recording {
+            self.recording = false;
+            if let Some(ref trans) = self.transcription {
+                trans.stop_recording();
+            }
+        }
+
+        // Clear the buffer
+        self.buffer.clear();
+        self.buffer_saved = true;
+        self.set_status("New transcription created");
+    }
+
     /// Processes pending transcription messages.
     fn process_transcription_messages(&mut self) {
         // Collect messages first to avoid borrow issues
@@ -845,6 +957,7 @@ impl TuiApp {
                             let _ = self.buffer.append(" ");
                         }
                         let flushed = self.buffer.append(&text);
+                        self.buffer_saved = false; // Mark as unsaved
                         if flushed {
                             self.set_status("Buffer auto-saved (100k limit)");
                         }

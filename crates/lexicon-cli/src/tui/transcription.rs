@@ -41,6 +41,12 @@ const SILENCE_THRESHOLD: f32 = 0.01;
 /// Duration of silence before processing (300ms).
 const SILENCE_DURATION_MS: u64 = 300;
 
+/// Minimum RMS energy threshold for transcription.
+///
+/// If the accumulated audio buffer has an overall RMS below this threshold,
+/// we skip transcription entirely to avoid Whisper hallucinations on silence.
+const MIN_TRANSCRIPTION_ENERGY: f32 = 0.005;
+
 /// Message types sent from the transcription worker to the UI.
 #[derive(Debug)]
 pub enum TranscriptionMessage {
@@ -306,6 +312,25 @@ impl TranscriptionManager {
         self.recording.load(Ordering::Relaxed)
     }
 
+    /// Changes the audio capture device.
+    ///
+    /// Stops the current audio stream and starts a new one on the specified device.
+    pub fn change_device(&mut self, device_name: Option<String>) -> Result<()> {
+        tracing::info!("Changing audio device to: {:?}", device_name);
+
+        // Stop current stream
+        self.stream = None;
+
+        // Reset level
+        self.level.store(0_f32.to_bits(), Ordering::Relaxed);
+
+        // Start audio capture on new device
+        self.start_audio_capture(device_name)?;
+
+        tracing::info!("Audio device changed successfully");
+        Ok(())
+    }
+
     /// Shuts down the transcription manager.
     pub fn shutdown(&mut self) {
         self.shutdown.store(true, Ordering::Relaxed);
@@ -460,6 +485,27 @@ fn transcription_worker(
             );
 
         if should_transcribe {
+            // Check if audio buffer has sufficient energy to avoid hallucinations on silence.
+            // Whisper tends to hallucinate repeated phrases (like "Thank you.") when given
+            // mostly silence, so we skip transcription if the overall energy is too low.
+            let buffer_rms: f32 = if !audio_buffer.is_empty() {
+                let sum_sq: f32 = audio_buffer.iter().map(|s| s * s).sum();
+                (sum_sq / audio_buffer.len() as f32).sqrt()
+            } else {
+                0.0
+            };
+
+            if buffer_rms < MIN_TRANSCRIPTION_ENERGY {
+                tracing::debug!(
+                    "Skipping transcription: buffer RMS {:.4} below threshold {:.4}",
+                    buffer_rms,
+                    MIN_TRANSCRIPTION_ENERGY
+                );
+                audio_buffer.clear();
+                has_speech = false;
+                continue;
+            }
+
             let _ = ui_tx.send(TranscriptionMessage::Processing);
 
             // Transcribe accumulated audio

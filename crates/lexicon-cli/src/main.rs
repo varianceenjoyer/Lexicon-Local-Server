@@ -451,6 +451,7 @@ fn cmd_tui(
         language: Some(language),
         translate,
         database_path,
+        confirm_new_transcription: core_config.tui.confirm_new_transcription,
     };
 
     let mut app = TuiApp::with_config(config)

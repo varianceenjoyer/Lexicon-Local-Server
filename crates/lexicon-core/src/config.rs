@@ -98,6 +98,10 @@ pub struct LexiconConfig {
     /// TTS-specific configuration
     #[serde(default)]
     pub tts: TtsConfig,
+
+    /// TUI-specific configuration
+    #[serde(default)]
+    pub tui: TuiConfigSection,
 }
 
 /// Server-specific configuration.
@@ -213,6 +217,32 @@ impl Default for TtsConfig {
             preferred_engine: TtsEngine::default(),
             fallback_enabled: Self::default_fallback(),
             default_voice: None,
+        }
+    }
+}
+
+/// TUI-specific configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TuiConfigSection {
+    /// Whether to prompt the user to save before creating a new transcription.
+    ///
+    /// When enabled (default), pressing Ctrl+N will ask if you want to save
+    /// unsaved changes before clearing the buffer. When disabled, Ctrl+N
+    /// always creates a new transcription without prompting.
+    #[serde(default = "TuiConfigSection::default_confirm_new")]
+    pub confirm_new_transcription: bool,
+}
+
+impl TuiConfigSection {
+    fn default_confirm_new() -> bool {
+        true
+    }
+}
+
+impl Default for TuiConfigSection {
+    fn default() -> Self {
+        Self {
+            confirm_new_transcription: Self::default_confirm_new(),
         }
     }
 }
@@ -440,6 +470,7 @@ pub struct ConfigBuilder {
     server: Option<ServerConfig>,
     stt: Option<SttConfig>,
     tts: Option<TtsConfig>,
+    tui: Option<TuiConfigSection>,
 }
 
 impl ConfigBuilder {
@@ -491,6 +522,13 @@ impl ConfigBuilder {
         self
     }
 
+    /// Sets the TUI configuration.
+    #[must_use]
+    pub fn tui(mut self, config: TuiConfigSection) -> Self {
+        self.tui = Some(config);
+        self
+    }
+
     /// Builds the configuration.
     ///
     /// # Errors
@@ -513,6 +551,7 @@ impl ConfigBuilder {
             server: self.server.unwrap_or_default(),
             stt: self.stt.unwrap_or_default(),
             tts: self.tts.unwrap_or_default(),
+            tui: self.tui.unwrap_or_default(),
         };
 
         config.validate()?;

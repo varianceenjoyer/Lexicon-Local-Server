@@ -2,6 +2,8 @@
 //!
 //! Modal dialogs for various TUI interactions.
 
+mod confirm;
 mod save;
 
-pub use save::{SaveDialog, DialogAction};
+pub use confirm::{ConfirmAction, ConfirmDialog};
+pub use save::{DialogAction, SaveDialog};

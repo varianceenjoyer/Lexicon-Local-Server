@@ -41,7 +41,7 @@ pub mod tts;
 
 pub mod models;
 
-pub use config::{LexiconConfig, LogLevel};
+pub use config::{LexiconConfig, LogLevel, TuiConfigSection};
 pub use error::{LexiconError, Result};
 pub use platform::{DeviceProfile, ModelTier, Platform, ThermalState};
 
