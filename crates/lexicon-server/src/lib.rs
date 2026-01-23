@@ -343,9 +343,11 @@ impl Server {
         #[cfg(feature = "tts")]
         self.state.init_tts().await.ok(); // Non-fatal if TTS fails
 
-        let addr: SocketAddr = format!("{}:{}", self.config.host, self.config.port)
+        let host = &self.config.host;
+        let port = self.config.port;
+        let addr: SocketAddr = format!("{host}:{port}")
             .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid address: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid address: {e}"))?;
 
         let router = self.build_router();
 

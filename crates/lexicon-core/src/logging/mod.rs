@@ -52,7 +52,7 @@ pub fn init_logging(level: LogLevel, json: bool) -> Result<()> {
             .try_init()
     };
 
-    result.map_err(|e| LexiconError::Config(format!("Failed to initialize logging: {}", e)))
+    result.map_err(|e| LexiconError::Config(format!("Failed to initialize logging: {e}")))
 }
 
 /// Creates a tracing span for a transcription session.

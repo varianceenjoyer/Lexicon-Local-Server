@@ -305,7 +305,7 @@ impl QualityReport {
             summary.push_str(&format!("  Average MOS:     {:.2}\n", self.average_mos()));
 
             let pass_status = if self.meets_beta_criteria() { "PASS ✓" } else { "FAIL ✗" };
-            summary.push_str(&format!("\nBeta Criteria: {}\n", pass_status));
+            summary.push_str(&format!("\nBeta Criteria: {pass_status}\n"));
 
             let failing = self.failing_assessments();
             if !failing.is_empty() {
