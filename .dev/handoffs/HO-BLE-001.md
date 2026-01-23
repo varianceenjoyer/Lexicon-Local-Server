@@ -2,7 +2,7 @@
 
 > **ID**: HO-BLE-001 | **Work Package**: WP-BLE
 >
-> **Created**: 2026-01-23 | **Status**: Ready to Start
+> **Created**: 2026-01-23 | **Status**: 🟡 SCAFFOLDING COMPLETE - Awaiting Hardware Testing
 
 ---
 
@@ -11,6 +11,23 @@
 Implement Bluetooth HFP 1.6 codec negotiation for 16kHz wideband audio. Currently, Bluetooth audio may fall back to 8kHz narrowband, reducing transcription accuracy.
 
 **Complexity**: MEDIUM-HIGH (platform-specific implementations required)
+
+---
+
+## Current Progress
+
+### Completed (2026-01-23)
+- [x] Core types: `BluetoothState`, `BluetoothAudioInfo`, `AudioRoute`
+- [x] `BluetoothStateCallback` trait for state change notifications
+- [x] `BluetoothAudioManager` struct with state management
+- [x] 16 unit tests passing
+- [x] Module exported from `audio/mod.rs`
+
+### Remaining (Requires Hardware)
+- [ ] **HUMAN ACTION**: Test with physical Bluetooth devices
+- [ ] Platform-specific implementations (macOS, Windows, Linux)
+- [ ] Integration with `CpalAudioSource` for route change handling
+- [ ] 8kHz -> 16kHz resampling integration
 
 ---
 

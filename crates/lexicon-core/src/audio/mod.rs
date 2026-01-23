@@ -36,6 +36,7 @@
 //! | Windows | WASAPI | Fully supported |
 //! | Linux | ALSA | Requires libasound2-dev |
 
+pub mod bluetooth;
 mod capture;
 mod resampler;
 mod vad;

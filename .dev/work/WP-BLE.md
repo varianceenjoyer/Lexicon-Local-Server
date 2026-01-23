@@ -1,6 +1,6 @@
 # WP-BLE: Bluetooth HFP 1.6 Audio Support
 
-> **Status**: Ready for Implementation | **Priority**: MEDIUM | **Phase**: Beta
+> **Status**: 🟡 SCAFFOLDING COMPLETE - Awaiting Hardware Testing | **Priority**: MEDIUM | **Phase**: Beta
 >
 > **Research**: [R-BLE-01](../design/research/R-BLE-01-bluetooth-audio.md), [R-BLE-02](../design/research/R-BLE-02-desktop-hfp-negotiation.md)
 >
@@ -313,7 +313,29 @@ mod linux_bluetooth {
 | Date | Update |
 |------|--------|
 | 2026-01-23 | Work package created from Beta requirements |
+| 2026-01-23 | Scaffolding complete: `bluetooth.rs` module with 16 passing tests |
 
 ---
 
-*Ready for implementation. Platform APIs researched in R-BLE-02.*
+## Implementation Progress
+
+**Scaffolding Complete (2026-01-23)**
+
+Implemented files:
+- `crates/lexicon-core/src/audio/bluetooth.rs` - Bluetooth audio management with:
+  - `BluetoothState` enum (Disconnected, Connecting, ConnectedNarrowband, ConnectedWideband, Failed)
+  - `BluetoothAudioInfo` struct for device info and sample rate
+  - `AudioRoute` enum (BuiltIn, External, Bluetooth)
+  - `BluetoothStateCallback` trait for state change notifications
+  - `BluetoothAudioManager` with state management and route tracking
+  - Test simulation methods for unit testing without hardware
+  - 16 unit tests passing
+
+**Remaining (Requires Hardware)**:
+- [ ] **macOS**: AVAudioSession/CoreBluetooth HFP integration
+- [ ] **Windows**: MMDevice API HFP integration
+- [ ] **Linux**: BlueZ/PulseAudio HFP integration
+- [ ] Physical device testing for codec negotiation
+- [ ] Audio capture integration (connect to CpalAudioSource)
+
+*Scaffolding complete. Platform-specific implementations require physical Bluetooth hardware for testing.*

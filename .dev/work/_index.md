@@ -1,6 +1,6 @@
 # Work Packages Index
 
-> **Status**: Active | **Last Updated**: 2026-01-23 (WP-CONFIG complete, WP-HASH-VERIFY scaffolding)
+> **Status**: Active | **Last Updated**: 2026-01-23 (WP-BLE scaffolding complete)
 >
 > This index tracks all actionable work packages for Lexicon Local Server.
 
@@ -18,12 +18,6 @@ Work packages are self-contained units of implementation work with:
 
 ## Work Package Status
 
-### Ready for Implementation (Beta Phase)
-
-| ID | Name | Priority | Phase | Handoff |
-|----|------|----------|-------|---------|
-| [WP-BLE](WP-BLE.md) | Bluetooth HFP 1.6 Support | MEDIUM | Beta | [HO-BLE-001](../handoffs/HO-BLE-001.md) |
-
 ### Blocked (Beta/Release Phase)
 
 | ID | Name | Priority | Blocked By | Notes |
@@ -39,6 +33,7 @@ Work packages are self-contained units of implementation work with:
 |----|------|-------|---------|-------|
 | [WP-HASH-VERIFY](WP-HASH-VERIFY.md) | Model Hash Verification | - | 2026-01-23 | Scaffolding complete - awaiting hash values |
 | [WP-TTS-QUALITY](WP-TTS-QUALITY.md) | TTS Quality Validation | - | 2026-01-23 | Test infrastructure complete - awaiting human eval |
+| [WP-BLE](WP-BLE.md) | Bluetooth HFP 1.6 Support | - | 2026-01-23 | Core scaffolding complete - awaiting hardware |
 
 ### Completed (MVP/Early Beta)
 
