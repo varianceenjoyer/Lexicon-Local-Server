@@ -127,6 +127,8 @@ pub struct TuiApp {
     database: Option<Database>,
     /// Whether to prompt before creating a new transcription with unsaved changes.
     confirm_new_transcription: bool,
+    /// Pending delete transcript ID (for delete confirmation flow).
+    pending_delete_id: Option<i64>,
 }
 
 impl TuiApp {
@@ -232,6 +234,7 @@ impl TuiApp {
             model_status: None,
             database,
             confirm_new_transcription: config.confirm_new_transcription,
+            pending_delete_id: None,
         })
     }
 
@@ -309,21 +312,47 @@ impl TuiApp {
         if self.confirm_dialog.is_visible() {
             match self.confirm_dialog.handle_key(code, modifiers) {
                 ConfirmAction::Yes => {
-                    // User wants to save first, open save dialog
-                    self.pending_new_after_save = true;
-                    let default_name =
-                        chrono::Local::now().format("Recording %Y-%m-%d %H:%M").to_string();
-                    self.save_dialog.open_with_name(&default_name);
-                    self.mode = TuiMode::SaveDialog;
+                    // Check if this is a delete confirmation
+                    if let Some(id) = self.pending_delete_id.take() {
+                        // User confirmed delete
+                        self.saved_list.remove_selected();
+                        if let Some(ref db) = self.database {
+                            if let Err(e) = db.delete_saved_transcript(SavedTranscriptId(id)) {
+                                self.set_status(&format!("Delete failed: {e}"));
+                            } else {
+                                self.set_status("Transcript deleted");
+                            }
+                        } else {
+                            self.set_status("Transcript deleted");
+                        }
+                        self.mode = TuiMode::SavedList;
+                    } else {
+                        // User wants to save first, open save dialog
+                        self.pending_new_after_save = true;
+                        let default_name =
+                            chrono::Local::now().format("Recording %Y-%m-%d %H:%M").to_string();
+                        self.save_dialog.open_with_name(&default_name);
+                        self.mode = TuiMode::SaveDialog;
+                    }
                 }
                 ConfirmAction::No => {
-                    // User doesn't want to save, just create new
-                    self.create_new_transcription();
-                    self.mode = TuiMode::Main;
+                    // Check if this is a delete confirmation
+                    if self.pending_delete_id.take().is_some() {
+                        // User cancelled delete
+                        self.mode = TuiMode::SavedList;
+                    } else {
+                        // User doesn't want to save, just create new
+                        self.create_new_transcription();
+                        self.mode = TuiMode::Main;
+                    }
                 }
                 ConfirmAction::Cancel => {
-                    // User cancelled, go back to main
-                    self.mode = TuiMode::Main;
+                    // User cancelled
+                    if self.pending_delete_id.take().is_some() {
+                        self.mode = TuiMode::SavedList;
+                    } else {
+                        self.mode = TuiMode::Main;
+                    }
                 }
                 ConfirmAction::None => {}
             }
@@ -392,10 +421,10 @@ impl TuiApp {
 
         // Handle saved list mode
         if self.mode == TuiMode::SavedList {
-            match code {
-                KeyCode::Up => self.saved_list.select_prev(),
-                KeyCode::Down => self.saved_list.select_next(),
-                KeyCode::Enter => {
+            match (code, modifiers) {
+                (KeyCode::Up, _) => self.saved_list.select_prev(),
+                (KeyCode::Down, _) => self.saved_list.select_next(),
+                (KeyCode::Enter, _) => {
                     // Open selected transcript from DB
                     if let Some(selected) = self.saved_list.selected() {
                         let id = selected.id;
@@ -408,32 +437,26 @@ impl TuiApp {
                                     self.set_status(&format!("Loaded: {}", transcript.name));
                                 }
                                 Err(e) => {
-                                    self.set_status(&format!("Load failed: {}", e));
+                                    self.set_status(&format!("Load failed: {e}"));
                                 }
                             }
                         }
                     }
                     self.mode = TuiMode::Main;
                 }
-                KeyCode::Char('d') | KeyCode::Delete => {
-                    if let Some(id) = self.saved_list.remove_selected() {
-                        // Delete from database
-                        if let Some(ref db) = self.database {
-                            if let Err(e) = db.delete_saved_transcript(SavedTranscriptId(id)) {
-                                self.set_status(&format!("Delete failed: {}", e));
-                            } else {
-                                self.set_status("Transcript deleted");
-                            }
-                        } else {
-                            self.set_status("Transcript deleted");
-                        }
+                (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
+                    // Show confirmation dialog for delete
+                    if let Some(selected) = self.saved_list.selected() {
+                        self.pending_delete_id = Some(selected.id);
+                        self.confirm_dialog.open(&format!("Delete \"{}\"?", selected.name));
+                        self.mode = TuiMode::ConfirmDialog;
                     }
                 }
-                KeyCode::Char('e') => {
+                (KeyCode::Char('e'), KeyModifiers::CONTROL) => {
                     // Export selected transcript to file
                     self.export_selected_transcript();
                 }
-                KeyCode::Esc => {
+                (KeyCode::Esc, _) => {
                     self.mode = TuiMode::Main;
                 }
                 _ => {}
