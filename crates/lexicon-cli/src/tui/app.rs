@@ -129,6 +129,10 @@ pub struct TuiApp {
     confirm_new_transcription: bool,
     /// Pending delete transcript ID (for delete confirmation flow).
     pending_delete_id: Option<i64>,
+    /// Currently loaded transcript ID (for save-as-overwrite behavior).
+    current_transcript_id: Option<i64>,
+    /// Pending transcript ID to load after save dialog flow.
+    pending_load_id: Option<i64>,
 }
 
 impl TuiApp {
@@ -235,6 +239,8 @@ impl TuiApp {
             database,
             confirm_new_transcription: config.confirm_new_transcription,
             pending_delete_id: None,
+            current_transcript_id: None,
+            pending_load_id: None,
         })
     }
 
@@ -328,9 +334,24 @@ impl TuiApp {
                         self.mode = TuiMode::SavedList;
                     } else {
                         // User wants to save first, open save dialog
-                        self.pending_new_after_save = true;
-                        let default_name =
-                            chrono::Local::now().format("Recording %Y-%m-%d %H:%M").to_string();
+                        // For new transcription flow, set pending_new_after_save
+                        // For load flow, pending_load_id is already set
+                        if self.pending_load_id.is_none() {
+                            self.pending_new_after_save = true;
+                        }
+                        let default_name = if self.current_transcript_id.is_some() {
+                            // Use existing name if we have one loaded
+                            self.saved_list
+                                .items()
+                                .iter()
+                                .find(|t| Some(t.id) == self.current_transcript_id)
+                                .map(|t| t.name.clone())
+                                .unwrap_or_else(|| {
+                                    chrono::Local::now().format("Recording %Y-%m-%d %H:%M").to_string()
+                                })
+                        } else {
+                            chrono::Local::now().format("Recording %Y-%m-%d %H:%M").to_string()
+                        };
                         self.save_dialog.open_with_name(&default_name);
                         self.mode = TuiMode::SaveDialog;
                     }
@@ -340,6 +361,10 @@ impl TuiApp {
                     if self.pending_delete_id.take().is_some() {
                         // User cancelled delete
                         self.mode = TuiMode::SavedList;
+                    } else if let Some(load_id) = self.pending_load_id.take() {
+                        // User doesn't want to save, just load the file
+                        self.load_transcript(load_id);
+                        self.mode = TuiMode::Main;
                     } else {
                         // User doesn't want to save, just create new
                         self.create_new_transcription();
@@ -348,6 +373,7 @@ impl TuiApp {
                 }
                 ConfirmAction::Cancel => {
                     // User cancelled
+                    self.pending_load_id = None;
                     if self.pending_delete_id.take().is_some() {
                         self.mode = TuiMode::SavedList;
                     } else {
@@ -365,14 +391,17 @@ impl TuiApp {
                 DialogAction::Confirm(name) => {
                     self.save_transcript(&name);
                     self.mode = TuiMode::Main;
-                    // If we were in confirm dialog flow, create new after save
+                    // If we were in confirm dialog flow, perform pending action
                     if self.pending_new_after_save {
                         self.pending_new_after_save = false;
                         self.create_new_transcription();
+                    } else if let Some(load_id) = self.pending_load_id.take() {
+                        self.load_transcript(load_id);
                     }
                 }
                 DialogAction::Cancel => {
                     self.pending_new_after_save = false;
+                    self.pending_load_id = None;
                     self.mode = TuiMode::Main;
                 }
                 DialogAction::None => {}
@@ -428,21 +457,20 @@ impl TuiApp {
                     // Open selected transcript from DB
                     if let Some(selected) = self.saved_list.selected() {
                         let id = selected.id;
-                        if let Some(ref db) = self.database {
-                            match db.get_saved_transcript(SavedTranscriptId(id)) {
-                                Ok(transcript) => {
-                                    // Clear buffer and load transcript content
-                                    self.buffer.clear();
-                                    self.buffer.append(&transcript.content);
-                                    self.set_status(&format!("Loaded: {}", transcript.name));
-                                }
-                                Err(e) => {
-                                    self.set_status(&format!("Load failed: {e}"));
-                                }
-                            }
+                        // Check for unsaved changes before loading
+                        if !self.buffer.is_empty() && !self.buffer_saved && self.confirm_new_transcription {
+                            // Prompt to save first
+                            self.pending_load_id = Some(id);
+                            self.confirm_dialog.open("Save current transcription before opening?");
+                            self.mode = TuiMode::ConfirmDialog;
+                        } else {
+                            // No unsaved changes or prompting disabled, load directly
+                            self.load_transcript(id);
+                            self.mode = TuiMode::Main;
                         }
+                    } else {
+                        self.mode = TuiMode::Main;
                     }
-                    self.mode = TuiMode::Main;
                 }
                 (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
                     // Show confirmation dialog for delete
@@ -774,6 +802,8 @@ impl TuiApp {
     }
 
     /// Saves the current transcript.
+    /// If `current_transcript_id` is set, updates the existing transcript.
+    /// Otherwise, creates a new transcript.
     fn save_transcript(&mut self, name: &str) {
         let content = self.buffer.content().to_string();
 
@@ -784,9 +814,24 @@ impl TuiApp {
 
         if let Some(ref db) = self.database {
             let new_transcript = NewSavedTranscript::new(name, &content);
-            match db.create_saved_transcript(&new_transcript) {
-                Ok(_id) => {
-                    // Reload the saved list to include the new item
+
+            // Check if we should update an existing transcript or create a new one
+            let result = if let Some(id) = self.current_transcript_id {
+                // Update existing transcript
+                db.update_saved_transcript(SavedTranscriptId(id), &new_transcript)
+                    .map(|()| id)
+            } else {
+                // Create new transcript
+                db.create_saved_transcript(&new_transcript)
+                    .map(|id| id.0)
+            };
+
+            match result {
+                Ok(id) => {
+                    // Update current_transcript_id to the saved transcript
+                    self.current_transcript_id = Some(id);
+
+                    // Reload the saved list to reflect changes
                     if let Ok(transcripts) = db.list_saved_transcripts() {
                         self.saved_list.set_items(
                             transcripts.into_iter().map(SavedTranscript::from).collect()
@@ -943,10 +988,40 @@ impl TuiApp {
             }
         }
 
-        // Clear the buffer
+        // Clear the buffer and reset current transcript tracking
         self.buffer.clear();
         self.buffer_saved = true;
+        self.current_transcript_id = None;
         self.set_status("New transcription created");
+    }
+
+    /// Loads a transcript by ID from the database.
+    fn load_transcript(&mut self, id: i64) {
+        if let Some(ref db) = self.database {
+            match db.get_saved_transcript(SavedTranscriptId(id)) {
+                Ok(transcript) => {
+                    // Stop recording if active
+                    if self.recording {
+                        self.recording = false;
+                        if let Some(ref trans) = self.transcription {
+                            trans.stop_recording();
+                        }
+                    }
+
+                    // Clear buffer and load transcript content
+                    self.buffer.clear();
+                    self.buffer.append(&transcript.content);
+                    self.current_transcript_id = Some(id);
+                    self.buffer_saved = true;
+                    self.set_status(&format!("Loaded: {}", transcript.name));
+                }
+                Err(e) => {
+                    self.set_status(&format!("Load failed: {e}"));
+                }
+            }
+        } else {
+            self.set_status("No database available");
+        }
     }
 
     /// Processes pending transcription messages.
