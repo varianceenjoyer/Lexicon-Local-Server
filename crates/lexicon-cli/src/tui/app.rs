@@ -7,7 +7,10 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers, MouseEventKind},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
+        MouseEventKind,
+    },
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -259,7 +262,7 @@ impl TuiApp {
             // Poll for events
             if event::poll(Duration::from_millis(50))? {
                 match event::read()? {
-                    Event::Key(key) => {
+                    Event::Key(key) if key.kind == KeyEventKind::Press => {
                         self.handle_key(key.code, key.modifiers);
                     }
                     Event::Mouse(mouse) => {

@@ -52,6 +52,18 @@ pub use diarization::{assign_speakers, DiarizationConfig, DEFAULT_MAX_SPEAKERS};
 pub use types::{Segment, TranscriptionConfig, TranscriptionResult};
 pub use whisper::WhisperTranscriber;
 
+/// Installs logging hooks to redirect whisper.cpp and GGML output.
+///
+/// Call this function before any whisper operations to suppress verbose
+/// native library output that would otherwise go to stderr. This is
+/// especially useful in TUI applications where such output would corrupt
+/// the display.
+///
+/// Safe to call multiple times; only has effect on first call.
+pub fn install_whisper_logging_hooks() {
+    whisper_rs::install_logging_hooks();
+}
+
 use crate::error::Result;
 use std::path::Path;
 

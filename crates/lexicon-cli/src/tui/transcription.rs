@@ -14,7 +14,9 @@ use std::time::Duration;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use tokio::sync::mpsc;
 
-use lexicon_core::stt::{Transcriber, TranscriptionConfig, WhisperTranscriber};
+use lexicon_core::stt::{
+    install_whisper_logging_hooks, Transcriber, TranscriptionConfig, WhisperTranscriber,
+};
 
 use super::{Result, TuiError};
 
@@ -358,6 +360,9 @@ fn transcription_worker(
     language: Option<String>,
     translate: bool,
 ) {
+    // Suppress whisper.cpp verbose logging that would corrupt TUI display
+    install_whisper_logging_hooks();
+
     tracing::info!("Transcription worker thread started");
     tracing::info!("Loading model from: {:?}", model_path);
 
