@@ -24,6 +24,9 @@ pub mod error;
 pub mod logging;
 pub mod platform;
 
+#[cfg(feature = "system-profile")]
+pub mod system_profile;
+
 #[cfg(feature = "storage")]
 pub mod storage;
 
@@ -41,6 +44,12 @@ pub mod models;
 pub use config::{LexiconConfig, LogLevel};
 pub use error::{LexiconError, Result};
 pub use platform::{DeviceProfile, ModelTier, Platform, ThermalState};
+
+#[cfg(feature = "system-profile")]
+pub use system_profile::{
+    CachedProfile, GpuInfo, ModelRecommendation, RecommendedModelInfo, SystemProfile,
+    SystemProfiler, SystemTier,
+};
 
 #[cfg(feature = "storage")]
 pub use storage::Database;

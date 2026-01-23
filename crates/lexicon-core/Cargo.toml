@@ -8,12 +8,13 @@ repository.workspace = true
 rust-version.workspace = true
 
 [features]
-default = ["stt", "tts", "storage", "audio", "audio-convert"]
+default = ["stt", "tts", "storage", "audio", "audio-convert", "system-profile"]
 stt = ["dep:whisper-rs"]
 tts = ["dep:ort", "dep:ndarray", "dep:tts", "dep:misaki-rs"]
 storage = ["dep:rusqlite"]
 audio = ["dep:cpal", "dep:rubato", "dep:webrtc-vad", "dep:ringbuf"]
 audio-convert = ["dep:symphonia"]
+system-profile = ["dep:sysinfo", "dep:dirs"]
 server = []
 ffi = []
 # Feature for test utilities (exposes functions useful for testing)
@@ -39,6 +40,10 @@ toml.workspace = true
 # Utilities
 directories.workspace = true
 chrono.workspace = true
+
+# System profiling
+sysinfo = { workspace = true, optional = true }
+dirs = { workspace = true, optional = true }
 
 # Cryptography / Model verification
 sha2.workspace = true

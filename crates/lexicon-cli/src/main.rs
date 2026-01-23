@@ -18,6 +18,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use lexicon_core::{
     LexiconConfig, ModelRegistry,
     stt::{TranscriptionConfig, TranscriptionResult, Transcriber, WhisperTranscriber},
+    system_profile::SystemProfiler,
 };
 
 #[derive(Parser)]
@@ -112,6 +113,12 @@ enum Commands {
         #[arg(value_enum)]
         shell: ShellType,
     },
+
+    /// Manage configuration
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
 }
 
 /// Shell types for completion generation.
@@ -180,6 +187,30 @@ enum SessionAction {
     },
 }
 
+#[derive(Subcommand)]
+enum ConfigAction {
+    /// Show current configuration
+    Show,
+
+    /// Set a configuration value
+    Set {
+        /// Configuration key (e.g., stt.default_model, server.port)
+        key: String,
+
+        /// Value to set
+        value: String,
+    },
+
+    /// Profile system and show hardware information
+    Profile,
+
+    /// Show recommended model based on system profile
+    Recommend,
+
+    /// Show configuration file path
+    Path,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -229,6 +260,13 @@ fn main() -> Result<()> {
             output,
         } => cmd_export(&session_id, &format, output),
         Commands::Completions { shell } => cmd_completions(shell),
+        Commands::Config { action } => match action {
+            ConfigAction::Show => cmd_config_show(),
+            ConfigAction::Set { key, value } => cmd_config_set(&key, &value),
+            ConfigAction::Profile => cmd_config_profile(),
+            ConfigAction::Recommend => cmd_config_recommend(),
+            ConfigAction::Path => cmd_config_path(),
+        },
     }
 }
 
@@ -1030,6 +1068,232 @@ fn cmd_completions(shell_type: ShellType) -> Result<()> {
     };
 
     eprintln!("\n{install_hint}");
+
+    Ok(())
+}
+
+// ============================================================================
+// Config Commands
+// ============================================================================
+
+/// Show current configuration.
+fn cmd_config_show() -> Result<()> {
+    // Try to load existing config, or show defaults
+    let config = if let Some(cfg) = LexiconConfig::load_if_exists()? {
+        cfg
+    } else {
+        eprintln!("No configuration file found. Showing defaults.\n");
+        LexiconConfig::builder().build()?
+    };
+
+    // Display configuration
+    println!("{}", config.to_toml()?);
+
+    Ok(())
+}
+
+/// Set a configuration value.
+fn cmd_config_set(key: &str, value: &str) -> Result<()> {
+    // Load existing config or create default
+    let mut config = LexiconConfig::load_if_exists()?
+        .unwrap_or_else(|| LexiconConfig::builder().build().unwrap());
+
+    // Parse the key and update the appropriate field
+    match key {
+        "stt.default_model" => {
+            config.stt.default_model = value.to_string();
+        }
+        "stt.diarization_enabled" => {
+            config.stt.diarization_enabled = value.parse()
+                .with_context(|| format!("Invalid boolean value: {value}"))?;
+        }
+        "stt.max_speakers" => {
+            config.stt.max_speakers = value.parse()
+                .with_context(|| format!("Invalid number: {value}"))?;
+        }
+        "stt.gpu_enabled" => {
+            config.stt.gpu_enabled = value.parse()
+                .with_context(|| format!("Invalid boolean value: {value}"))?;
+        }
+        "tts.fallback_enabled" => {
+            config.tts.fallback_enabled = value.parse()
+                .with_context(|| format!("Invalid boolean value: {value}"))?;
+        }
+        "tts.default_voice" => {
+            config.tts.default_voice = if value.is_empty() || value == "none" {
+                None
+            } else {
+                Some(value.to_string())
+            };
+        }
+        "server.host" => {
+            config.server.host = value.to_string();
+        }
+        "server.port" => {
+            config.server.port = value.parse()
+                .with_context(|| format!("Invalid port number: {value}"))?;
+        }
+        "server.cors_enabled" => {
+            config.server.cors_enabled = value.parse()
+                .with_context(|| format!("Invalid boolean value: {value}"))?;
+        }
+        "log_level" => {
+            config.log_level = value.parse()
+                .with_context(|| format!("Invalid log level: {value}"))?;
+        }
+        _ => {
+            anyhow::bail!(
+                "Unknown configuration key: {key}\n\
+                Valid keys:\n  \
+                stt.default_model\n  \
+                stt.diarization_enabled\n  \
+                stt.max_speakers\n  \
+                stt.gpu_enabled\n  \
+                tts.fallback_enabled\n  \
+                tts.default_voice\n  \
+                server.host\n  \
+                server.port\n  \
+                server.cors_enabled\n  \
+                log_level"
+            );
+        }
+    }
+
+    // Save the updated config
+    config.save_default()?;
+
+    println!("Configuration updated: {key} = {value}");
+    println!("Saved to: {}", LexiconConfig::default_config_path()?.display());
+
+    Ok(())
+}
+
+/// Profile system hardware and display results.
+fn cmd_config_profile() -> Result<()> {
+    println!("Profiling system...\n");
+
+    let profile = SystemProfiler::profile();
+
+    println!("System Profile");
+    println!("{}", "=".repeat(50));
+    println!();
+
+    // RAM
+    println!("Memory:");
+    println!("  Total RAM:     {:.1} GB", profile.ram_gb());
+    println!("  CPU Cores:     {}", profile.cpu_cores);
+    println!("  Architecture:  {}", profile.cpu_arch);
+    if let Some(brand) = &profile.cpu_brand {
+        println!("  CPU:           {}", brand);
+    }
+    println!();
+
+    // GPU
+    println!("GPU:");
+    if let Some(gpu) = &profile.gpu {
+        println!("  Name:          {}", gpu.name);
+        if let Some(vram) = gpu.vram_mb {
+            println!("  VRAM:          {} MB", vram);
+        }
+        if gpu.is_apple_silicon {
+            println!("  Apple Silicon: Yes (unified memory)");
+        }
+        if gpu.has_ane {
+            println!("  Neural Engine: Yes");
+        }
+    } else {
+        println!("  Status:        Not detected");
+    }
+    println!();
+
+    // Storage
+    println!("Storage:");
+    println!("  Free space:    {:.1} GB", profile.disk_free_gb());
+    println!();
+
+    // Platform
+    println!("Platform:");
+    println!("  OS:            {:?}", profile.platform);
+    println!();
+
+    // Tier classification
+    println!("Classification:");
+    println!("  System Tier:   {} ({:?})", profile.tier, profile.tier);
+    println!();
+
+    Ok(())
+}
+
+/// Show recommended model based on system profile.
+fn cmd_config_recommend() -> Result<()> {
+    let profile = SystemProfiler::profile();
+    let recommendation = SystemProfiler::recommend_model(&profile);
+
+    println!("Model Recommendation");
+    println!("{}", "=".repeat(50));
+    println!();
+
+    println!("System Tier: {:?}", profile.tier);
+    println!();
+
+    println!("Recommended Model:");
+    println!("  Name:     {}", recommendation.display_name);
+    println!("  ID:       {}", recommendation.model_id);
+    println!("  Size:     {:.1} MB", recommendation.size_bytes as f64 / 1_000_000.0);
+    println!("  Reason:   {}", recommendation.rationale);
+    println!();
+
+    if !recommendation.alternatives.is_empty() {
+        println!("Alternative Models:");
+        for alt in &recommendation.alternatives {
+            println!(
+                "  - {} ({:.1} MB)",
+                alt.display_name,
+                alt.size_bytes as f64 / 1_000_000.0
+            );
+        }
+        println!();
+    }
+
+    // Check if recommended model is downloaded
+    let config = LexiconConfig::builder().build()?;
+    let model_path = config.model_dir.join(format!("{}.bin", recommendation.model_id));
+    if model_path.exists() {
+        println!("Status: ✓ Model is already downloaded");
+    } else {
+        println!("Status: Model not downloaded");
+        println!("        Run: lexicon models download {}",
+            recommendation.model_id.strip_prefix("whisper-").unwrap_or(&recommendation.model_id));
+    }
+
+    Ok(())
+}
+
+/// Show configuration file path.
+fn cmd_config_path() -> Result<()> {
+    let config_path = LexiconConfig::default_config_path()?;
+    let data_dir = LexiconConfig::default_data_dir()?;
+    let model_dir = LexiconConfig::default_model_dir()?;
+
+    println!("Configuration Paths");
+    println!("{}", "=".repeat(50));
+    println!();
+    println!("Config file:   {}", config_path.display());
+    println!("Data directory: {}", data_dir.display());
+    println!("Model directory: {}", model_dir.display());
+    println!();
+
+    if config_path.exists() {
+        println!("Config status: exists");
+    } else {
+        println!("Config status: not created (using defaults)");
+    }
+
+    if LexiconConfig::is_first_run() {
+        println!("First run:     yes");
+    } else {
+        println!("First run:     no");
+    }
 
     Ok(())
 }

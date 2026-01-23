@@ -335,6 +335,101 @@ impl LexiconConfig {
 
         Ok(())
     }
+
+    /// Saves the configuration to the default location.
+    ///
+    /// Creates parent directories if they don't exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The configuration directory cannot be created
+    /// - The file cannot be written
+    /// - The configuration cannot be serialized
+    pub fn save_default(&self) -> Result<()> {
+        let config_path = Self::default_config_path()?;
+        self.save_to_file(&config_path)
+    }
+
+    /// Saves the configuration to a specific file path.
+    ///
+    /// Creates parent directories if they don't exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The parent directory cannot be created
+    /// - The file cannot be written
+    /// - The configuration cannot be serialized
+    pub fn save_to_file(&self, path: &std::path::Path) -> Result<()> {
+        // Create parent directories
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                LexiconError::Config(format!(
+                    "Failed to create config directory '{}': {}",
+                    parent.display(),
+                    e
+                ))
+            })?;
+        }
+
+        // Serialize to TOML
+        let content = self.to_toml()?;
+
+        // Write to file
+        std::fs::write(path, content).map_err(|e| {
+            LexiconError::Config(format!(
+                "Failed to write config file '{}': {}",
+                path.display(),
+                e
+            ))
+        })?;
+
+        Ok(())
+    }
+
+    /// Serializes the configuration to a TOML string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails.
+    pub fn to_toml(&self) -> Result<String> {
+        // Add header comment
+        let header = "# Lexicon Local Server Configuration\n\
+                      # Generated automatically. Edit with caution.\n\n";
+
+        let toml_content = toml::to_string_pretty(self)
+            .map_err(|e| LexiconError::Config(format!("Failed to serialize config: {}", e)))?;
+
+        Ok(format!("{}{}", header, toml_content))
+    }
+
+    /// Checks if this is a first run (no config file exists).
+    ///
+    /// Returns `true` if the default config file does not exist.
+    pub fn is_first_run() -> bool {
+        Self::default_config_path()
+            .map(|p| !p.exists())
+            .unwrap_or(true)
+    }
+
+    /// Loads configuration from default location, returning `None` if not found.
+    ///
+    /// Unlike `load_default`, this method returns `None` instead of default
+    /// configuration when the file doesn't exist. This is useful for detecting
+    /// first-run scenarios.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the config file exists but cannot be parsed.
+    pub fn load_if_exists() -> Result<Option<Self>> {
+        let config_path = Self::default_config_path()?;
+        if config_path.exists() {
+            Self::load_from_file(&config_path).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 /// Builder for constructing `LexiconConfig`.
@@ -679,5 +774,105 @@ mod tests {
     #[test]
     fn test_tts_engine_default() {
         assert_eq!(TtsEngine::default(), TtsEngine::Kokoro);
+    }
+
+    #[test]
+    fn test_config_save_to_file() {
+        let temp_dir = std::env::temp_dir().join("lexicon-config-save-test");
+        let config_path = temp_dir.join("subdir").join("config.toml");
+
+        // Clean up first
+        let _ = std::fs::remove_dir_all(&temp_dir);
+
+        let config = LexiconConfig::builder()
+            .data_dir(temp_dir.clone())
+            .model_dir(temp_dir.join("models"))
+            .log_level(LogLevel::Debug)
+            .build()
+            .unwrap();
+
+        // Save should create parent directories
+        config.save_to_file(&config_path).unwrap();
+
+        // Verify file was created
+        assert!(config_path.exists());
+
+        // Load back and verify
+        let loaded = LexiconConfig::load_from_file(&config_path).unwrap();
+        assert_eq!(loaded.log_level, LogLevel::Debug);
+        assert_eq!(loaded.data_dir, temp_dir);
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_config_to_toml() {
+        let temp_dir = std::env::temp_dir().join("lexicon-config-toml-test");
+        let config = LexiconConfig::builder()
+            .data_dir(temp_dir.clone())
+            .build()
+            .unwrap();
+
+        let toml_str = config.to_toml().unwrap();
+
+        // Should contain header comment
+        assert!(toml_str.contains("# Lexicon Local Server Configuration"));
+
+        // Should be valid TOML
+        assert!(toml_str.contains("[server]"));
+        assert!(toml_str.contains("[stt]"));
+        assert!(toml_str.contains("[tts]"));
+    }
+
+    #[test]
+    fn test_config_load_if_exists_returns_none_for_missing() {
+        // This test verifies behavior when config doesn't exist
+        // We can't easily test the default path, so we test the concept
+        let temp_dir = std::env::temp_dir().join("lexicon-nonexistent-config-test");
+        let config_path = temp_dir.join("config.toml");
+
+        // Ensure directory doesn't exist
+        let _ = std::fs::remove_dir_all(&temp_dir);
+
+        // Load from non-existent path
+        let result = LexiconConfig::load_from_file(&config_path);
+        assert!(result.is_err()); // File doesn't exist, should error
+    }
+
+    #[test]
+    fn test_config_round_trip() {
+        let temp_dir = std::env::temp_dir().join("lexicon-config-roundtrip-test");
+        let config_path = temp_dir.join("config.toml");
+
+        // Clean up first
+        let _ = std::fs::remove_dir_all(&temp_dir);
+
+        // Create config with non-default values
+        let mut stt = SttConfig::default();
+        stt.default_model = "whisper-small-en".to_string();
+        stt.diarization_enabled = true;
+        stt.max_speakers = 8;
+
+        let config = LexiconConfig::builder()
+            .data_dir(temp_dir.clone())
+            .model_dir(temp_dir.join("models"))
+            .log_level(LogLevel::Trace)
+            .stt(stt)
+            .build()
+            .unwrap();
+
+        // Save
+        config.save_to_file(&config_path).unwrap();
+
+        // Load and verify all values preserved
+        let loaded = LexiconConfig::load_from_file(&config_path).unwrap();
+        assert_eq!(loaded.log_level, LogLevel::Trace);
+        assert_eq!(loaded.stt.default_model, "whisper-small-en");
+        assert!(loaded.stt.diarization_enabled);
+        assert_eq!(loaded.stt.max_speakers, 8);
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }
