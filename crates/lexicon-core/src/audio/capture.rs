@@ -223,7 +223,7 @@ impl AudioSource for CpalAudioSource {
             }
             _ => {
                 return Err(LexiconError::Audio(AudioError::UnsupportedFormat {
-                    format: format!("Unsupported sample format: {:?}", sample_format),
+                    format: format!("Unsupported sample format: {sample_format:?}"),
                 }));
             }
         }

@@ -98,7 +98,7 @@ impl std::fmt::Display for BluetoothState {
             BluetoothState::Connecting => write!(f, "Connecting"),
             BluetoothState::ConnectedNarrowband => write!(f, "Connected (8kHz narrowband)"),
             BluetoothState::ConnectedWideband => write!(f, "Connected (16kHz wideband)"),
-            BluetoothState::Failed(msg) => write!(f, "Failed: {}", msg),
+            BluetoothState::Failed(msg) => write!(f, "Failed: {msg}"),
         }
     }
 }
