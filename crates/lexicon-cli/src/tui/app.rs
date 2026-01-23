@@ -3,6 +3,7 @@
 //! Main application state and event loop for the diagnostic TUI.
 
 use std::io::{self, Stdout};
+use std::path::PathBuf;
 use std::time::Duration;
 
 use crossterm::{
@@ -15,10 +16,12 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Wrap},
     Terminal,
 };
+use tokio::sync::mpsc;
 
 use super::audio::AudioDeviceManager;
 use super::buffer::TranscriptionBuffer;
 use super::dialogs::{DialogAction, SaveDialog};
+use super::transcription::{TranscriptionManager, TranscriptionManagerConfig, TranscriptionMessage};
 use super::views::SavedTranscriptionsList;
 use super::widgets::LevelMeter;
 use super::Result;
@@ -44,6 +47,12 @@ pub struct TuiConfig {
     pub mouse_enabled: bool,
     /// Pre-selected device name.
     pub device_name: Option<String>,
+    /// Path to the Whisper model file.
+    pub model_path: Option<PathBuf>,
+    /// Language code for transcription (e.g., "en", "auto").
+    pub language: Option<String>,
+    /// Whether to translate to English.
+    pub translate: bool,
 }
 
 impl Default for TuiConfig {
@@ -52,6 +61,9 @@ impl Default for TuiConfig {
             buffer_size: 100_000,
             mouse_enabled: true,
             device_name: None,
+            model_path: None,
+            language: Some("en".to_string()),
+            translate: false,
         }
     }
 }
@@ -60,7 +72,7 @@ impl Default for TuiConfig {
 pub struct TuiApp {
     /// Current view mode.
     mode: TuiMode,
-    /// Audio device manager.
+    /// Audio device manager (for level monitoring when no transcription).
     audio: AudioDeviceManager,
     /// Transcription buffer.
     buffer: TranscriptionBuffer,
@@ -80,6 +92,14 @@ pub struct TuiApp {
     status_message: Option<(String, std::time::Instant)>,
     /// Mouse enabled.
     mouse_enabled: bool,
+    /// Transcription manager (if model is available).
+    transcription: Option<TranscriptionManager>,
+    /// Receiver for transcription messages.
+    transcription_rx: Option<mpsc::UnboundedReceiver<TranscriptionMessage>>,
+    /// Whether transcription is enabled.
+    transcription_enabled: bool,
+    /// Model loading status message.
+    model_status: Option<String>,
 }
 
 impl TuiApp {
@@ -91,6 +111,34 @@ impl TuiApp {
     /// Creates a new TUI application with the specified configuration.
     pub fn with_config(config: TuiConfig) -> Result<Self> {
         let audio = AudioDeviceManager::new()?;
+
+        // Try to create transcription manager if model path is provided
+        let (transcription, transcription_rx, transcription_enabled) =
+            if let Some(model_path) = config.model_path {
+                if model_path.exists() {
+                    let (mut manager, rx) = TranscriptionManager::create();
+
+                    let trans_config = TranscriptionManagerConfig {
+                        model_path,
+                        language: config.language.clone(),
+                        translate: config.translate,
+                        device_name: config.device_name.clone(),
+                    };
+
+                    match manager.start(trans_config) {
+                        Ok(()) => (Some(manager), Some(rx), true),
+                        Err(e) => {
+                            tracing::warn!("Failed to start transcription: {}", e);
+                            (None, None, false)
+                        }
+                    }
+                } else {
+                    tracing::warn!("Model file not found: {:?}", model_path);
+                    (None, None, false)
+                }
+            } else {
+                (None, None, false)
+            };
 
         Ok(Self {
             mode: TuiMode::Main,
@@ -104,6 +152,10 @@ impl TuiApp {
             dropdown_selection: 0,
             status_message: None,
             mouse_enabled: config.mouse_enabled,
+            transcription,
+            transcription_rx,
+            transcription_enabled,
+            model_status: None,
         })
     }
 
@@ -142,6 +194,9 @@ impl TuiApp {
     /// Main event loop.
     fn run_loop(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
         while !self.should_quit {
+            // Process transcription messages (non-blocking)
+            self.process_transcription_messages();
+
             // Draw UI
             terminal.draw(|frame| self.render(frame))?;
 
@@ -241,12 +296,7 @@ impl TuiApp {
         match (code, modifiers) {
             // Ctrl+T: Toggle recording
             (KeyCode::Char('t'), KeyModifiers::CONTROL) => {
-                self.recording = !self.recording;
-                if self.recording {
-                    self.set_status("Recording started");
-                } else {
-                    self.set_status("Recording stopped");
-                }
+                self.toggle_recording();
             }
             // Ctrl+S: Save dialog
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
@@ -387,8 +437,12 @@ impl TuiApp {
             ])
             .split(area);
 
-        // Level meter
-        let level = self.audio.get_level();
+        // Level meter - use transcription manager if available, otherwise audio manager
+        let level = if let Some(ref trans) = self.transcription {
+            trans.get_level()
+        } else {
+            self.audio.get_level()
+        };
         let meter = LevelMeter::new(level).width(20);
         frame.render_widget(meter, Rect::new(chunks[1].x, chunks[1].y, 20, 1));
 
@@ -405,16 +459,22 @@ impl TuiApp {
             chunks[2],
         );
 
-        // Recording indicator
-        let rec_style = if self.recording {
-            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+        // Recording indicator - show model status if not transcription enabled
+        let (rec_style, rec_text) = if self.recording {
+            (
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                " \u{25CF} REC (Ctrl+T to stop)".to_string(),
+            )
+        } else if !self.transcription_enabled {
+            (
+                Style::default().fg(Color::Yellow),
+                " \u{26A0} No model (Ctrl+T)".to_string(),
+            )
         } else {
-            Style::default().fg(Color::DarkGray)
-        };
-        let rec_text = if self.recording {
-            " \u{25CF} REC (Ctrl+T to stop)"
-        } else {
-            " \u{25CB} Ready (Ctrl+T to start)"
+            (
+                Style::default().fg(Color::DarkGray),
+                " \u{25CB} Ready (Ctrl+T to start)".to_string(),
+            )
         };
         frame.render_widget(
             Paragraph::new(rec_text).style(rec_style),
@@ -564,6 +624,76 @@ impl TuiApp {
     /// Sets a status message.
     fn set_status(&mut self, message: &str) {
         self.status_message = Some((message.to_string(), std::time::Instant::now()));
+    }
+
+    /// Toggles recording state.
+    fn toggle_recording(&mut self) {
+        self.recording = !self.recording;
+
+        if self.recording {
+            // Start recording
+            if let Some(ref trans) = self.transcription {
+                trans.start_recording();
+                self.set_status("Recording started");
+            } else {
+                self.set_status("Recording (no transcription model)");
+            }
+        } else {
+            // Stop recording
+            if let Some(ref trans) = self.transcription {
+                trans.stop_recording();
+            }
+            self.set_status("Recording stopped");
+        }
+    }
+
+    /// Processes pending transcription messages.
+    fn process_transcription_messages(&mut self) {
+        // Collect messages first to avoid borrow issues
+        let mut messages = Vec::new();
+
+        if let Some(ref mut rx) = self.transcription_rx {
+            loop {
+                match rx.try_recv() {
+                    Ok(msg) => messages.push(msg),
+                    Err(mpsc::error::TryRecvError::Empty) => break,
+                    Err(mpsc::error::TryRecvError::Disconnected) => {
+                        self.transcription_enabled = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Process collected messages
+        for msg in messages {
+            match msg {
+                TranscriptionMessage::Text(text) => {
+                    // Append transcription to buffer with space separator
+                    if !self.buffer.is_empty() {
+                        let _ = self.buffer.append(" ");
+                    }
+                    let flushed = self.buffer.append(&text);
+                    if flushed {
+                        self.set_status("Buffer auto-saved (100k limit)");
+                    }
+                }
+                TranscriptionMessage::Error(err) => {
+                    self.set_status(&format!("Error: {}", err));
+                }
+                TranscriptionMessage::ModelLoaded(name) => {
+                    self.model_status = Some(format!("Model: {}", name));
+                    self.set_status(&format!("Model loaded: {}", name));
+                }
+                TranscriptionMessage::ModelError(err) => {
+                    self.transcription_enabled = false;
+                    self.set_status(&format!("Model error: {}", err));
+                }
+                TranscriptionMessage::Processing => {
+                    // Could show a processing indicator
+                }
+            }
+        }
     }
 }
 

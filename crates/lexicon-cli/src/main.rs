@@ -143,6 +143,18 @@ enum Commands {
         /// Buffer size before auto-flush (default: 100000)
         #[arg(long, default_value = "100000")]
         buffer_size: usize,
+
+        /// Path to Whisper model file (auto-detects from config if not specified)
+        #[arg(long)]
+        model: Option<PathBuf>,
+
+        /// Language code for transcription (e.g., "en", "auto")
+        #[arg(long, default_value = "en")]
+        language: String,
+
+        /// Translate non-English speech to English
+        #[arg(long)]
+        translate: bool,
     },
 
     /// Diagnostic TUI (alias for tui command)
@@ -158,6 +170,18 @@ enum Commands {
         /// Buffer size before auto-flush (default: 100000)
         #[arg(long, default_value = "100000")]
         buffer_size: usize,
+
+        /// Path to Whisper model file (auto-detects from config if not specified)
+        #[arg(long)]
+        model: Option<PathBuf>,
+
+        /// Language code for transcription (e.g., "en", "auto")
+        #[arg(long, default_value = "en")]
+        language: String,
+
+        /// Translate non-English speech to English
+        #[arg(long)]
+        translate: bool,
     },
 }
 
@@ -372,21 +396,55 @@ fn main() -> Result<()> {
             TtsQualityAction::Sentences => cmd_tts_quality_sentences(),
             TtsQualityAction::Report { report_file } => cmd_tts_quality_report(report_file),
         },
-        Commands::Tui { device, no_mouse, buffer_size } |
-        Commands::Diag { device, no_mouse, buffer_size } => {
-            cmd_tui(device, no_mouse, buffer_size)
+        Commands::Tui { device, no_mouse, buffer_size, model, language, translate } |
+        Commands::Diag { device, no_mouse, buffer_size, model, language, translate } => {
+            cmd_tui(device, no_mouse, buffer_size, model, language, translate)
         }
     }
 }
 
 /// Launch the diagnostic TUI.
-fn cmd_tui(device: Option<String>, no_mouse: bool, buffer_size: usize) -> Result<()> {
+fn cmd_tui(
+    device: Option<String>,
+    no_mouse: bool,
+    buffer_size: usize,
+    model: Option<PathBuf>,
+    language: String,
+    translate: bool,
+) -> Result<()> {
     use tui::{TuiApp, app::TuiConfig};
+
+    // Determine model path: use specified path, or find from config
+    let model_path = if let Some(path) = model {
+        Some(path)
+    } else {
+        // Try to find a model in the default model directory
+        let config = LexiconConfig::builder().build()?;
+        let model_dir = config.model_dir;
+
+        // Look for common Whisper model files
+        let candidates = [
+            "ggml-base.en.bin",
+            "ggml-base.bin",
+            "ggml-tiny.en.bin",
+            "ggml-tiny.bin",
+            "ggml-small.en.bin",
+            "ggml-small.bin",
+        ];
+
+        candidates
+            .iter()
+            .map(|name| model_dir.join(name))
+            .find(|path| path.exists())
+    };
 
     let config = TuiConfig {
         buffer_size,
         mouse_enabled: !no_mouse,
         device_name: device,
+        model_path,
+        language: Some(language),
+        translate,
     };
 
     let mut app = TuiApp::with_config(config)

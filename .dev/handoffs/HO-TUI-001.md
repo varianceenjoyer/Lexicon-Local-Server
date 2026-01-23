@@ -812,12 +812,15 @@ cargo test -p lexicon-cli buffer
 - [x] Voice activity detection for intelligent transcription timing
 - [x] Channel-based communication between audio thread and UI
 - [x] All tests passing (44 CLI tests, 40 storage tests, 6 migration tests)
+- [x] TranscriptionManager wired into TuiApp event loop
+- [x] CLI arguments for model path, language, and translate options
+- [x] Auto-detection of model files from config directory
 
 ### Remaining
-- [ ] Wire TranscriptionManager into TuiApp event loop
 - [ ] Connect TUI to database for saving/loading transcripts
 - [ ] Voice input in save dialog
 - [ ] Export functionality
+- [ ] Test with actual Whisper model on hardware
 
 ---
 
