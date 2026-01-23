@@ -1,7 +1,7 @@
 ---
 id: WP-TUI
 type: work-plan
-status: ready
+status: in_progress
 phase: beta
 created: 2026-01-23
 updated: 2026-01-23
@@ -754,4 +754,31 @@ END;
 
 ## Implementation Notes
 
-*To be updated by developer during implementation.*
+### 2026-01-23: Core TUI Scaffolding Complete
+
+**Implemented:**
+- TUI module structure (`crates/lexicon-cli/src/tui/`)
+- `lexicon tui` and `lexicon diag` CLI commands with options
+- Audio device manager with real-time level monitoring
+- Level meter widget with color-coded visualization
+- Transcription buffer with scroll support
+- Save dialog with text input and selection
+- Saved transcriptions list view
+- Main event loop with keyboard and mouse handling
+- All core keyboard shortcuts (Ctrl+T, Ctrl+S, Ctrl+L, Ctrl+C)
+
+**Dependencies added:**
+- ratatui 0.29
+- crossterm 0.28
+- arboard 3.4
+- cpal (for audio capture)
+
+**Build status:** Compiles successfully with warnings (unused code paths for future features)
+
+**Remaining work:**
+- [ ] Integration with WhisperTranscriber for real-time STT
+- [ ] Database integration for saving/loading transcripts
+- [ ] Database schema migration for saved_transcripts table
+- [ ] Voice input in save dialog
+- [ ] Export functionality
+- [ ] Polish and cleanup of warnings

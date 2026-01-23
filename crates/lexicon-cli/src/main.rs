@@ -5,6 +5,9 @@
 //! - `lexicon serve` - Start HTTP server
 //! - `lexicon models list|download|delete` - Model management
 //! - `lexicon export <session> --format srt` - Export transcriptions
+//! - `lexicon tui` - Diagnostic TUI for real-time transcription
+
+mod tui;
 
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -125,6 +128,36 @@ enum Commands {
     TtsQuality {
         #[command(subcommand)]
         action: TtsQualityAction,
+    },
+
+    /// Launch diagnostic TUI for real-time transcription
+    Tui {
+        /// Pre-select audio device by name
+        #[arg(long)]
+        device: Option<String>,
+
+        /// Disable mouse support
+        #[arg(long)]
+        no_mouse: bool,
+
+        /// Buffer size before auto-flush (default: 100000)
+        #[arg(long, default_value = "100000")]
+        buffer_size: usize,
+    },
+
+    /// Diagnostic TUI (alias for tui command)
+    Diag {
+        /// Pre-select audio device by name
+        #[arg(long)]
+        device: Option<String>,
+
+        /// Disable mouse support
+        #[arg(long)]
+        no_mouse: bool,
+
+        /// Buffer size before auto-flush (default: 100000)
+        #[arg(long, default_value = "100000")]
+        buffer_size: usize,
     },
 }
 
@@ -339,7 +372,30 @@ fn main() -> Result<()> {
             TtsQualityAction::Sentences => cmd_tts_quality_sentences(),
             TtsQualityAction::Report { report_file } => cmd_tts_quality_report(report_file),
         },
+        Commands::Tui { device, no_mouse, buffer_size } |
+        Commands::Diag { device, no_mouse, buffer_size } => {
+            cmd_tui(device, no_mouse, buffer_size)
+        }
     }
+}
+
+/// Launch the diagnostic TUI.
+fn cmd_tui(device: Option<String>, no_mouse: bool, buffer_size: usize) -> Result<()> {
+    use tui::{TuiApp, app::TuiConfig};
+
+    let config = TuiConfig {
+        buffer_size,
+        mouse_enabled: !no_mouse,
+        device_name: device,
+    };
+
+    let mut app = TuiApp::with_config(config)
+        .map_err(|e| anyhow::anyhow!("Failed to initialize TUI: {}", e))?;
+
+    app.run()
+        .map_err(|e| anyhow::anyhow!("TUI error: {}", e))?;
+
+    Ok(())
 }
 
 /// Start the HTTP/WebSocket server.

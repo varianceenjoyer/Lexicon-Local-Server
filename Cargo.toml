@@ -75,6 +75,11 @@ clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 indicatif = "0.17"
 
+# TUI
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
+arboard = "3.4"
+
 # Audio file reading
 hound = "3.5"
 symphonia = { version = "0.5", features = ["mp3", "ogg", "flac", "wav", "aac"] }

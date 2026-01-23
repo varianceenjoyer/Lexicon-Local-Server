@@ -41,6 +41,14 @@ chrono.workspace = true
 # Audio file reading
 hound.workspace = true
 
+# Audio capture (for TUI)
+cpal.workspace = true
+
+# TUI
+ratatui.workspace = true
+crossterm.workspace = true
+arboard.workspace = true
+
 [dev-dependencies]
 # CLI testing
 assert_cmd = "2.0"
