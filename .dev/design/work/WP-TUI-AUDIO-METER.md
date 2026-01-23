@@ -1,7 +1,7 @@
 ---
 id: WP-TUI-AUDIO-METER
 type: work-plan
-status: ready
+status: complete
 phase: beta
 created: 2026-01-23
 updated: 2026-01-23
@@ -128,12 +128,12 @@ fn calculate_display_level(rms: f32) -> f32 {
 
 ## Acceptance Criteria
 
-- [ ] Normal conversation at arm's length from microphone shows 30-60% on meter
-- [ ] Loud speech / close to microphone shows 60-90% on meter
-- [ ] Very loud sounds / clipping shows meter in red zone (>90%)
-- [ ] Complete silence shows empty/minimal meter activity
-- [ ] Level meter updates in real-time (10+ fps) as before
-- [ ] Changes applied consistently in both `audio.rs` and `transcription.rs`
+- [x] Normal conversation at arm's length from microphone shows 30-60% on meter
+- [x] Loud speech / close to microphone shows 60-90% on meter
+- [x] Very loud sounds / clipping shows meter in red zone (>90%)
+- [x] Complete silence shows empty/minimal meter activity
+- [x] Level meter updates in real-time (10+ fps) as before
+- [x] Changes applied consistently in both `audio.rs` and `transcription.rs`
 
 ---
 
@@ -170,3 +170,4 @@ fn calculate_display_level(rms: f32) -> f32 {
 | Date | Update |
 |------|--------|
 | 2026-01-23 | Work plan created based on Windows build testing |
+| 2026-01-23 | Implementation complete: METER_GAIN=8.0 applied to both audio.rs and transcription.rs |
