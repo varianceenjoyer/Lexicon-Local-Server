@@ -17,6 +17,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 use lexicon_core::{
     LexiconConfig, ModelRegistry,
+    models::ModelHashRegistry,
     stt::{TranscriptionConfig, TranscriptionResult, Transcriber, WhisperTranscriber},
     system_profile::SystemProfiler,
 };
@@ -173,6 +174,15 @@ enum ModelAction {
         /// Model ID
         model_id: String,
     },
+
+    /// Compute SHA-256 hash for a model file (for hash verification setup)
+    Hash {
+        /// Model ID (e.g., "tiny", "base") or path to model file
+        model_id_or_path: String,
+    },
+
+    /// Show hash verification status for all models
+    HashStatus,
 }
 
 #[derive(Subcommand)]
@@ -300,6 +310,8 @@ fn main() -> Result<()> {
             ModelAction::Download { model_id } => cmd_models_download(&model_id),
             ModelAction::Delete { model_id, force } => cmd_models_delete(&model_id, force),
             ModelAction::Info { model_id } => cmd_models_info(&model_id),
+            ModelAction::Hash { model_id_or_path } => cmd_models_hash(&model_id_or_path),
+            ModelAction::HashStatus => cmd_models_hash_status(),
         },
         Commands::Sessions { action } => match action {
             SessionAction::List => cmd_sessions_list(),
@@ -863,6 +875,139 @@ fn cmd_models_info(model_id: &str) -> Result<()> {
     };
 
     println!("Languages: {}", if multilingual { "99 (multilingual)" } else { "English only" });
+
+    Ok(())
+}
+
+/// Compute SHA-256 hash for a model file.
+fn cmd_models_hash(model_id_or_path: &str) -> Result<()> {
+    let path = if model_id_or_path.contains('/') || model_id_or_path.contains('\\') || model_id_or_path.ends_with(".bin") || model_id_or_path.ends_with(".onnx") {
+        // Treat as a direct file path
+        PathBuf::from(model_id_or_path)
+    } else {
+        // Treat as a model ID, find it in the model directory
+        let config = LexiconConfig::builder().build()?;
+        let model_name = model_id_or_path.strip_prefix("whisper-").unwrap_or(model_id_or_path);
+
+        // Try various naming conventions
+        let possible_paths = [
+            config.model_dir.join(format!("ggml-{model_name}.bin")),
+            config.model_dir.join(format!("ggml-{model_name}-q5_1.bin")),
+            config.model_dir.join(format!("whisper-{model_name}.bin")),
+            config.model_dir.join(format!("{model_id_or_path}.bin")),
+            config.model_dir.join(format!("{model_id_or_path}.onnx")),
+        ];
+
+        possible_paths
+            .into_iter()
+            .find(|p| p.exists())
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Model '{}' not found in {}.\nRun 'lexicon models download {}' first.",
+                    model_id_or_path,
+                    config.model_dir.display(),
+                    model_name
+                )
+            })?
+    };
+
+    if !path.exists() {
+        anyhow::bail!("File not found: {}", path.display());
+    }
+
+    // Show file info
+    let metadata = std::fs::metadata(&path)?;
+    let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
+
+    eprintln!("Computing SHA-256 hash...");
+    eprintln!("  File: {}", path.display());
+    eprintln!("  Size: {:.1} MB", size_mb);
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_style(
+        ProgressStyle::default_spinner()
+            .template("{spinner:.blue} {msg}")
+            .expect("valid template"),
+    );
+    pb.set_message("Hashing...");
+    pb.enable_steady_tick(std::time::Duration::from_millis(100));
+
+    let hash = ModelHashRegistry::compute_hash(&path)
+        .context("Failed to compute hash")?;
+
+    pb.finish_and_clear();
+
+    println!();
+    println!("SHA-256 Hash:");
+    println!("  {}", hash);
+    println!();
+
+    // Extract model ID from filename for convenience
+    let filename = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    let model_id = if filename.starts_with("ggml-") {
+        let base = filename.strip_prefix("ggml-").unwrap_or(filename);
+        format!("whisper-{}", base)
+    } else if filename.starts_with("whisper-") {
+        filename.to_string()
+    } else {
+        filename.to_string()
+    };
+
+    // Provide copy-paste ready format for hashes.rs
+    println!("To add to hashes.rs:");
+    println!("  pub const HASH_{}: &str = \"{}\";",
+        model_id.to_uppercase().replace('-', "_"),
+        hash
+    );
+
+    Ok(())
+}
+
+/// Show hash verification status for all models.
+fn cmd_models_hash_status() -> Result<()> {
+    let registry = ModelHashRegistry::new();
+    let config = LexiconConfig::builder().build()?;
+
+    println!("Model Hash Verification Status");
+    println!("{}", "=".repeat(60));
+    println!();
+
+    let pending = registry.pending_models();
+    let total_models = 10; // Number of models in the registry
+
+    if registry.is_production_ready() {
+        println!("Status: PRODUCTION READY ✓");
+        println!("All {} model hashes have been verified.", total_models);
+    } else {
+        println!("Status: AWAITING VERIFICATION");
+        println!("Pending: {} of {} models need hash verification.", pending.len(), total_models);
+        println!();
+        println!("Models pending verification:");
+        for model_id in &pending {
+            // Check if model is downloaded
+            let model_name = model_id.strip_prefix("whisper-").unwrap_or(model_id);
+            let possible_paths = [
+                config.model_dir.join(format!("ggml-{model_name}.bin")),
+                config.model_dir.join(format!("{model_id}.bin")),
+                config.model_dir.join(format!("{model_id}.onnx")),
+            ];
+
+            let is_downloaded = possible_paths.iter().any(|p| p.exists());
+            let status = if is_downloaded { "downloaded" } else { "not downloaded" };
+
+            println!("  - {} ({})", model_id, status);
+        }
+    }
+
+    println!();
+    println!("To compute a hash for a downloaded model:");
+    println!("  lexicon models hash <model-id>");
+    println!();
+    println!("Example:");
+    println!("  lexicon models hash tiny");
+    println!("  lexicon models hash /path/to/model.bin");
+    println!();
+    println!("See .dev/human.md for full verification instructions.");
 
     Ok(())
 }
