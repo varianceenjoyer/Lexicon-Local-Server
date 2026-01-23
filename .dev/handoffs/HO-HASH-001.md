@@ -47,6 +47,24 @@ Implement SHA-256 hash verification for fallback model downloads from Hugging Fa
 
 ## Hash Acquisition (FIRST STEP)
 
+### Option 1: Using Lexicon CLI (Recommended)
+
+If you have models already downloaded, use the built-in hash command:
+
+```bash
+# Show hash verification status
+lexicon models hash-status
+
+# Compute hash for a downloaded model
+lexicon models hash tiny
+lexicon models hash base
+lexicon models hash /path/to/model.bin
+
+# Output is copy-paste ready for hashes.rs
+```
+
+### Option 2: Manual Download and Hash
+
 Download each model and compute its SHA-256 hash:
 
 ```bash
@@ -299,6 +317,12 @@ grep -r "skip" crates/lexicon-core/src/models/
 ```bash
 # Run hash verification tests
 cargo test -p lexicon-core hash
+
+# Check hash status (shows pending models)
+cargo run -p lexicon-cli -- models hash-status
+
+# Compute hash for a downloaded model
+cargo run -p lexicon-cli -- models hash tiny
 
 # Integration test: download and verify a small model
 cargo run -p lexicon-cli -- models download whisper-tiny.en
