@@ -807,10 +807,14 @@ cargo test -p lexicon-cli buffer
 - [x] Model types: `SavedTranscriptId`, `SavedTranscript`, `NewSavedTranscript`
 - [x] Database CRUD operations for saved transcripts
 - [x] FTS5 full-text search for saved transcripts
-- [x] All tests passing (40 storage tests, 6 migration tests)
+- [x] TranscriptionManager with background worker thread
+- [x] Audio capture and resampling to 16kHz for Whisper
+- [x] Voice activity detection for intelligent transcription timing
+- [x] Channel-based communication between audio thread and UI
+- [x] All tests passing (44 CLI tests, 40 storage tests, 6 migration tests)
 
 ### Remaining
-- [ ] Integration with WhisperTranscriber for real-time STT
+- [ ] Wire TranscriptionManager into TuiApp event loop
 - [ ] Connect TUI to database for saving/loading transcripts
 - [ ] Voice input in save dialog
 - [ ] Export functionality
