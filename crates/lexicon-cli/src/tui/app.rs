@@ -341,6 +341,10 @@ impl TuiApp {
                         }
                     }
                 }
+                KeyCode::Char('e') => {
+                    // Export selected transcript to file
+                    self.export_selected_transcript();
+                }
                 KeyCode::Esc => {
                     self.mode = TuiMode::Main;
                 }
@@ -681,6 +685,52 @@ impl TuiApp {
         }
     }
 
+    /// Exports the selected transcript to a file.
+    fn export_selected_transcript(&mut self) {
+        let Some(selected) = self.saved_list.selected() else {
+            self.set_status("No transcript selected");
+            return;
+        };
+
+        let Some(ref db) = self.database else {
+            self.set_status("No database available");
+            return;
+        };
+
+        let id = selected.id;
+        let transcript = match db.get_saved_transcript(SavedTranscriptId(id)) {
+            Ok(t) => t,
+            Err(e) => {
+                self.set_status(&format!("Load failed: {}", e));
+                return;
+            }
+        };
+
+        // Create safe filename from transcript name
+        let safe_name: String = transcript
+            .name
+            .chars()
+            .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' { c } else { '_' })
+            .collect();
+        let safe_name = safe_name.trim();
+
+        // Export to current directory
+        let export_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+        let filename = format!("{}.txt", safe_name);
+        let export_path = export_dir.join(&filename);
+
+        // Write the file
+        match std::fs::write(&export_path, &transcript.content) {
+            Ok(()) => {
+                self.set_status(&format!("Exported: {}", export_path.display()));
+            }
+            Err(e) => {
+                self.set_status(&format!("Export failed: {}", e));
+            }
+        }
+    }
+
     /// Copies the buffer to clipboard.
     fn copy_to_clipboard(&mut self) {
         use arboard::Clipboard;
@@ -751,13 +801,18 @@ impl TuiApp {
         for msg in messages {
             match msg {
                 TranscriptionMessage::Text(text) => {
-                    // Append transcription to buffer with space separator
-                    if !self.buffer.is_empty() {
-                        let _ = self.buffer.append(" ");
-                    }
-                    let flushed = self.buffer.append(&text);
-                    if flushed {
-                        self.set_status("Buffer auto-saved (100k limit)");
+                    // If save dialog is visible, send voice input there
+                    if self.save_dialog.is_visible() {
+                        self.save_dialog.append_voice(&text);
+                    } else {
+                        // Otherwise, append transcription to buffer with space separator
+                        if !self.buffer.is_empty() {
+                            let _ = self.buffer.append(" ");
+                        }
+                        let flushed = self.buffer.append(&text);
+                        if flushed {
+                            self.set_status("Buffer auto-saved (100k limit)");
+                        }
                     }
                 }
                 TranscriptionMessage::Error(err) => {

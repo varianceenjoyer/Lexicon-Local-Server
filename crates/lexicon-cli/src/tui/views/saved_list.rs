@@ -230,7 +230,7 @@ impl SavedTranscriptionsList {
         let help_y = area.y + area.height.saturating_sub(1);
         if help_y < frame.area().height {
             let help_area = Rect::new(area.x + 1, help_y, area.width.saturating_sub(2), 1);
-            let help = Paragraph::new(" [Enter: Open] [d: Delete] [Esc: Back] ")
+            let help = Paragraph::new(" [Enter: Open] [e: Export] [d: Delete] [Esc: Back] ")
                 .style(Style::default().fg(Color::DarkGray));
             frame.render_widget(help, help_area);
         }

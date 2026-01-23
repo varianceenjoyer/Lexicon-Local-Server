@@ -2,7 +2,7 @@
 
 > **ID**: HO-TUI-001 | **Work Package**: WP-TUI
 >
-> **Created**: 2026-01-23 | **Status**: DB Integration Complete
+> **Created**: 2026-01-23 | **Status**: Feature Complete
 >
 > **Last Updated**: 2026-01-23
 
@@ -821,10 +821,10 @@ cargo test -p lexicon-cli buffer
 - [x] Delete from saved list deletes from database
 - [x] Open transcript loads content from database into buffer
 - [x] Database path passed from CLI to TuiConfig
+- [x] Export functionality ('e' key exports selected transcript to .txt file)
+- [x] Voice input in save dialog (transcribed text appends to dialog when recording)
 
 ### Remaining
-- [ ] Voice input in save dialog
-- [ ] Export functionality
 - [ ] Test with actual Whisper model on hardware
 
 ---
@@ -865,7 +865,7 @@ cargo test -p lexicon-cli buffer
 ### Save/Rename
 - [x] Ctrl+S opens dialog
 - [x] Text input works
-- [ ] Voice input works (if recording)
+- [x] Voice input works (if recording)
 - [x] Keyboard shortcuts work (Ctrl+A, Ctrl+X, Ctrl+arrows)
 - [x] Enter confirms, Esc cancels
 - [x] Saves to database on confirm
@@ -881,6 +881,7 @@ cargo test -p lexicon-cli buffer
 - [x] Selection with arrow keys
 - [x] Enter opens transcript (loads from database into buffer)
 - [x] Delete removes transcript (deletes from database)
+- [x] Export ('e' key) saves to .txt file
 - [x] Back returns to main
 
 ---
