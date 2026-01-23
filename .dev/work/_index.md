@@ -27,6 +27,12 @@ Work packages are self-contained units of implementation work with:
 | [WP-IOS](WP-IOS.md) | iOS Platform Integration | HIGH | WP-FFI, macOS required | XCFramework + Swift |
 | [WP-ANDROID](WP-ANDROID.md) | Android Platform Integration | HIGH | WP-FFI, NDK required | AAR + Kotlin |
 
+### Ready for Implementation
+
+| ID | Name | Priority | Notes |
+|----|------|----------|-------|
+| [WP-TUI](WP-TUI.md) | Diagnostic TUI | HIGH | Real-time transcription TUI with device selection, level meter |
+
 ### In Progress
 
 | ID | Name | Owner | Started | Notes |
@@ -64,6 +70,7 @@ Core transcription capability on desktop:
 ### Beta Phase (Current)
 Enhanced features and security:
 - **WP-CONFIG** - System profiling and model recommendations (COMPLETE)
+- **WP-TUI** - Diagnostic TUI for real-time transcription (ready to implement)
 - **WP-HASH-VERIFY** - Secure fallback downloads (scaffolding complete)
 - **WP-BLE** - Bluetooth audio quality
 - **WP-TTS-QUALITY** - TTS quality validation
@@ -83,20 +90,24 @@ Mobile platform deployment:
 ### Must Complete for Beta
 1. **WP-CONFIG** - Enables automatic model selection (COMPLETE)
 2. **WP-HASH-VERIFY** - Security requirement
+3. **WP-TUI** - Diagnostic TUI for real-time transcription
 
 ### Should Complete for Beta
-3. **WP-BLE** - Audio quality improvement
+4. **WP-BLE** - Audio quality improvement
 
 ### Must Complete for Release
-4. **WP-IOS** - iOS platform support
-5. **WP-ANDROID** - Android platform support
+5. **WP-IOS** - iOS platform support
+6. **WP-ANDROID** - Android platform support
 
 ### Nice to Have for Release
-6. **WP-DIARIZATION** - Multi-speaker support
+7. **WP-DIARIZATION** - Multi-speaker support
 
 ---
 
 ## Quick Links
+
+### Work Packages (Beta) - Ready
+- [WP-TUI](WP-TUI.md) - Diagnostic TUI (HIGH priority - ready to implement)
 
 ### Work Packages (Beta) - Active
 - [WP-HASH-VERIFY](WP-HASH-VERIFY.md) - Model verification (HIGH priority)
@@ -113,7 +124,8 @@ Mobile platform deployment:
 - [WP-ANDROID](WP-ANDROID.md) - Android integration
 
 ### Handoffs (Ready to Implement)
-- [HO-HASH-001](../handoffs/HO-HASH-001.md) - Fallback hash verification (HIGH priority)
+- [HO-TUI-001](../handoffs/HO-TUI-001.md) - Diagnostic TUI (HIGH priority - ready to start)
+- [HO-HASH-001](../handoffs/HO-HASH-001.md) - Fallback hash verification (HIGH priority - awaiting hashes)
 - [HO-BLE-001](../handoffs/HO-BLE-001.md) - Bluetooth HFP 1.6 support
 - [HO-TTS-QUALITY-001](../handoffs/HO-TTS-QUALITY-001.md) - TTS quality validation
 
@@ -174,9 +186,10 @@ Layer 1 (Parallel)
 
 Beta Phase Dependencies:
   WP-CONFIG ────────────────┐
-  WP-HASH-VERIFY ───────────┼──▶ Beta Release
-  WP-BLE ───────────────────┘
-  WP-TTS-QUALITY ───────────┘
+  WP-HASH-VERIFY ───────────┤
+  WP-BLE ───────────────────┼──▶ Beta Release
+  WP-TTS-QUALITY ───────────┤
+  WP-TUI ───────────────────┘
 
 Release Phase Dependencies:
   WP-FFI (complete) ─────────┬──▶ WP-IOS ─────────┐
@@ -196,4 +209,4 @@ See [../docs/android-emulation/](../docs/android-emulation/) for Android emulati
 
 ---
 
-*Last updated: 2026-01-23. All Beta work packages scaffolded - awaiting human/hardware actions.*
+*Last updated: 2026-01-23. WP-TUI added for diagnostic TUI. Some Beta work packages awaiting human/hardware actions.*

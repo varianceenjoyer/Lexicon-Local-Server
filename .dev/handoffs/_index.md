@@ -13,6 +13,7 @@ updated: 2026-01-23
 
 | ID | Work Package | Priority | Status | Created |
 |----|--------------|----------|--------|---------|
+| [HO-TUI-001](HO-TUI-001.md) | WP-TUI | HIGH | Ready for implementation | 2026-01-23 |
 | [HO-HASH-001](HO-HASH-001.md) | WP-HASH-VERIFY | HIGH | Scaffolding complete - awaiting hashes | 2026-01-23 |
 | [HO-BLE-001](HO-BLE-001.md) | WP-BLE | MEDIUM | Scaffolding complete - awaiting hardware | 2026-01-23 |
 | [HO-TTS-QUALITY-001](HO-TTS-QUALITY-001.md) | WP-TTS-QUALITY | MEDIUM | Infrastructure complete - awaiting human eval | 2026-01-23 |
@@ -52,4 +53,4 @@ See [.dev/human.md](../human.md) for detailed instructions.
 
 ---
 
-*Last updated: 2026-01-23. All active handoffs blocked on human/hardware actions.*
+*Last updated: 2026-01-23. HO-TUI-001 ready for implementation; other handoffs blocked on human/hardware actions.*
