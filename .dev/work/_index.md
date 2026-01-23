@@ -1,6 +1,6 @@
 # Work Packages Index
 
-> **Status**: Active | **Last Updated**: 2026-01-23 (All Beta scaffolding complete - awaiting human action)
+> **Status**: Active | **Last Updated**: 2026-01-23 (WP-TUI scaffolding complete)
 >
 > This index tracks all actionable work packages for Lexicon Local Server.
 
@@ -29,14 +29,13 @@ Work packages are self-contained units of implementation work with:
 
 ### Ready for Implementation
 
-| ID | Name | Priority | Notes |
-|----|------|----------|-------|
-| [WP-TUI](WP-TUI.md) | Diagnostic TUI | HIGH | Real-time transcription TUI with device selection, level meter |
+*No work packages currently ready - all Beta packages in progress or blocked.*
 
 ### In Progress
 
 | ID | Name | Owner | Started | Notes |
 |----|------|-------|---------|-------|
+| [WP-TUI](WP-TUI.md) | Diagnostic TUI | - | 2026-01-23 | Core scaffolding complete - STT integration pending |
 | [WP-HASH-VERIFY](WP-HASH-VERIFY.md) | Model Hash Verification | - | 2026-01-23 | Scaffolding + CLI complete - awaiting hash values |
 | [WP-TTS-QUALITY](WP-TTS-QUALITY.md) | TTS Quality Validation | - | 2026-01-23 | Test infrastructure + CLI complete - awaiting human eval |
 | [WP-BLE](WP-BLE.md) | Bluetooth HFP 1.6 Support | - | 2026-01-23 | Core scaffolding complete - awaiting hardware |
@@ -70,7 +69,7 @@ Core transcription capability on desktop:
 ### Beta Phase (Current)
 Enhanced features and security:
 - **WP-CONFIG** - System profiling and model recommendations (COMPLETE)
-- **WP-TUI** - Diagnostic TUI for real-time transcription (ready to implement)
+- **WP-TUI** - Diagnostic TUI for real-time transcription (core scaffolding complete)
 - **WP-HASH-VERIFY** - Secure fallback downloads (scaffolding complete)
 - **WP-BLE** - Bluetooth audio quality
 - **WP-TTS-QUALITY** - TTS quality validation
@@ -106,10 +105,8 @@ Mobile platform deployment:
 
 ## Quick Links
 
-### Work Packages (Beta) - Ready
-- [WP-TUI](WP-TUI.md) - Diagnostic TUI (HIGH priority - ready to implement)
-
 ### Work Packages (Beta) - Active
+- [WP-TUI](WP-TUI.md) - Diagnostic TUI (core scaffolding complete - STT integration pending)
 - [WP-HASH-VERIFY](WP-HASH-VERIFY.md) - Model verification (HIGH priority)
 - [WP-BLE](WP-BLE.md) - Bluetooth HFP support
 - [WP-TTS-QUALITY](WP-TTS-QUALITY.md) - TTS quality validation
@@ -123,9 +120,11 @@ Mobile platform deployment:
 - [WP-IOS](WP-IOS.md) - iOS integration
 - [WP-ANDROID](WP-ANDROID.md) - Android integration
 
-### Handoffs (Ready to Implement)
-- [HO-TUI-001](../handoffs/HO-TUI-001.md) - Diagnostic TUI (HIGH priority - ready to start)
-- [HO-HASH-001](../handoffs/HO-HASH-001.md) - Fallback hash verification (HIGH priority - awaiting hashes)
+### Handoffs (In Progress)
+- [HO-TUI-001](../handoffs/HO-TUI-001.md) - Diagnostic TUI (core scaffolding complete)
+
+### Handoffs (Awaiting Human Action)
+- [HO-HASH-001](../handoffs/HO-HASH-001.md) - Fallback hash verification (awaiting hashes)
 - [HO-BLE-001](../handoffs/HO-BLE-001.md) - Bluetooth HFP 1.6 support
 - [HO-TTS-QUALITY-001](../handoffs/HO-TTS-QUALITY-001.md) - TTS quality validation
 
@@ -209,4 +208,4 @@ See [../docs/android-emulation/](../docs/android-emulation/) for Android emulati
 
 ---
 
-*Last updated: 2026-01-23. WP-TUI added for diagnostic TUI. Some Beta work packages awaiting human/hardware actions.*
+*Last updated: 2026-01-23. WP-TUI core scaffolding complete - STT integration pending. Some Beta work packages awaiting human/hardware actions.*
