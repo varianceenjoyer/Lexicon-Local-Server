@@ -803,12 +803,15 @@ cargo test -p lexicon-cli buffer
 - [x] Main event loop with keyboard and mouse handling
 - [x] All core keyboard shortcuts (Ctrl+T/S/L/C)
 - [x] Device dropdown widget
-- [x] All tests passing
+- [x] Database schema migration v2 for `saved_transcripts` table
+- [x] Model types: `SavedTranscriptId`, `SavedTranscript`, `NewSavedTranscript`
+- [x] Database CRUD operations for saved transcripts
+- [x] FTS5 full-text search for saved transcripts
+- [x] All tests passing (40 storage tests, 6 migration tests)
 
 ### Remaining
 - [ ] Integration with WhisperTranscriber for real-time STT
-- [ ] Database integration for saving/loading transcripts
-- [ ] Database schema migration for `saved_transcripts` table
+- [ ] Connect TUI to database for saving/loading transcripts
 - [ ] Voice input in save dialog
 - [ ] Export functionality
 
@@ -838,6 +841,14 @@ cargo test -p lexicon-cli buffer
 - [x] 100k char limit enforced
 - [x] Auto-flush triggers at limit
 - [ ] User notified of auto-flush
+
+### Database
+- [x] Schema migration v2 for `saved_transcripts` table
+- [x] FTS5 full-text search index
+- [x] CRUD operations (create, read, update, delete)
+- [x] Character count tracking
+- [x] Session association (optional)
+- [ ] Connect TUI views to database operations
 
 ### Save/Rename
 - [x] Ctrl+S opens dialog
