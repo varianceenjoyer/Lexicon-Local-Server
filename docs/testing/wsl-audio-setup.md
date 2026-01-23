@@ -1,154 +1,136 @@
 # WSL Audio Setup for TUI Testing
 
-This guide explains how to configure audio forwarding from Windows to WSL2 for testing the Lexicon TUI with live microphone input.
+This guide explains how to configure audio forwarding from Windows to WSL2 for testing the Linux build of Lexicon's TUI with live microphone input.
 
-## Background
+## Overview
 
-WSL2 does not provide native access to Windows audio capture devices. To test the Linux build of the TUI with live microphone input, we need to forward audio from Windows to the WSL environment using PulseAudio over the network.
+WSL2 does not provide native access to Windows audio capture devices. To test the TUI with live audio input, we forward audio from Windows to WSL using PulseAudio over the network.
+
+```
+┌─────────────┐     TCP:4713     ┌─────────────┐     ┌─────────────┐
+│   Windows   │ ───────────────► │    WSL2     │ ──► │ Lexicon TUI │
+│  Microphone │                  │ PulseAudio  │     │             │
+└─────────────┘                  └─────────────┘     └─────────────┘
+```
 
 ## Prerequisites
 
-- Windows 10/11 with WSL2 installed
-- Ubuntu or other Linux distribution in WSL2
-- An audio input device (microphone) on Windows
+- Windows 10 (build 19041+) or Windows 11
+- WSL2 with Ubuntu 22.04 or later
+- Administrator access on Windows
 
-## Quick Start (WSLg)
+## Method 1: WSLg (Recommended for Windows 11)
 
-If you're using a recent version of Windows 11 with WSLg (Windows Subsystem for Linux GUI), audio may already work out of the box. Test first:
+Windows 11 includes WSLg which provides audio support via a PulseAudio socket. This is the simplest method if you have Windows 11.
+
+### Step 1: Verify WSLg is Enabled
 
 ```bash
-# In WSL
-pactl info
+# In WSL, check for the PulseAudio socket
+ls -la /mnt/wslg/PulseServer
 ```
 
-If you see a valid PulseAudio server connection, try running the TUI directly:
+If the socket exists, WSLg audio is available.
+
+### Step 2: Configure Environment
 
 ```bash
-lexicon tui --model ~/.local/share/lexicon/models/ggml-base.en.bin
+# Add to ~/.bashrc or ~/.zshrc
+export PULSE_SERVER=unix:/mnt/wslg/PulseServer
 ```
 
-If the level meter responds to your voice, you're done! If not, continue with the manual setup below.
-
----
-
-## Method 1: Using WSLg (Recommended for Windows 11)
-
-WSLg provides a PulseAudio server automatically. However, it may only support audio playback by default. To enable capture:
-
-### Step 1: Check WSLg Audio Server
+### Step 3: Verify Audio
 
 ```bash
-# In WSL
-echo $PULSE_SERVER
-# Should show something like: /mnt/wslg/PulseServer
-```
-
-### Step 2: Verify Available Sources
-
-```bash
+# List audio sources
 pactl list sources short
+
+# Test recording (5 seconds)
+arecord -d 5 -f cd test.wav && aplay test.wav
 ```
 
-Look for sources with "input" or "monitor" in the name.
-
-### Step 3: Test Audio Capture
+### Step 4: Test the TUI
 
 ```bash
-# Record 5 seconds of audio
-arecord -d 5 -f cd test.wav
-
-# Play it back
-aplay test.wav
+cd /path/to/Lexicon-Local-Server
+./target/release/lexicon tui --model models/ggml-base.en.bin
 ```
 
-If capture works, the TUI should work as well.
+The level meter should respond to your voice.
+
+**Note:** WSLg audio capture may not work in all configurations. If Method 1 fails, use Method 2.
 
 ---
 
-## Method 2: PulseAudio Network Setup (Windows 10 / Manual)
+## Method 2: PulseAudio TCP Server (Windows 10/11)
 
-For systems without WSLg or where the automatic setup doesn't provide capture, set up PulseAudio manually.
+This method runs a PulseAudio server on Windows that accepts network connections from WSL.
 
-### Windows Side Setup
+### Windows-Side Setup
 
-#### Step 1: Install PulseAudio for Windows
+#### Step 1: Download PulseAudio for Windows
 
-Download PulseAudio for Windows from:
-- https://www.freedesktop.org/wiki/Software/PulseAudio/Ports/Windows/Support/
+Download from: https://www.freedesktop.org/wiki/Software/PulseAudio/Ports/Windows/Support/
 
-Or use a package manager like Chocolatey:
+Or use a pre-built package:
 ```powershell
+# Using Chocolatey (run as Administrator)
 choco install pulseaudio
 ```
 
-#### Step 2: Configure PulseAudio Daemon
+#### Step 2: Configure PulseAudio
 
-Edit `%APPDATA%\pulse\daemon.conf` (create if it doesn't exist):
+Create/edit `%APPDATA%\PulseAudio\etc\pulse\default.pa`:
 
-```ini
-exit-idle-time = -1
-load-default-script-file = yes
 ```
-
-#### Step 3: Configure PulseAudio Modules
-
-Edit `%APPDATA%\pulse\default.pa`:
-
-```ini
 # Load Windows audio modules
 load-module module-waveout sink_name=output source_name=input
-load-module module-native-protocol-tcp auth-anonymous=1
-
-# Set default source/sink
-set-default-source input
-set-default-sink output
+load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1;172.16.0.0/12 auth-anonymous=1
 ```
 
-#### Step 4: Configure Windows Firewall
+Create/edit `%APPDATA%\PulseAudio\etc\pulse\daemon.conf`:
 
-Open PowerShell as Administrator:
+```
+exit-idle-time = -1
+```
+
+#### Step 3: Configure Windows Firewall
 
 ```powershell
-# Allow PulseAudio through firewall (port 4713)
-New-NetFirewallRule -DisplayName "PulseAudio" -Direction Inbound -Protocol TCP -LocalPort 4713 -Action Allow
+# Run as Administrator
+New-NetFirewallRule -DisplayName "PulseAudio" -Direction Inbound -LocalPort 4713 -Protocol TCP -Action Allow
 ```
 
-#### Step 5: Start PulseAudio
+#### Step 4: Start PulseAudio
 
-```cmd
-pulseaudio.exe -D
+```powershell
+pulseaudio.exe --exit-idle-time=-1
 ```
 
-To start automatically, add a shortcut to `shell:startup`.
+To run at startup, create a scheduled task or shortcut in the Startup folder.
 
-### WSL Side Setup
+### WSL-Side Setup
 
-#### Step 1: Install PulseAudio Client
+#### Step 1: Install PulseAudio Packages
 
 ```bash
-# Ubuntu/Debian
 sudo apt update
-sudo apt install pulseaudio-utils
-
-# Fedora
-sudo dnf install pulseaudio-utils
+sudo apt install pulseaudio pulseaudio-utils alsa-utils
 ```
 
-#### Step 2: Get Windows IP Address
+#### Step 2: Get Windows Host IP
 
 ```bash
-# Get the Windows host IP from WSL
-export WIN_IP=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}')
-echo "Windows IP: $WIN_IP"
+# The Windows host IP in WSL2 is the default gateway
+export WIN_HOST=$(ip route show default | awk '{print $3}')
+echo "Windows host IP: $WIN_HOST"
 ```
 
 #### Step 3: Configure PULSE_SERVER
 
-Add to your `~/.bashrc` or `~/.zshrc`:
-
 ```bash
-# PulseAudio server on Windows host
-export PULSE_SERVER=tcp:$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):4713
+# Add to ~/.bashrc or ~/.zshrc
+export PULSE_SERVER=tcp:$(ip route show default | awk '{print $3}'):4713
 ```
 
 Reload your shell:
@@ -162,142 +144,166 @@ source ~/.bashrc
 # Check PulseAudio server info
 pactl info
 
-# List available audio sources
+# Expected output should show:
+# Server String: tcp:172.x.x.x:4713
+# Server Name: pulseaudio
+```
+
+#### Step 5: List and Select Audio Source
+
+```bash
+# List available sources
 pactl list sources short
+
+# Set the default source (use the source name from above)
+pactl set-default-source <source-name>
 ```
 
-You should see the Windows audio devices listed.
+### Testing
 
----
-
-## Testing the TUI
-
-Once audio forwarding is configured:
-
-### Step 1: Verify Audio Capture Works
+#### Test Audio Capture
 
 ```bash
-# Test recording (speak into microphone for 5 seconds)
+# Record 5 seconds of audio
 arecord -d 5 -f cd test.wav
-aplay test.wav  # Should hear your recording
+
+# Play it back
+aplay test.wav
 ```
 
-### Step 2: Run the TUI
+#### Test the TUI
 
 ```bash
-# Download a model if you haven't already
-lexicon models download base.en
-
-# Run the TUI
-lexicon tui --model ~/.local/share/lexicon/models/ggml-base.en.bin
+cd /path/to/Lexicon-Local-Server
+./target/release/lexicon tui --model models/ggml-base.en.bin -v
 ```
 
-### Step 3: Verify Level Meter
-
-- The level meter should respond when you speak
-- If not, try selecting a different audio device with Tab
+The `-v` flag enables verbose logging to help diagnose issues.
 
 ---
 
 ## Troubleshooting
 
-### "Connection refused" Error
+### Connection Refused
 
+**Symptom:** `pactl info` fails with "Connection refused"
+
+**Solutions:**
 1. Verify PulseAudio is running on Windows:
-   ```cmd
-   tasklist | findstr pulse
+   ```powershell
+   Get-Process pulseaudio
    ```
 
-2. Check Windows Firewall isn't blocking port 4713
+2. Check firewall rules:
+   ```powershell
+   Get-NetFirewallRule -DisplayName "PulseAudio"
+   ```
 
-3. Verify the IP address is correct:
+3. Verify the IP address:
    ```bash
-   ping $WIN_IP
+   # In WSL
+   echo $PULSE_SERVER
+   ping -c 1 $(ip route show default | awk '{print $3}')
    ```
 
-### No Audio Sources Visible
+### No Audio Sources
 
-1. Check Windows audio devices are enabled:
-   - Right-click speaker icon → Sound settings
-   - Verify microphone is listed and enabled
+**Symptom:** `pactl list sources` shows no sources or only "Monitor" sources
 
-2. Restart PulseAudio on Windows:
-   ```cmd
-   pulseaudio.exe --kill
-   pulseaudio.exe -D
+**Solutions:**
+1. Check Windows audio settings - ensure microphone is enabled
+2. Verify PulseAudio loaded the waveout module:
+   ```powershell
+   pulseaudio.exe --dump-conf
    ```
 
-### High Latency / Audio Dropouts
+### High Latency
 
-Edit `~/.config/pulse/daemon.conf` in WSL:
+**Symptom:** Audio has noticeable delay
 
-```ini
-default-fragments = 4
-default-fragment-size-msec = 25
-```
+**Solutions:**
+1. Reduce buffer size in PulseAudio:
+   ```
+   # In default.pa
+   load-module module-waveout sink_name=output source_name=input buffer_size=1024
+   ```
 
-Then restart PulseAudio client:
-```bash
-pulseaudio --kill
-pulseaudio --start
-```
+2. Lower the fragment size in daemon.conf:
+   ```
+   default-fragment-size-msec = 5
+   ```
 
 ### Permission Denied
 
-If using cookie-based authentication instead of anonymous:
+**Symptom:** `pactl` commands fail with permission errors
 
-```bash
-# Copy cookie from Windows
-cp /mnt/c/Users/$USER/.config/pulse/cookie ~/.config/pulse/
-```
+**Solutions:**
+1. Ensure `auth-anonymous=1` is set in Windows PulseAudio config
+2. Alternatively, set up cookie-based authentication:
+   ```bash
+   # Copy cookie from Windows
+   cp /mnt/c/Users/<username>/.config/pulse/cookie ~/.config/pulse/
+   ```
+
+### TUI Shows No Level Meter Activity
+
+**Symptom:** TUI runs but level meter doesn't respond to audio
+
+**Solutions:**
+1. Verify audio is being captured:
+   ```bash
+   arecord -d 2 -f cd - | aplay
+   ```
+
+2. Check the TUI is using the correct device:
+   ```bash
+   lexicon tui --device "$(pactl get-default-source)" -v
+   ```
+
+3. Check for errors in verbose output
 
 ---
 
 ## Security Considerations
 
-The configuration above uses `auth-anonymous=1` which allows any local application to connect to PulseAudio. For better security:
+The configurations above allow anonymous connections from the local network. For a more secure setup:
 
-1. Use cookie-based authentication instead
-2. Restrict listening to localhost only:
-   ```ini
-   load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1;172.16.0.0/12 auth-anonymous=1
-   ```
-
-3. Use SSH tunneling for remote access
+1. **Restrict IP range:** Modify `auth-ip-acl` to only allow your WSL IP range
+2. **Use cookie authentication:** Remove `auth-anonymous=1` and share the cookie file
+3. **Don't expose to external network:** Ensure PulseAudio only binds to localhost or the WSL virtual network
 
 ---
 
-## Alternative: Virtual Audio Cable
+## Quick Reference
 
-For more complex setups, consider using a virtual audio cable:
-
-1. Install VB-Cable (https://vb-audio.com/Cable/)
-2. Route microphone to VB-Cable
-3. Use VB-Cable as the PulseAudio source
-
-This provides more flexibility for routing and mixing audio.
-
----
-
-## Useful Commands
+### Start Audio Tunnel
 
 ```bash
-# List all PulseAudio sources (inputs)
-pactl list sources
+# Windows (PowerShell)
+pulseaudio.exe --exit-idle-time=-1
 
-# List all PulseAudio sinks (outputs)
-pactl list sinks
+# WSL
+export PULSE_SERVER=tcp:$(ip route show default | awk '{print $3}'):4713
+```
 
-# Set default source
-pactl set-default-source <source_name>
+### Test Audio
 
-# Test microphone with real-time playback
-parec | paplay
+```bash
+pactl info                    # Verify connection
+pactl list sources short      # List audio sources
+arecord -d 5 test.wav        # Record test
+```
 
-# Monitor audio levels
-pactl subscribe
+### Run TUI
+
+```bash
+./target/release/lexicon tui --model models/ggml-base.en.bin -v
 ```
 
 ---
 
-*Last updated: 2026-01-23*
+## See Also
+
+- [TUI User Guide](../TUI.md)
+- [Building on Linux](../BUILD-LINUX.md)
+- [WSL2 Documentation](https://docs.microsoft.com/en-us/windows/wsl/)
