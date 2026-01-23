@@ -729,3 +729,175 @@ fn test_db_migrations_idempotent() {
 
     // temp_dir automatically cleaned up when dropped
 }
+
+// =============================================================================
+// Saved Transcript Tests (TUI)
+// =============================================================================
+
+#[test]
+fn test_saved_transcript_crud() {
+    let db = test_db();
+
+    // Create
+    let transcript = NewSavedTranscript::new("Meeting Notes", "This is the transcript content.");
+    let id = db.create_saved_transcript(&transcript).unwrap();
+
+    // Read
+    let stored = db.get_saved_transcript(id).unwrap();
+    assert_eq!(stored.id, id);
+    assert_eq!(stored.name, "Meeting Notes");
+    assert_eq!(stored.content, "This is the transcript content.");
+    assert_eq!(stored.char_count, 31); // "This is the transcript content." = 31 chars
+    assert!(stored.session_id.is_none());
+
+    // Update
+    let updated = NewSavedTranscript::new("Updated Notes", "New content here.");
+    db.update_saved_transcript(id, &updated).unwrap();
+
+    let stored = db.get_saved_transcript(id).unwrap();
+    assert_eq!(stored.name, "Updated Notes");
+    assert_eq!(stored.content, "New content here.");
+    assert_eq!(stored.char_count, 17);
+
+    // Delete
+    db.delete_saved_transcript(id).unwrap();
+    let result = db.get_saved_transcript(id);
+    assert!(matches!(result, Err(DatabaseError::NotFound { .. })));
+}
+
+#[test]
+fn test_saved_transcript_with_session() {
+    let db = test_db();
+
+    // Create a session first
+    let session_id = db
+        .create_session(&SessionMetadata::new().with_name("Test Session"))
+        .unwrap();
+
+    // Create transcript linked to session
+    let transcript = NewSavedTranscript::new("Session Transcript", "Content from session.")
+        .with_session(session_id);
+    let id = db.create_saved_transcript(&transcript).unwrap();
+
+    let stored = db.get_saved_transcript(id).unwrap();
+    assert_eq!(stored.session_id, Some(session_id));
+}
+
+#[test]
+fn test_saved_transcript_list() {
+    let db = test_db();
+
+    // Create multiple transcripts
+    let _id1 = db
+        .create_saved_transcript(&NewSavedTranscript::new("First", "Content 1"))
+        .unwrap();
+    let _id2 = db
+        .create_saved_transcript(&NewSavedTranscript::new("Second", "Content 2"))
+        .unwrap();
+    let _id3 = db
+        .create_saved_transcript(&NewSavedTranscript::new("Third", "Content 3"))
+        .unwrap();
+
+    // List transcripts (ordered by created_at DESC)
+    let transcripts = db.list_saved_transcripts().unwrap();
+    assert_eq!(transcripts.len(), 3);
+
+    // All three transcripts should be present
+    let names: Vec<&str> = transcripts.iter().map(|t| t.name.as_str()).collect();
+    assert!(names.contains(&"First"));
+    assert!(names.contains(&"Second"));
+    assert!(names.contains(&"Third"));
+}
+
+#[test]
+fn test_saved_transcript_not_found() {
+    let db = test_db();
+
+    let result = db.get_saved_transcript(SavedTranscriptId(999));
+    assert!(matches!(
+        result,
+        Err(DatabaseError::NotFound { entity, id }) if entity == "saved_transcript" && id == "999"
+    ));
+}
+
+#[test]
+fn test_saved_transcript_fts_search() {
+    let db = test_db();
+
+    // Create transcripts with searchable content
+    db.create_saved_transcript(&NewSavedTranscript::new(
+        "Meeting Notes",
+        "The quarterly budget report shows significant growth in revenue.",
+    ))
+    .unwrap();
+    db.create_saved_transcript(&NewSavedTranscript::new(
+        "Interview Transcript",
+        "The candidate discussed their experience with project management.",
+    ))
+    .unwrap();
+    db.create_saved_transcript(&NewSavedTranscript::new(
+        "Lecture Notes",
+        "Today's lecture covered the fundamentals of machine learning.",
+    ))
+    .unwrap();
+
+    // Search by content
+    let results = db.search_saved_transcripts("budget").unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].name, "Meeting Notes");
+
+    // Search by name
+    let results = db.search_saved_transcripts("Interview").unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].name, "Interview Transcript");
+
+    // Search term in multiple transcripts
+    let results = db.search_saved_transcripts("the").unwrap();
+    assert!(results.len() >= 2, "Should find 'the' in multiple transcripts");
+}
+
+#[test]
+fn test_saved_transcript_char_count() {
+    let db = test_db();
+
+    // Test with various character counts including unicode
+    let content = "Héllo wörld! 你好";
+    let transcript = NewSavedTranscript::new("Unicode Test", content);
+    let id = db.create_saved_transcript(&transcript).unwrap();
+
+    let stored = db.get_saved_transcript(id).unwrap();
+    // Character count should match the number of unicode characters
+    assert_eq!(stored.char_count, content.chars().count() as i64);
+}
+
+#[test]
+fn test_saved_transcript_preview() {
+    // Test the preview method on SavedTranscript
+    let short_transcript = SavedTranscript {
+        id: SavedTranscriptId(1),
+        name: "Short".to_string(),
+        content: "Short content.".to_string(),
+        char_count: 14,
+        session_id: None,
+        created_at: "2026-01-23T00:00:00".to_string(),
+        updated_at: "2026-01-23T00:00:00".to_string(),
+    };
+
+    let long_transcript = SavedTranscript {
+        id: SavedTranscriptId(2),
+        name: "Long".to_string(),
+        content: "This is a very long transcript content that exceeds fifty characters and should be truncated.".to_string(),
+        char_count: 92,
+        session_id: None,
+        created_at: "2026-01-23T00:00:00".to_string(),
+        updated_at: "2026-01-23T00:00:00".to_string(),
+    };
+
+    // Short content should not be truncated
+    assert_eq!(short_transcript.preview(), "Short content.");
+
+    // Long content should be truncated with "..."
+    let preview = long_transcript.preview();
+    assert!(preview.ends_with("..."));
+    assert_eq!(preview.len(), 50); // 47 chars + "..."
+}
