@@ -2,6 +2,8 @@
 //!
 //! Dialog for saving/renaming transcriptions with text or voice input.
 
+#![allow(dead_code)] // Some methods reserved for future use
+
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear};

@@ -26,10 +26,14 @@ use super::dialogs::{DialogAction, SaveDialog};
 use super::transcription::{TranscriptionManager, TranscriptionManagerConfig, TranscriptionMessage};
 use super::views::{SavedTranscript, SavedTranscriptionsList};
 use super::widgets::LevelMeter;
-use super::{Result, TuiError};
+use super::Result;
+
+#[allow(unused_imports)]
+use super::TuiError;
 
 /// TUI display modes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)] // DeviceSelect reserved for future use
 pub enum TuiMode {
     /// Main diagnostic/transcription view.
     Main,
@@ -111,6 +115,7 @@ pub struct TuiApp {
 
 impl TuiApp {
     /// Creates a new TUI application with default configuration.
+    #[allow(dead_code)] // Used for testing and future API
     pub fn new() -> Result<Self> {
         Self::with_config(TuiConfig::default())
     }

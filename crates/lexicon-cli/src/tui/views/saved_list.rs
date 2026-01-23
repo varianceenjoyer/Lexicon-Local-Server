@@ -2,6 +2,8 @@
 //!
 //! Displays a scrollable list of saved transcriptions.
 
+#![allow(dead_code)] // Some methods reserved for future use
+
 use chrono::{DateTime, Utc};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};

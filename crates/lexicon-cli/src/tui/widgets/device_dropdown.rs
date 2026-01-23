@@ -1,6 +1,11 @@
 //! Device Dropdown Widget
 //!
 //! A dropdown selector for audio input devices.
+//!
+//! This widget is currently scaffolded for future use. The device dropdown
+//! functionality is currently implemented inline in app.rs.
+
+#![allow(dead_code)] // Scaffolded for future use
 
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Widget};

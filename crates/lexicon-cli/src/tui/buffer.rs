@@ -2,6 +2,8 @@
 //!
 //! Text buffer for live transcription with auto-flush capability.
 
+#![allow(dead_code)] // Some methods reserved for future use
+
 /// Text buffer for live transcription with auto-flush.
 pub struct TranscriptionBuffer {
     /// Current text content.

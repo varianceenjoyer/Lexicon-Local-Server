@@ -18,15 +18,23 @@ mod transcription;
 pub mod views;
 pub mod widgets;
 
-pub use app::{TuiApp, TuiMode};
+pub use app::TuiApp;
+
+// Re-export internal types for use by other modules
+#[allow(unused_imports)]
+pub use app::TuiMode;
+#[allow(unused_imports)]
 pub use audio::AudioDeviceManager;
+#[allow(unused_imports)]
 pub use buffer::TranscriptionBuffer;
+#[allow(unused_imports)]
 pub use transcription::{TranscriptionManager, TranscriptionManagerConfig, TranscriptionMessage};
 
 use thiserror::Error;
 
 /// Errors that can occur in the TUI.
 #[derive(Debug, Error)]
+#[allow(dead_code)] // Some variants reserved for future use
 pub enum TuiError {
     #[error("Terminal I/O error: {0}")]
     Io(#[from] std::io::Error),

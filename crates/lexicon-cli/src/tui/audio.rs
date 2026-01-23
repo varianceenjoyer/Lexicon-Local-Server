@@ -2,6 +2,8 @@
 //!
 //! Handles device enumeration, selection, and real-time level monitoring.
 
+#![allow(dead_code)] // Some fields/methods reserved for future use
+
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;

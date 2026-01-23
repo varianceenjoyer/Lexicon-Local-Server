@@ -3,6 +3,8 @@
 //! Handles audio capture, resampling, and speech-to-text processing
 //! in a background thread, sending results back to the UI.
 
+#![allow(dead_code)] // Some methods reserved for future use
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;

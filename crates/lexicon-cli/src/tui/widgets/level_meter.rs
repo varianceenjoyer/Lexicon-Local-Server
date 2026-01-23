@@ -2,6 +2,8 @@
 //!
 //! Visual representation of audio input level using block characters.
 
+#![allow(dead_code)] // Some methods reserved for future use
+
 use ratatui::prelude::*;
 use ratatui::widgets::Widget;
 
