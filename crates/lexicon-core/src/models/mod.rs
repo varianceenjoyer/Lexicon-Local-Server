@@ -35,10 +35,12 @@
 //! # }
 //! ```
 
+mod hashes;
 mod manifest;
 mod registry;
 mod types;
 
+pub use hashes::{HashError, ModelHashRegistry, HASHES_LAST_VERIFIED};
 pub use manifest::{ManifestVerifier, ModelEntry, ModelManifest};
 pub use registry::ModelRegistry;
 pub use types::{

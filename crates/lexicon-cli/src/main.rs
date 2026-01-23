@@ -190,7 +190,11 @@ enum SessionAction {
 #[derive(Subcommand)]
 enum ConfigAction {
     /// Show current configuration
-    Show,
+    Show {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 
     /// Set a configuration value
     Set {
@@ -201,11 +205,30 @@ enum ConfigAction {
         value: String,
     },
 
+    /// Reset configuration to defaults
+    Reset {
+        /// Skip confirmation prompt
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
+
     /// Profile system and show hardware information
-    Profile,
+    Profile {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+
+        /// Force re-detection of system profile
+        #[arg(long)]
+        refresh: bool,
+    },
 
     /// Show recommended model based on system profile
-    Recommend,
+    Recommend {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 
     /// Show configuration file path
     Path,
@@ -261,10 +284,11 @@ fn main() -> Result<()> {
         } => cmd_export(&session_id, &format, output),
         Commands::Completions { shell } => cmd_completions(shell),
         Commands::Config { action } => match action {
-            ConfigAction::Show => cmd_config_show(),
+            ConfigAction::Show { json } => cmd_config_show(json),
             ConfigAction::Set { key, value } => cmd_config_set(&key, &value),
-            ConfigAction::Profile => cmd_config_profile(),
-            ConfigAction::Recommend => cmd_config_recommend(),
+            ConfigAction::Reset { yes } => cmd_config_reset(yes),
+            ConfigAction::Profile { json, refresh: _ } => cmd_config_profile(json),
+            ConfigAction::Recommend { json } => cmd_config_recommend(json),
             ConfigAction::Path => cmd_config_path(),
         },
     }
@@ -1077,17 +1101,29 @@ fn cmd_completions(shell_type: ShellType) -> Result<()> {
 // ============================================================================
 
 /// Show current configuration.
-fn cmd_config_show() -> Result<()> {
+fn cmd_config_show(json: bool) -> Result<()> {
     // Try to load existing config, or show defaults
-    let config = if let Some(cfg) = LexiconConfig::load_if_exists()? {
-        cfg
+    let (config, is_default) = if let Some(cfg) = LexiconConfig::load_if_exists()? {
+        (cfg, false)
     } else {
-        eprintln!("No configuration file found. Showing defaults.\n");
-        LexiconConfig::builder().build()?
+        (LexiconConfig::builder().build()?, true)
     };
 
-    // Display configuration
-    println!("{}", config.to_toml()?);
+    if json {
+        // JSON output
+        let output = serde_json::json!({
+            "config": config,
+            "is_default": is_default,
+            "config_path": LexiconConfig::default_config_path()?.display().to_string(),
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        if is_default {
+            eprintln!("No configuration file found. Showing defaults.\n");
+        }
+        // Display configuration
+        println!("{}", config.to_toml()?);
+    }
 
     Ok(())
 }
@@ -1168,102 +1204,194 @@ fn cmd_config_set(key: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
-/// Profile system hardware and display results.
-fn cmd_config_profile() -> Result<()> {
-    println!("Profiling system...\n");
+/// Reset configuration to defaults.
+fn cmd_config_reset(skip_confirm: bool) -> Result<()> {
+    let config_path = LexiconConfig::default_config_path()?;
 
+    if !config_path.exists() {
+        println!("No configuration file exists at:");
+        println!("  {}", config_path.display());
+        println!("\nNothing to reset - already using defaults.");
+        return Ok(());
+    }
+
+    // Ask for confirmation unless -y flag is provided
+    if !skip_confirm {
+        eprint!("Reset configuration to defaults? This will remove your custom settings. [y/N] ");
+        std::io::stderr().flush()?;
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Cancelled.");
+            return Ok(());
+        }
+    }
+
+    // Load existing config to preserve directory paths
+    let old_config = LexiconConfig::load_from_file(&config_path)?;
+
+    // Create new default config but preserve data_dir and model_dir
+    let new_config = LexiconConfig::builder()
+        .data_dir(old_config.data_dir)
+        .model_dir(old_config.model_dir)
+        .build()?;
+
+    // Save the reset config
+    new_config.save_to_file(&config_path)?;
+
+    println!("Configuration reset to defaults.");
+    println!("Preserved directories:");
+    println!("  data_dir:  {}", new_config.data_dir.display());
+    println!("  model_dir: {}", new_config.model_dir.display());
+    println!("\nConfig file: {}", config_path.display());
+
+    Ok(())
+}
+
+/// Profile system hardware and display results.
+fn cmd_config_profile(json: bool) -> Result<()> {
     let profile = SystemProfiler::profile();
 
-    println!("System Profile");
-    println!("{}", "=".repeat(50));
-    println!();
-
-    // RAM
-    println!("Memory:");
-    println!("  Total RAM:     {:.1} GB", profile.ram_gb());
-    println!("  CPU Cores:     {}", profile.cpu_cores);
-    println!("  Architecture:  {}", profile.cpu_arch);
-    if let Some(brand) = &profile.cpu_brand {
-        println!("  CPU:           {}", brand);
-    }
-    println!();
-
-    // GPU
-    println!("GPU:");
-    if let Some(gpu) = &profile.gpu {
-        println!("  Name:          {}", gpu.name);
-        if let Some(vram) = gpu.vram_mb {
-            println!("  VRAM:          {} MB", vram);
-        }
-        if gpu.is_apple_silicon {
-            println!("  Apple Silicon: Yes (unified memory)");
-        }
-        if gpu.has_ane {
-            println!("  Neural Engine: Yes");
-        }
+    if json {
+        // JSON output
+        let output = serde_json::json!({
+            "tier": profile.tier.as_str(),
+            "ram_bytes": profile.ram_bytes,
+            "ram_gb": profile.ram_gb(),
+            "cpu_cores": profile.cpu_cores,
+            "cpu_arch": profile.cpu_arch,
+            "cpu_brand": profile.cpu_brand,
+            "gpu": profile.gpu.as_ref().map(|g| serde_json::json!({
+                "name": g.name,
+                "vram_mb": g.vram_mb,
+                "is_discrete": g.is_discrete,
+                "is_apple_silicon": g.is_apple_silicon,
+                "has_ane": g.has_ane
+            })),
+            "disk_free_bytes": profile.disk_free_bytes,
+            "disk_free_gb": profile.disk_free_gb(),
+            "platform": format!("{:?}", profile.platform),
+            "profiled_at": profile.profiled_at.to_rfc3339(),
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
-        println!("  Status:        Not detected");
+        eprintln!("Profiling system...\n");
+
+        println!("System Profile");
+        println!("{}", "=".repeat(50));
+        println!();
+
+        // RAM
+        println!("Memory:");
+        println!("  Total RAM:     {:.1} GB", profile.ram_gb());
+        println!("  CPU Cores:     {}", profile.cpu_cores);
+        println!("  Architecture:  {}", profile.cpu_arch);
+        if let Some(brand) = &profile.cpu_brand {
+            println!("  CPU:           {}", brand);
+        }
+        println!();
+
+        // GPU
+        println!("GPU:");
+        if let Some(gpu) = &profile.gpu {
+            println!("  Name:          {}", gpu.name);
+            if let Some(vram) = gpu.vram_mb {
+                println!("  VRAM:          {} MB", vram);
+            }
+            if gpu.is_apple_silicon {
+                println!("  Apple Silicon: Yes (unified memory)");
+            }
+            if gpu.has_ane {
+                println!("  Neural Engine: Yes");
+            }
+        } else {
+            println!("  Status:        Not detected");
+        }
+        println!();
+
+        // Storage
+        println!("Storage:");
+        println!("  Free space:    {:.1} GB", profile.disk_free_gb());
+        println!();
+
+        // Platform
+        println!("Platform:");
+        println!("  OS:            {:?}", profile.platform);
+        println!();
+
+        // Tier classification
+        println!("Classification:");
+        println!("  System Tier:   {} ({:?})", profile.tier, profile.tier);
+        println!();
     }
-    println!();
-
-    // Storage
-    println!("Storage:");
-    println!("  Free space:    {:.1} GB", profile.disk_free_gb());
-    println!();
-
-    // Platform
-    println!("Platform:");
-    println!("  OS:            {:?}", profile.platform);
-    println!();
-
-    // Tier classification
-    println!("Classification:");
-    println!("  System Tier:   {} ({:?})", profile.tier, profile.tier);
-    println!();
 
     Ok(())
 }
 
 /// Show recommended model based on system profile.
-fn cmd_config_recommend() -> Result<()> {
+fn cmd_config_recommend(json: bool) -> Result<()> {
     let profile = SystemProfiler::profile();
     let recommendation = SystemProfiler::recommend_model(&profile);
-
-    println!("Model Recommendation");
-    println!("{}", "=".repeat(50));
-    println!();
-
-    println!("System Tier: {:?}", profile.tier);
-    println!();
-
-    println!("Recommended Model:");
-    println!("  Name:     {}", recommendation.display_name);
-    println!("  ID:       {}", recommendation.model_id);
-    println!("  Size:     {:.1} MB", recommendation.size_bytes as f64 / 1_000_000.0);
-    println!("  Reason:   {}", recommendation.rationale);
-    println!();
-
-    if !recommendation.alternatives.is_empty() {
-        println!("Alternative Models:");
-        for alt in &recommendation.alternatives {
-            println!(
-                "  - {} ({:.1} MB)",
-                alt.display_name,
-                alt.size_bytes as f64 / 1_000_000.0
-            );
-        }
-        println!();
-    }
 
     // Check if recommended model is downloaded
     let config = LexiconConfig::builder().build()?;
     let model_path = config.model_dir.join(format!("{}.bin", recommendation.model_id));
-    if model_path.exists() {
-        println!("Status: ✓ Model is already downloaded");
+    let is_downloaded = model_path.exists();
+
+    if json {
+        // JSON output
+        let output = serde_json::json!({
+            "system_tier": profile.tier.as_str(),
+            "recommended": {
+                "model_id": recommendation.model_id,
+                "display_name": recommendation.display_name,
+                "size_bytes": recommendation.size_bytes,
+                "rationale": recommendation.rationale,
+                "is_downloaded": is_downloaded
+            },
+            "alternatives": recommendation.alternatives.iter().map(|alt| serde_json::json!({
+                "model_id": alt.model_id,
+                "display_name": alt.display_name,
+                "size_bytes": alt.size_bytes
+            })).collect::<Vec<_>>()
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
-        println!("Status: Model not downloaded");
-        println!("        Run: lexicon models download {}",
-            recommendation.model_id.strip_prefix("whisper-").unwrap_or(&recommendation.model_id));
+        println!("Model Recommendation");
+        println!("{}", "=".repeat(50));
+        println!();
+
+        println!("System Tier: {:?}", profile.tier);
+        println!();
+
+        println!("Recommended Model:");
+        println!("  Name:     {}", recommendation.display_name);
+        println!("  ID:       {}", recommendation.model_id);
+        println!("  Size:     {:.1} MB", recommendation.size_bytes as f64 / 1_000_000.0);
+        println!("  Reason:   {}", recommendation.rationale);
+        println!();
+
+        if !recommendation.alternatives.is_empty() {
+            println!("Alternative Models:");
+            for alt in &recommendation.alternatives {
+                println!(
+                    "  - {} ({:.1} MB)",
+                    alt.display_name,
+                    alt.size_bytes as f64 / 1_000_000.0
+                );
+            }
+            println!();
+        }
+
+        if is_downloaded {
+            println!("Status: Model is already downloaded");
+        } else {
+            println!("Status: Model not downloaded");
+            println!("        Run: lexicon models download {}",
+                recommendation.model_id.strip_prefix("whisper-").unwrap_or(&recommendation.model_id));
+        }
     }
 
     Ok(())

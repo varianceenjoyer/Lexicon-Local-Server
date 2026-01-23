@@ -1,93 +1,168 @@
----
-type: index
-updated: 2026-01-22
----
-
 # Work Packages Index
 
-> Active work packages for implementation. Agents should scan this first to find relevant work.
+> **Status**: Active | **Last Updated**: 2026-01-23 (WP-CONFIG complete, WP-HASH-VERIFY scaffolding)
+>
+> This index tracks all actionable work packages for Lexicon Local Server.
 
 ---
 
-## Summary
+## Overview
 
-| Layer | Package | Status | Phase | Priority | Consumers |
-|-------|---------|--------|-------|----------|-----------|
-| 1 | [WP-CORE](WP-CORE.md) | complete | mvp | - | developer |
-| 1 | [WP-AUDIO](WP-AUDIO.md) | in-progress | beta | high | developer |
-| 1 | [WP-AUDIOCONV](WP-AUDIOCONV.md) | complete | mvp | - | developer |
-| 1 | [WP-DB](WP-DB.md) | complete | mvp | - | developer |
-| 1 | [WP-MODEL](WP-MODEL.md) | complete | mvp | - | developer |
-| 2 | [WP-STT](WP-STT.md) | in-progress | beta | high | developer |
-| 2 | [WP-TTS](WP-TTS.md) | in-progress | beta | medium | developer |
-| 3 | [WP-FFI](WP-FFI.md) | in-progress | beta | high | developer |
-| 3 | [WP-SERVER](WP-SERVER.md) | complete | beta | - | developer |
-| 3 | [WP-CLI](WP-CLI.md) | complete | mvp | - | developer |
-| 4 | [WP-IOS](WP-IOS.md) | ready | release | medium | developer |
-| 4 | [WP-ANDROID](WP-ANDROID.md) | ready | release | medium | developer |
-| 4 | [WP-WIN](WP-WIN.md) | complete | release | - | developer |
-| 4 | [WP-BUILD](WP-BUILD.md) | complete | release | - | developer |
-| - | [WP-CONFIG](WP-CONFIG.md) | ready | mvp | high | developer |
+Work packages are self-contained units of implementation work with:
+- Clear scope and deliverables
+- Interface contracts
+- Acceptance criteria
+- Dependencies mapped
 
 ---
 
-## By Status
+## Work Package Status
+
+### Ready for Implementation (Beta Phase)
+
+| ID | Name | Priority | Phase | Handoff |
+|----|------|----------|-------|---------|
+| [WP-HASH-VERIFY](WP-HASH-VERIFY.md) | Model Hash Verification (Fallback) | HIGH | Beta | [HO-HASH-001](../handoffs/HO-HASH-001.md) |
+| [WP-BLE](WP-BLE.md) | Bluetooth HFP 1.6 Support | MEDIUM | Beta | [HO-BLE-001](../handoffs/HO-BLE-001.md) |
+| [WP-TTS-QUALITY](WP-TTS-QUALITY.md) | TTS Quality Validation | MEDIUM | Beta | [HO-TTS-QUALITY-001](../handoffs/HO-TTS-QUALITY-001.md) |
+
+### Blocked (Beta/Release Phase)
+
+| ID | Name | Priority | Blocked By | Notes |
+|----|------|----------|------------|-------|
+| [WP-FFI-TEST](WP-FFI-TEST.md) | Mobile FFI Binding Tests | HIGH | macOS/Android SDK | Swift/Kotlin unit tests |
+| [WP-DIARIZATION](WP-DIARIZATION.md) | Speaker Diarization (Neural) | MEDIUM | Release phase | ECAPA-TDNN integration |
+| [WP-IOS](WP-IOS.md) | iOS Platform Integration | HIGH | WP-FFI, macOS required | XCFramework + Swift |
+| [WP-ANDROID](WP-ANDROID.md) | Android Platform Integration | HIGH | WP-FFI, NDK required | AAR + Kotlin |
 
 ### In Progress
-- [WP-AUDIO](WP-AUDIO.md) — Bluetooth HFP 1.6 support remaining
-- [WP-STT](WP-STT.md) — Diarization verification pending
-- [WP-TTS](WP-TTS.md) — Natural speech quality verification
-- [WP-FFI](WP-FFI.md) — Platform compilation pending
 
-### Ready for Implementation
-- [WP-CONFIG](WP-CONFIG.md) — Local configuration management (HIGH priority)
-- [WP-IOS](WP-IOS.md) — iOS platform integration
-- [WP-ANDROID](WP-ANDROID.md) — Android platform integration
+| ID | Name | Owner | Started | Notes |
+|----|------|-------|---------|-------|
+| [WP-HASH-VERIFY](WP-HASH-VERIFY.md) | Model Hash Verification | - | 2026-01-23 | Scaffolding complete - awaiting hash values |
 
-### Blocked
-*None currently*
+### Completed (MVP/Early Beta)
+
+| ID | Name | Completed | Notes |
+|----|------|-----------|-------|
+| WP-CORE | Core Library Scaffolding | 2026-01-19 | Cargo workspace, config, errors |
+| WP-AUDIO | Audio Pipeline | 2026-01-19 | cpal + VAD + resampling |
+| WP-AUDIOCONV | Audio Format Conversion | 2026-01-19 | MP3/OGG/FLAC via symphonia |
+| WP-DB | Storage Layer | 2026-01-19 | SQLite + FTS5 search |
+| WP-MODEL | Model Manager | 2026-01-19 | Download + verification |
+| WP-STT | Speech-to-Text Engine | 2026-01-19 | whisper-rs integration |
+| WP-TTS | Text-to-Speech Engine | 2026-01-19 | Kokoro + tts-rs fallback |
+| WP-SERVER | HTTP/WebSocket Server | 2026-01-19 | Axum REST + WebSocket |
+| WP-CLI | Command-Line Interface | 2026-01-19 | All commands implemented |
+| WP-FFI | Mobile FFI Bindings | 2026-01-19 | UniFFI Swift/Kotlin gen |
+| WP-WIN | Windows Native Build | 2026-01-20 | MSVC + CI pipeline |
+| WP-BUILD | CI/CD Pipeline | 2026-01-20 | GitHub Actions workflows |
+| [WP-CONFIG](WP-CONFIG.md) | Local Configuration Management | 2026-01-23 | System profiling + CLI config commands |
 
 ---
 
-## By Layer
+## Phase Mapping
 
-### Layer 1: Foundation (No Dependencies)
-These can be developed in parallel with no interdependencies.
+### MVP Phase (Complete)
+Core transcription capability on desktop:
+- WP-CORE, WP-AUDIO, WP-AUDIOCONV, WP-DB, WP-MODEL, WP-STT, WP-CLI
 
-| Package | Deliverable | Status |
-|---------|-------------|--------|
-| WP-CORE | Cargo workspace, config, errors, logging | ✅ Complete |
-| WP-AUDIO | Audio capture, VAD, resampling, Bluetooth | 🔄 In Progress |
-| WP-AUDIOCONV | MP3/OGG/FLAC to WAV conversion | ✅ Complete |
-| WP-DB | SQLite with FTS5 search | ✅ Complete |
-| WP-MODEL | Model download, verification, selection | ✅ Complete |
+### Beta Phase (Current)
+Enhanced features and security:
+- **WP-CONFIG** - System profiling and model recommendations (COMPLETE)
+- **WP-HASH-VERIFY** - Secure fallback downloads (scaffolding complete)
+- **WP-BLE** - Bluetooth audio quality
+- **WP-TTS-QUALITY** - TTS quality validation
+- **WP-FFI-TEST** - Mobile binding tests (blocked)
+- WP-TTS, WP-SERVER, WP-FFI (complete)
 
-### Layer 2: Engines (Depends on Layer 1)
-| Package | Deliverable | Dependencies | Status |
-|---------|-------------|--------------|--------|
-| WP-STT | whisper-rs integration, streaming | WP-CORE, WP-AUDIO, WP-MODEL | 🔄 In Progress |
-| WP-TTS | Kokoro TTS with platform fallback | WP-CORE, WP-MODEL | 🔄 In Progress |
+### Release Phase (Planned)
+Mobile platform deployment:
+- **WP-IOS** - iOS XCFramework + Swift package
+- **WP-ANDROID** - Android AAR + Kotlin bindings
+- **WP-DIARIZATION** - Neural speaker diarization
 
-### Layer 3: Integration (Depends on Layer 2)
-| Package | Deliverable | Dependencies | Status |
-|---------|-------------|--------------|--------|
-| WP-FFI | UniFFI bindings for Swift/Kotlin | WP-STT, WP-TTS, WP-DB | 🔄 In Progress |
-| WP-SERVER | Axum HTTP/WebSocket server | WP-STT, WP-TTS, WP-DB | ✅ Complete |
-| WP-CLI | Command-line interface | WP-STT, WP-TTS, WP-DB | ✅ Complete |
+---
 
-### Layer 4: Platform (Depends on Layer 3)
-| Package | Deliverable | Dependencies | Status |
-|---------|-------------|--------------|--------|
-| WP-IOS | iOS static library + Swift package | WP-FFI | ⬜ Ready |
-| WP-ANDROID | Android SO + Kotlin bindings | WP-FFI | ⬜ Ready |
-| WP-WIN | Windows native build | All | ✅ Complete |
-| WP-BUILD | CI/CD pipeline | All | ✅ Complete |
+## Priority Matrix
+
+### Must Complete for Beta
+1. **WP-CONFIG** - Enables automatic model selection (COMPLETE)
+2. **WP-HASH-VERIFY** - Security requirement
+
+### Should Complete for Beta
+3. **WP-BLE** - Audio quality improvement
+
+### Must Complete for Release
+4. **WP-IOS** - iOS platform support
+5. **WP-ANDROID** - Android platform support
+
+### Nice to Have for Release
+6. **WP-DIARIZATION** - Multi-speaker support
+
+---
+
+## Quick Links
+
+### Work Packages (Beta) - Active
+- [WP-HASH-VERIFY](WP-HASH-VERIFY.md) - Model verification (HIGH priority)
+- [WP-BLE](WP-BLE.md) - Bluetooth HFP support
+- [WP-TTS-QUALITY](WP-TTS-QUALITY.md) - TTS quality validation
+- [WP-FFI-TEST](WP-FFI-TEST.md) - Mobile binding tests (blocked)
+
+### Work Packages (Beta) - Complete
+- [WP-CONFIG](WP-CONFIG.md) - Configuration management
+
+### Work Packages (Release)
+- [WP-DIARIZATION](WP-DIARIZATION.md) - Speaker diarization
+- [WP-IOS](WP-IOS.md) - iOS integration
+- [WP-ANDROID](WP-ANDROID.md) - Android integration
+
+### Handoffs (Ready to Implement)
+- [HO-HASH-001](../handoffs/HO-HASH-001.md) - Fallback hash verification (HIGH priority)
+- [HO-BLE-001](../handoffs/HO-BLE-001.md) - Bluetooth HFP 1.6 support
+- [HO-TTS-QUALITY-001](../handoffs/HO-TTS-QUALITY-001.md) - TTS quality validation
+
+### Handoffs (Complete)
+- [HO-CONFIG-001](../handoffs/HO-CONFIG-001.md) - System profiling and CLI config
+
+---
+
+## Creating New Work Packages
+
+Work packages should follow the template:
+
+```markdown
+# WP-XXX: Title
+
+## Overview
+Brief description
+
+## Scope
+What's included/excluded
+
+## Interface Contract
+Code signatures and types
+
+## Acceptance Criteria
+Measurable completion criteria
+
+## Dependencies
+What this needs/blocks
+
+## Files
+Key files to modify/create
+
+## Research References
+Related R-XXX documents
+```
 
 ---
 
 ## Dependency Graph
 
 ```
+Layer Architecture:
 Layer 1 (Parallel)
 ├── WP-CORE ─────────┐
 ├── WP-AUDIO ────────┤
@@ -102,7 +177,17 @@ Layer 1 (Parallel)
                                                                │    ├── WP-ANDROID
                                                                │    ├── WP-WIN
                                                                │    └── WP-BUILD
-                                                               ▼
+
+Beta Phase Dependencies:
+  WP-CONFIG ────────────────┐
+  WP-HASH-VERIFY ───────────┼──▶ Beta Release
+  WP-BLE ───────────────────┘
+  WP-TTS-QUALITY ───────────┘
+
+Release Phase Dependencies:
+  WP-FFI (complete) ─────────┬──▶ WP-IOS ─────────┐
+                             └──▶ WP-ANDROID ─────┼──▶ Release
+  WP-DIARIZATION ────────────────────────────────┘
 ```
 
 ---
@@ -117,8 +202,4 @@ See [../docs/android-emulation/](../docs/android-emulation/) for Android emulati
 
 ---
 
-## Recently Updated
-
-1. [WP-CONFIG](WP-CONFIG.md) — 2026-01-22 (new)
-2. [WP-AUDIO](WP-AUDIO.md) — 2026-01-20
-3. [WP-STT](WP-STT.md) — 2026-01-20
+*Last updated: 2026-01-23. WP-CONFIG complete, WP-HASH-VERIFY scaffolding complete (awaiting hash values).*
