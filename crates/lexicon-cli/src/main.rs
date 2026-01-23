@@ -119,6 +119,12 @@ enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
+
+    /// TTS quality validation for Beta exit criteria
+    TtsQuality {
+        #[command(subcommand)]
+        action: TtsQualityAction,
+    },
 }
 
 /// Shell types for completion generation.
@@ -234,6 +240,29 @@ enum ConfigAction {
     Path,
 }
 
+#[derive(Subcommand)]
+enum TtsQualityAction {
+    /// Generate test audio files for manual quality assessment
+    Generate {
+        /// Output directory for audio files
+        #[arg(short, long, default_value = "./tts-quality-test")]
+        output_dir: PathBuf,
+
+        /// Use platform TTS instead of Kokoro (for comparison)
+        #[arg(long)]
+        platform: bool,
+    },
+
+    /// Show test sentences that will be used
+    Sentences,
+
+    /// Display previous quality reports
+    Report {
+        /// Path to report JSON file
+        report_file: Option<PathBuf>,
+    },
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -290,6 +319,13 @@ fn main() -> Result<()> {
             ConfigAction::Profile { json, refresh: _ } => cmd_config_profile(json),
             ConfigAction::Recommend { json } => cmd_config_recommend(json),
             ConfigAction::Path => cmd_config_path(),
+        },
+        Commands::TtsQuality { action } => match action {
+            TtsQualityAction::Generate { output_dir, platform } => {
+                cmd_tts_quality_generate(&output_dir, platform)
+            }
+            TtsQualityAction::Sentences => cmd_tts_quality_sentences(),
+            TtsQualityAction::Report { report_file } => cmd_tts_quality_report(report_file),
         },
     }
 }
@@ -1421,6 +1457,187 @@ fn cmd_config_path() -> Result<()> {
         println!("First run:     yes");
     } else {
         println!("First run:     no");
+    }
+
+    Ok(())
+}
+
+// ============================================================================
+// TTS Quality Commands
+// ============================================================================
+
+/// Generate test audio files for manual quality assessment.
+fn cmd_tts_quality_generate(output_dir: &Path, use_platform: bool) -> Result<()> {
+    use lexicon_core::tts::{QUALITY_TEST_SENTENCES, TtsManager, TtsEngine, TtsConfig};
+    use std::fs;
+
+    println!("TTS Quality Test - Audio Generation");
+    println!("{}", "=".repeat(50));
+    println!();
+
+    // Create output directory
+    fs::create_dir_all(output_dir)
+        .context("Failed to create output directory")?;
+
+    let engine_name = if use_platform { "platform" } else { "kokoro" };
+    println!("Engine: {}", engine_name);
+    println!("Output: {}", output_dir.display());
+    println!("Sentences: {}", QUALITY_TEST_SENTENCES.len());
+    println!();
+
+    // Initialize TTS manager
+    let config = TtsConfig::new()
+        .with_engine(if use_platform { TtsEngine::Platform } else { TtsEngine::Kokoro });
+
+    let tts = TtsManager::new()
+        .context("Failed to initialize TTS engine")?;
+
+    let pb = ProgressBar::new(QUALITY_TEST_SENTENCES.len() as u64);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")?
+            .progress_chars("##-"),
+    );
+
+    for (i, sentence) in QUALITY_TEST_SENTENCES.iter().enumerate() {
+        let filename = format!("{:02}_{}.wav", i + 1, engine_name);
+        let output_path = output_dir.join(&filename);
+
+        pb.set_message(format!("Generating: {}", filename));
+
+        // Synthesize audio
+        match tts.synthesize(sentence, &config) {
+            Ok(result) => {
+                // Write WAV file
+                let spec = hound::WavSpec {
+                    channels: 1,
+                    sample_rate: result.audio.sample_rate,
+                    bits_per_sample: 16,
+                    sample_format: hound::SampleFormat::Int,
+                };
+
+                let mut writer = hound::WavWriter::create(&output_path, spec)
+                    .context("Failed to create WAV file")?;
+
+                for sample in &result.audio.samples {
+                    let sample_i16 = (sample * 32767.0).clamp(-32768.0, 32767.0) as i16;
+                    writer.write_sample(sample_i16)?;
+                }
+
+                writer.finalize()?;
+            }
+            Err(e) => {
+                eprintln!("\nError synthesizing sentence {}: {}", i + 1, e);
+            }
+        }
+
+        pb.inc(1);
+    }
+
+    pb.finish_with_message("Done!");
+    println!();
+
+    // Write sentence manifest
+    let manifest_path = output_dir.join("sentences.txt");
+    let mut manifest = BufWriter::new(
+        std::fs::File::create(&manifest_path)
+            .context("Failed to create manifest")?
+    );
+
+    writeln!(manifest, "TTS Quality Test Sentences")?;
+    writeln!(manifest, "Engine: {}", engine_name)?;
+    writeln!(manifest, "Generated: {}", chrono::Utc::now().to_rfc3339())?;
+    writeln!(manifest)?;
+
+    for (i, sentence) in QUALITY_TEST_SENTENCES.iter().enumerate() {
+        writeln!(manifest, "{:02}. {}", i + 1, sentence)?;
+    }
+
+    manifest.flush()?;
+
+    println!("Generated {} audio files in: {}", QUALITY_TEST_SENTENCES.len(), output_dir.display());
+    println!("Sentence manifest: {}", manifest_path.display());
+    println!();
+    println!("Next steps:");
+    println!("  1. Listen to each audio file");
+    println!("  2. Rate on 1-5 scale: intelligibility, naturalness, pronunciation, prosody");
+    println!("  3. Record results (minimum: avg MOS >= 3.5 for Beta)");
+
+    Ok(())
+}
+
+/// Show test sentences that will be used for quality assessment.
+fn cmd_tts_quality_sentences() -> Result<()> {
+    use lexicon_core::tts::QUALITY_TEST_SENTENCES;
+
+    println!("TTS Quality Test Sentences");
+    println!("{}", "=".repeat(50));
+    println!();
+    println!("These {} sentences test various TTS capabilities:", QUALITY_TEST_SENTENCES.len());
+    println!();
+
+    for (i, sentence) in QUALITY_TEST_SENTENCES.iter().enumerate() {
+        println!("{:2}. {}", i + 1, sentence);
+    }
+
+    println!();
+    println!("Categories tested:");
+    println!("  - Basic conversational speech");
+    println!("  - Numbers and dates");
+    println!("  - Abbreviations (Dr., Mr., USA, etc.)");
+    println!("  - Punctuation and prosody (?, !, ...)");
+    println!("  - Technical terms");
+    println!("  - Long sentences");
+    println!("  - Difficult pronunciations");
+
+    Ok(())
+}
+
+/// Display a quality report from a JSON file.
+fn cmd_tts_quality_report(report_file: Option<PathBuf>) -> Result<()> {
+    use lexicon_core::tts::QualityReport;
+
+    match report_file {
+        Some(path) => {
+            let content = std::fs::read_to_string(&path)
+                .context("Failed to read report file")?;
+
+            let report: QualityReport = serde_json::from_str(&content)
+                .context("Failed to parse report JSON")?;
+
+            println!("{}", report.summary());
+        }
+        None => {
+            println!("TTS Quality Report");
+            println!("{}", "=".repeat(50));
+            println!();
+            println!("No report file specified.");
+            println!();
+            println!("To create a report:");
+            println!("  1. Run: lexicon tts-quality generate");
+            println!("  2. Listen to audio files and rate each");
+            println!("  3. Create a JSON report with QualityReport structure");
+            println!("  4. Run: lexicon tts-quality report <report.json>");
+            println!();
+            println!("Report JSON structure:");
+            println!("  {{");
+            println!("    \"timestamp\": \"2026-01-23T12:00:00Z\",");
+            println!("    \"model_version\": \"v0.19\",");
+            println!("    \"engine\": \"Kokoro\",");
+            println!("    \"assessments\": [");
+            println!("      {{");
+            println!("        \"sentence\": \"Hello, how are you?\",");
+            println!("        \"intelligibility\": 4,");
+            println!("        \"naturalness\": 3,");
+            println!("        \"pronunciation\": 4,");
+            println!("        \"prosody\": 3,");
+            println!("        \"notes\": \"Clear but slightly robotic\"");
+            println!("      }}");
+            println!("    ]");
+            println!("  }}");
+            println!();
+            println!("Beta criteria: Average MOS >= 3.5, no score below 2.0");
+        }
     }
 
     Ok(())
