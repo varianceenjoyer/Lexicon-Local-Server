@@ -298,10 +298,14 @@ Implemented files:
   - `QualityReport` - Aggregate report with beta criteria validation
   - `mos_scale` module - Score descriptions
 
+**CLI Commands Implemented (2026-01-23)**:
+- `lexicon tts-quality generate` - Generate test audio files
+- `lexicon tts-quality sentences` - Show test sentences
+- `lexicon tts-quality report` - Display quality reports
+
 **Remaining (Requires Human)**:
-- [ ] CLI `tts-quality` subcommand for audio generation
 - [ ] Manual listening tests (human evaluation)
 - [ ] Quality documentation (docs/TTS-QUALITY.md)
 - [ ] Reference audio archive
 
-*Test infrastructure complete. Manual listening tests require human evaluation.*
+*Test infrastructure and CLI complete. Manual listening tests require human evaluation.*
