@@ -18,13 +18,15 @@ use ratatui::{
 };
 use tokio::sync::mpsc;
 
+use lexicon_core::storage::{Database, NewSavedTranscript, SavedTranscriptId};
+
 use super::audio::AudioDeviceManager;
 use super::buffer::TranscriptionBuffer;
 use super::dialogs::{DialogAction, SaveDialog};
 use super::transcription::{TranscriptionManager, TranscriptionManagerConfig, TranscriptionMessage};
-use super::views::SavedTranscriptionsList;
+use super::views::{SavedTranscript, SavedTranscriptionsList};
 use super::widgets::LevelMeter;
-use super::Result;
+use super::{Result, TuiError};
 
 /// TUI display modes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,6 +55,8 @@ pub struct TuiConfig {
     pub language: Option<String>,
     /// Whether to translate to English.
     pub translate: bool,
+    /// Path to the database file.
+    pub database_path: Option<PathBuf>,
 }
 
 impl Default for TuiConfig {
@@ -64,6 +68,7 @@ impl Default for TuiConfig {
             model_path: None,
             language: Some("en".to_string()),
             translate: false,
+            database_path: None,
         }
     }
 }
@@ -100,6 +105,8 @@ pub struct TuiApp {
     transcription_enabled: bool,
     /// Model loading status message.
     model_status: Option<String>,
+    /// Database connection for saving transcripts.
+    database: Option<Database>,
 }
 
 impl TuiApp {
@@ -140,6 +147,31 @@ impl TuiApp {
                 (None, None, false)
             };
 
+        // Try to open database if path is provided
+        let database = if let Some(db_path) = config.database_path {
+            match Database::open(&db_path) {
+                Ok(db) => Some(db),
+                Err(e) => {
+                    tracing::warn!("Failed to open database: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        // Load saved transcripts if database is available
+        let saved_list = if let Some(ref db) = database {
+            match db.list_saved_transcripts() {
+                Ok(transcripts) => SavedTranscriptionsList::with_items(
+                    transcripts.into_iter().map(SavedTranscript::from).collect()
+                ),
+                Err(_) => SavedTranscriptionsList::new(),
+            }
+        } else {
+            SavedTranscriptionsList::new()
+        };
+
         Ok(Self {
             mode: TuiMode::Main,
             audio,
@@ -147,7 +179,7 @@ impl TuiApp {
             recording: false,
             should_quit: false,
             save_dialog: SaveDialog::new(),
-            saved_list: SavedTranscriptionsList::new(),
+            saved_list,
             device_dropdown_open: false,
             dropdown_selection: 0,
             status_message: None,
@@ -156,6 +188,7 @@ impl TuiApp {
             transcription_rx,
             transcription_enabled,
             model_status: None,
+            database,
         })
     }
 
@@ -275,13 +308,37 @@ impl TuiApp {
                 KeyCode::Up => self.saved_list.select_prev(),
                 KeyCode::Down => self.saved_list.select_next(),
                 KeyCode::Enter => {
-                    // Open selected transcript (would load from DB)
-                    self.set_status("Opening transcript...");
+                    // Open selected transcript from DB
+                    if let Some(selected) = self.saved_list.selected() {
+                        let id = selected.id;
+                        if let Some(ref db) = self.database {
+                            match db.get_saved_transcript(SavedTranscriptId(id)) {
+                                Ok(transcript) => {
+                                    // Clear buffer and load transcript content
+                                    self.buffer.clear();
+                                    self.buffer.append(&transcript.content);
+                                    self.set_status(&format!("Loaded: {}", transcript.name));
+                                }
+                                Err(e) => {
+                                    self.set_status(&format!("Load failed: {}", e));
+                                }
+                            }
+                        }
+                    }
                     self.mode = TuiMode::Main;
                 }
                 KeyCode::Char('d') | KeyCode::Delete => {
-                    if let Some(_id) = self.saved_list.remove_selected() {
-                        self.set_status("Transcript deleted");
+                    if let Some(id) = self.saved_list.remove_selected() {
+                        // Delete from database
+                        if let Some(ref db) = self.database {
+                            if let Err(e) = db.delete_saved_transcript(SavedTranscriptId(id)) {
+                                self.set_status(&format!("Delete failed: {}", e));
+                            } else {
+                                self.set_status("Transcript deleted");
+                            }
+                        } else {
+                            self.set_status("Transcript deleted");
+                        }
                     }
                 }
                 KeyCode::Esc => {
@@ -595,8 +652,33 @@ impl TuiApp {
 
     /// Saves the current transcript.
     fn save_transcript(&mut self, name: &str) {
-        // In a full implementation, this would save to SQLite
-        self.set_status(&format!("Saved: {}", name));
+        let content = self.buffer.content().to_string();
+
+        if content.is_empty() {
+            self.set_status("Nothing to save");
+            return;
+        }
+
+        if let Some(ref db) = self.database {
+            let new_transcript = NewSavedTranscript::new(name, &content);
+            match db.create_saved_transcript(&new_transcript) {
+                Ok(_id) => {
+                    // Reload the saved list to include the new item
+                    if let Ok(transcripts) = db.list_saved_transcripts() {
+                        self.saved_list.set_items(
+                            transcripts.into_iter().map(SavedTranscript::from).collect()
+                        );
+                    }
+
+                    self.set_status(&format!("Saved: {}", name));
+                }
+                Err(e) => {
+                    self.set_status(&format!("Save failed: {}", e));
+                }
+            }
+        } else {
+            self.set_status("No database available");
+        }
     }
 
     /// Copies the buffer to clipboard.

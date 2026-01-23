@@ -4,4 +4,4 @@
 
 mod saved_list;
 
-pub use saved_list::SavedTranscriptionsList;
+pub use saved_list::{SavedTranscript, SavedTranscriptionsList};

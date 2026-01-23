@@ -2,7 +2,7 @@
 
 > **ID**: HO-TUI-001 | **Work Package**: WP-TUI
 >
-> **Created**: 2026-01-23 | **Status**: Core Scaffolding Complete
+> **Created**: 2026-01-23 | **Status**: DB Integration Complete
 >
 > **Last Updated**: 2026-01-23
 
@@ -811,13 +811,18 @@ cargo test -p lexicon-cli buffer
 - [x] Audio capture and resampling to 16kHz for Whisper
 - [x] Voice activity detection for intelligent transcription timing
 - [x] Channel-based communication between audio thread and UI
-- [x] All tests passing (44 CLI tests, 40 storage tests, 6 migration tests)
+- [x] All tests passing (44 CLI tests, 40 storage tests, 6 migration tests, 32 TUI tests)
 - [x] TranscriptionManager wired into TuiApp event loop
 - [x] CLI arguments for model path, language, and translate options
 - [x] Auto-detection of model files from config directory
+- [x] Database integration in TuiApp (save, load, delete)
+- [x] Type conversion from storage::SavedTranscript to views::SavedTranscript
+- [x] Save dialog saves to database with full persistence
+- [x] Delete from saved list deletes from database
+- [x] Open transcript loads content from database into buffer
+- [x] Database path passed from CLI to TuiConfig
 
 ### Remaining
-- [ ] Connect TUI to database for saving/loading transcripts
 - [ ] Voice input in save dialog
 - [ ] Export functionality
 - [ ] Test with actual Whisper model on hardware
@@ -855,7 +860,7 @@ cargo test -p lexicon-cli buffer
 - [x] CRUD operations (create, read, update, delete)
 - [x] Character count tracking
 - [x] Session association (optional)
-- [ ] Connect TUI views to database operations
+- [x] Connect TUI views to database operations
 
 ### Save/Rename
 - [x] Ctrl+S opens dialog
@@ -863,6 +868,7 @@ cargo test -p lexicon-cli buffer
 - [ ] Voice input works (if recording)
 - [x] Keyboard shortcuts work (Ctrl+A, Ctrl+X, Ctrl+arrows)
 - [x] Enter confirms, Esc cancels
+- [x] Saves to database on confirm
 
 ### Copy
 - [x] Copy button works
@@ -873,8 +879,8 @@ cargo test -p lexicon-cli buffer
 - [x] Ctrl+L opens saved list
 - [x] List shows name, preview, date
 - [x] Selection with arrow keys
-- [ ] Enter opens transcript
-- [ ] Delete removes transcript
+- [x] Enter opens transcript (loads from database into buffer)
+- [x] Delete removes transcript (deletes from database)
 - [x] Back returns to main
 
 ---

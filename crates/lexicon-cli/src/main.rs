@@ -414,13 +414,15 @@ fn cmd_tui(
 ) -> Result<()> {
     use tui::{TuiApp, app::TuiConfig};
 
+    // Load config for paths
+    let core_config = LexiconConfig::builder().build()?;
+
     // Determine model path: use specified path, or find from config
     let model_path = if let Some(path) = model {
         Some(path)
     } else {
         // Try to find a model in the default model directory
-        let config = LexiconConfig::builder().build()?;
-        let model_dir = config.model_dir;
+        let model_dir = &core_config.model_dir;
 
         // Look for common Whisper model files
         let candidates = [
@@ -438,6 +440,9 @@ fn cmd_tui(
             .find(|path| path.exists())
     };
 
+    // Get database path from config
+    let database_path = Some(core_config.data_dir.join("lexicon.db"));
+
     let config = TuiConfig {
         buffer_size,
         mouse_enabled: !no_mouse,
@@ -445,6 +450,7 @@ fn cmd_tui(
         model_path,
         language: Some(language),
         translate,
+        database_path,
     };
 
     let mut app = TuiApp::with_config(config)

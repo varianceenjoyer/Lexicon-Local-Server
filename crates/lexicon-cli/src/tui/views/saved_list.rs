@@ -6,6 +6,8 @@ use chrono::{DateTime, Utc};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 
+use lexicon_core::storage::SavedTranscript as DbSavedTranscript;
+
 /// Summary of a saved transcript.
 #[derive(Debug, Clone)]
 pub struct SavedTranscript {
@@ -238,6 +240,27 @@ impl SavedTranscriptionsList {
 impl Default for SavedTranscriptionsList {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl From<DbSavedTranscript> for SavedTranscript {
+    fn from(db: DbSavedTranscript) -> Self {
+        // Parse the ISO 8601 timestamp from the database
+        let created_at = chrono::DateTime::parse_from_rfc3339(&db.created_at)
+            .map(|dt| dt.with_timezone(&Utc))
+            .unwrap_or_else(|_| Utc::now());
+
+        // Generate preview before moving name
+        let preview = db.preview();
+        let char_count = db.char_count as usize;
+
+        Self {
+            id: db.id.0,
+            name: db.name,
+            preview,
+            char_count,
+            created_at,
+        }
     }
 }
 
