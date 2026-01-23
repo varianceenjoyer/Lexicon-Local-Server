@@ -849,7 +849,7 @@ mod mvp_validation_tests {
         for thread_id in 0..5 {
             let path = Arc::clone(&db_path);
             let handle = thread::spawn(move || {
-                let db = Database::open(&*path).unwrap();
+                let db = Database::open(&path).unwrap();
 
                 // Each thread performs multiple reads
                 for _ in 0..10 {
@@ -1022,13 +1022,12 @@ mod stability_tests {
         // On Linux, read /proc/self/statm
         #[cfg(target_os = "linux")]
         {
-            if let Ok(contents) = std::fs::read_to_string("/proc/self/statm") {
-                if let Some(rss_pages) = contents.split_whitespace().nth(1) {
-                    if let Ok(pages) = rss_pages.parse::<usize>() {
-                        // Assume 4KB pages
-                        return Some(pages * 4096);
-                    }
-                }
+            if let Ok(contents) = std::fs::read_to_string("/proc/self/statm")
+                && let Some(rss_pages) = contents.split_whitespace().nth(1)
+                && let Ok(pages) = rss_pages.parse::<usize>()
+            {
+                // Assume 4KB pages
+                return Some(pages * 4096);
             }
         }
 
@@ -1133,24 +1132,24 @@ mod stability_tests {
             }
 
             // Check memory periodically
-            if let Some(current_memory) = get_memory_usage() {
-                if let Some(initial) = initial_memory {
-                    let growth = current_memory as f64 / initial as f64;
-                    println!(
-                        "  Memory: {} MB (growth: {:.1}x)",
-                        current_memory / 1024 / 1024,
-                        growth
-                    );
+            if let Some(current_memory) = get_memory_usage()
+                && let Some(initial) = initial_memory
+            {
+                let growth = current_memory as f64 / initial as f64;
+                println!(
+                    "  Memory: {} MB (growth: {:.1}x)",
+                    current_memory / 1024 / 1024,
+                    growth
+                );
 
-                    // Fail if memory grows more than 2x
-                    assert!(
-                        growth < 2.0,
-                        "Memory grew too much: {:.1}x (initial: {} MB, current: {} MB)",
-                        growth,
-                        initial / 1024 / 1024,
-                        current_memory / 1024 / 1024
-                    );
-                }
+                // Fail if memory grows more than 2x
+                assert!(
+                    growth < 2.0,
+                    "Memory grew too much: {:.1}x (initial: {} MB, current: {} MB)",
+                    growth,
+                    initial / 1024 / 1024,
+                    current_memory / 1024 / 1024
+                );
             }
         }
 

@@ -117,10 +117,8 @@ fn test_context_lifecycle_no_leak() {
         let _ = std::fs::remove_dir_all(&cycle_dir);
 
         // Log progress every 10 cycles
-        if (cycle + 1) % 10 == 0 {
-            if let Some(rss) = get_rss_bytes() {
-                println!("Cycle {}: RSS = {}", cycle + 1, format_bytes(rss));
-            }
+        if (cycle + 1) % 10 == 0 && let Some(rss) = get_rss_bytes() {
+            println!("Cycle {}: RSS = {}", cycle + 1, format_bytes(rss));
         }
     }
 
@@ -167,7 +165,7 @@ fn test_database_lifecycle_no_leak() {
 
         // Create session and add segments
         let session_id = db.create_session(
-            &SessionMetadata::new().with_name(&format!("Session {}", cycle))
+            &SessionMetadata::new().with_name(format!("Session {}", cycle))
         ).expect("Failed to create session");
 
         // Add multiple segments
@@ -177,7 +175,7 @@ fn test_database_lifecycle_no_leak() {
                 &NewSegment::new(
                     i * 1000,
                     (i + 1) * 1000,
-                    &format!("Segment {} in cycle {}", i, cycle)
+                    format!("Segment {} in cycle {}", i, cycle)
                 ).with_confidence(0.95)
             ).expect("Failed to insert segment");
         }
@@ -196,10 +194,8 @@ fn test_database_lifecycle_no_leak() {
         let _ = std::fs::remove_file(format!("{}-shm", db_path.display()));
 
         // Log progress
-        if (cycle + 1) % 10 == 0 {
-            if let Some(rss) = get_rss_bytes() {
-                println!("Cycle {}: RSS = {}", cycle + 1, format_bytes(rss));
-            }
+        if (cycle + 1) % 10 == 0 && let Some(rss) = get_rss_bytes() {
+            println!("Cycle {}: RSS = {}", cycle + 1, format_bytes(rss));
         }
     }
 
@@ -256,10 +252,8 @@ fn test_audio_pipeline_no_leak() {
         let _chunk = AudioChunk::new(resampled.clone(), false, cycle as i64 * 1000);
 
         // Log progress
-        if (cycle + 1) % 10 == 0 {
-            if let Some(rss) = get_rss_bytes() {
-                println!("Cycle {}: RSS = {}", cycle + 1, format_bytes(rss));
-            }
+        if (cycle + 1) % 10 == 0 && let Some(rss) = get_rss_bytes() {
+            println!("Cycle {}: RSS = {}", cycle + 1, format_bytes(rss));
         }
     }
 
@@ -319,10 +313,8 @@ fn test_tts_types_no_leak() {
         let _chunks: Vec<_> = receiver.collect();
 
         // Log progress
-        if (cycle + 1) % 10 == 0 {
-            if let Some(rss) = get_rss_bytes() {
-                println!("Cycle {}: RSS = {}", cycle + 1, format_bytes(rss));
-            }
+        if (cycle + 1) % 10 == 0 && let Some(rss) = get_rss_bytes() {
+            println!("Cycle {}: RSS = {}", cycle + 1, format_bytes(rss));
         }
     }
 
@@ -370,13 +362,13 @@ fn test_combined_stress_no_leak() {
         let db = Database::open(&db_path).expect("Failed to open database");
 
         let session_id = db.create_session(
-            &SessionMetadata::new().with_name(&format!("Combined {}", cycle))
+            &SessionMetadata::new().with_name(format!("Combined {}", cycle))
         ).expect("Failed to create session");
 
         for i in 0..5 {
             db.insert_segment(
                 session_id,
-                &NewSegment::new(i * 1000, (i + 1) * 1000, &format!("Seg {}", i))
+                &NewSegment::new(i * 1000, (i + 1) * 1000, format!("Seg {}", i))
             ).expect("Failed to insert");
         }
 
@@ -391,10 +383,8 @@ fn test_combined_stress_no_leak() {
         let _ = std::fs::remove_dir_all(&cycle_dir);
 
         // Log progress
-        if (cycle + 1) % 20 == 0 {
-            if let Some(rss) = get_rss_bytes() {
-                println!("Cycle {}/{}: RSS = {}", cycle + 1, STRESS_TEST_CYCLES, format_bytes(rss));
-            }
+        if (cycle + 1) % 20 == 0 && let Some(rss) = get_rss_bytes() {
+            println!("Cycle {}/{}: RSS = {}", cycle + 1, STRESS_TEST_CYCLES, format_bytes(rss));
         }
     }
 
