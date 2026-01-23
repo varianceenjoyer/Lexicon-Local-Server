@@ -718,6 +718,7 @@ impl TuiApp {
             .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' { c } else { '_' })
             .collect();
         let safe_name = safe_name.trim();
+        let safe_name = if safe_name.is_empty() { "transcript" } else { safe_name };
 
         // Export to current directory
         let export_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
