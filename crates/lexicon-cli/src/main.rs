@@ -836,43 +836,131 @@ fn format_json(results: &[(PathBuf, TranscriptionResult)]) -> Result<String> {
     Ok(serde_json::to_string_pretty(&output)?)
 }
 
+/// Model definition with display name, size, and possible filenames.
+struct ModelDef {
+    /// Display name (e.g., "base-q5_1")
+    name: &'static str,
+    /// Human-readable size
+    size: &'static str,
+    /// Possible filenames to check (in order of preference)
+    /// Supports both legacy whisper-*.bin and ggml-*.bin naming conventions
+    filenames: &'static [&'static str],
+}
+
+impl ModelDef {
+    /// Find the first existing file path for this model in the given directory.
+    fn find_path(&self, model_dir: &Path) -> Option<PathBuf> {
+        for filename in self.filenames {
+            let path = model_dir.join(filename);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+        None
+    }
+}
+
+/// Find an existing model file by name, checking all possible filename patterns.
+/// Returns the path if found, otherwise returns the expected ggml-*.bin path.
+fn find_model_path(model_dir: &Path, model_name: &str) -> (Option<PathBuf>, PathBuf) {
+    // Determine the base name and whether it's quantized
+    let base_name = model_name
+        .strip_prefix("whisper-")
+        .unwrap_or(model_name);
+
+    // Build list of possible filenames to check
+    let filenames: Vec<String> = vec![
+        format!("ggml-{base_name}.bin"),
+        format!("whisper-{base_name}.bin"),
+    ];
+
+    // Find existing file
+    for filename in &filenames {
+        let path = model_dir.join(filename);
+        if path.exists() {
+            return (Some(path.clone()), path);
+        }
+    }
+
+    // Return expected path (ggml naming preferred)
+    let expected = model_dir.join(format!("ggml-{base_name}.bin"));
+    (None, expected)
+}
+
 /// List available models.
 fn cmd_models_list(downloaded_only: bool) -> Result<()> {
     let config = LexiconConfig::builder().build()?;
     let _registry = ModelRegistry::new(&config.model_dir)?;
 
     println!("Available Whisper models:\n");
-    println!("{:<12} {:<10} {:<12} {}", "Model", "Size", "Status", "Path");
-    println!("{}", "-".repeat(60));
+    println!("{:<16} {:<10} {:<14} {}", "Model", "Size", "Status", "Path");
+    println!("{}", "-".repeat(70));
 
-    let models = [
-        ("tiny", "75 MB"),
-        ("base", "142 MB"),
-        ("small", "466 MB"),
-        ("medium", "1.5 GB"),
-        ("large", "2.9 GB"),
+    // Models with both ggml-*.bin (HuggingFace) and whisper-*.bin (legacy) filename patterns
+    let models: &[ModelDef] = &[
+        // Quantized models (smaller, faster)
+        ModelDef {
+            name: "tiny-q5_1",
+            size: "31 MB",
+            filenames: &["ggml-tiny-q5_1.bin", "whisper-tiny-q5_1.bin"],
+        },
+        ModelDef {
+            name: "base-q5_1",
+            size: "57 MB",
+            filenames: &["ggml-base-q5_1.bin", "whisper-base-q5_1.bin"],
+        },
+        ModelDef {
+            name: "small-q5_1",
+            size: "182 MB",
+            filenames: &["ggml-small-q5_1.bin", "whisper-small-q5_1.bin"],
+        },
+        // Non-quantized models (original quality)
+        ModelDef {
+            name: "tiny",
+            size: "75 MB",
+            filenames: &["ggml-tiny.bin", "whisper-tiny.bin"],
+        },
+        ModelDef {
+            name: "base",
+            size: "142 MB",
+            filenames: &["ggml-base.bin", "whisper-base.bin"],
+        },
+        ModelDef {
+            name: "small",
+            size: "466 MB",
+            filenames: &["ggml-small.bin", "whisper-small.bin"],
+        },
+        ModelDef {
+            name: "medium",
+            size: "1.5 GB",
+            filenames: &["ggml-medium.bin", "whisper-medium.bin"],
+        },
+        ModelDef {
+            name: "large-v3",
+            size: "2.9 GB",
+            filenames: &["ggml-large-v3.bin", "whisper-large-v3.bin", "ggml-large.bin", "whisper-large.bin"],
+        },
+        ModelDef {
+            name: "large-v3-turbo",
+            size: "1.5 GB",
+            filenames: &["ggml-large-v3-turbo.bin", "whisper-large-v3-turbo.bin"],
+        },
     ];
 
-    for (name, size) in models {
-        let model_id = format!("whisper-{name}");
-        let model_path = config.model_dir.join(format!("{model_id}.bin"));
-        let status = if model_path.exists() {
-            "Downloaded"
-        } else {
-            "Not downloaded"
-        };
+    for model in models {
+        let found_path = model.find_path(&config.model_dir);
+        let is_downloaded = found_path.is_some();
 
-        if downloaded_only && !model_path.exists() {
+        if downloaded_only && !is_downloaded {
             continue;
         }
 
-        let path_str = if model_path.exists() {
-            model_path.display().to_string()
-        } else {
-            "-".to_string()
-        };
+        let status = if is_downloaded { "Downloaded" } else { "Not downloaded" };
+        let path_str = found_path
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "-".to_string());
 
-        println!("{:<12} {:<10} {:<12} {}", name, size, status, path_str);
+        println!("{:<16} {:<10} {:<14} {}", model.name, model.size, status, path_str);
     }
 
     println!("\nModel directory: {}", config.model_dir.display());
@@ -889,10 +977,11 @@ fn cmd_models_download(model_id: &str) -> Result<()> {
     let model_name = model_id.strip_prefix("whisper-").unwrap_or(model_id);
     let full_model_id = format!("whisper-{model_name}");
 
-    let model_path = config.model_dir.join(format!("{full_model_id}.bin"));
-    if model_path.exists() {
+    // Check if model already exists (any filename variant)
+    let (existing_path, _) = find_model_path(&config.model_dir, model_name);
+    if let Some(path) = existing_path {
         println!("Model '{model_name}' is already downloaded at:");
-        println!("  {}", model_path.display());
+        println!("  {}", path.display());
         return Ok(());
     }
 
@@ -910,7 +999,7 @@ fn cmd_models_download(model_id: &str) -> Result<()> {
     let rt = tokio::runtime::Runtime::new()?;
 
     println!("Fetching model manifest...");
-    rt.block_on(async {
+    let download_path = rt.block_on(async {
         // Fetch manifest first
         registry.fetch_manifest().await?;
 
@@ -926,7 +1015,8 @@ fn cmd_models_download(model_id: &str) -> Result<()> {
     })?;
 
     pb.finish_with_message("Download complete");
-    println!("\nModel downloaded to: {}", model_path.display());
+    // Use the actual path returned by the registry, falling back to expected path
+    println!("\nModel downloaded to: {}", download_path.display());
 
     Ok(())
 }
@@ -937,14 +1027,17 @@ fn cmd_models_delete(model_id: &str, force: bool) -> Result<()> {
 
     // Normalize model ID
     let model_name = model_id.strip_prefix("whisper-").unwrap_or(model_id);
-    let full_model_id = format!("whisper-{model_name}");
 
-    let model_path = config.model_dir.join(format!("{full_model_id}.bin"));
+    // Find existing model file (any filename variant)
+    let (existing_path, _) = find_model_path(&config.model_dir, model_name);
 
-    if !model_path.exists() {
-        println!("Model '{model_name}' is not downloaded.");
-        return Ok(());
-    }
+    let model_path = match existing_path {
+        Some(path) => path,
+        None => {
+            println!("Model '{model_name}' is not downloaded.");
+            return Ok(());
+        }
+    };
 
     if !force {
         eprint!("Delete model '{model_name}'? [y/N] ");
@@ -973,24 +1066,31 @@ fn cmd_models_info(model_id: &str) -> Result<()> {
     let model_name = model_id.strip_prefix("whisper-").unwrap_or(model_id);
     let full_model_id = format!("whisper-{model_name}");
 
-    let model_path = config.model_dir.join(format!("{full_model_id}.bin"));
+    // Find existing model file (any filename variant)
+    let (existing_path, expected_path) = find_model_path(&config.model_dir, model_name);
 
     println!("Model: {model_name}");
     println!("ID: {full_model_id}");
-    println!("Path: {}", model_path.display());
 
-    if model_path.exists() {
-        let metadata = std::fs::metadata(&model_path)?;
+    if let Some(ref path) = existing_path {
+        println!("Path: {}", path.display());
+        let metadata = std::fs::metadata(path)?;
         let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
         println!("Status: Downloaded");
         println!("Size: {:.1} MB", size_mb);
     } else {
+        println!("Path: {} (expected)", expected_path.display());
         println!("Status: Not downloaded");
     }
 
-    // Model capabilities
-    let (_languages, multilingual) = match model_name {
-        "tiny" | "base" | "small" | "medium" | "large" => (99, true),
+    // Model capabilities - strip quantization suffix for language detection
+    let base_model = model_name
+        .strip_suffix("-q5_1")
+        .or_else(|| model_name.strip_suffix("-q8_0"))
+        .unwrap_or(model_name);
+
+    let (_languages, multilingual) = match base_model {
+        "tiny" | "base" | "small" | "medium" | "large" | "large-v3" | "large-v3-turbo" => (99, true),
         "tiny.en" | "base.en" | "small.en" | "medium.en" => (1, false),
         _ => (99, true),
     };
