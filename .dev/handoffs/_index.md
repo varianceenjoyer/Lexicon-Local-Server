@@ -9,11 +9,11 @@ updated: 2026-01-23
 
 ---
 
-## Active Handoffs
+## Active Handoffs (Awaiting Human/Hardware)
 
 | ID | Work Package | Priority | Status | Created |
 |----|--------------|----------|--------|---------|
-| [HO-TUI-001](HO-TUI-001.md) | WP-TUI | HIGH | Ready for implementation | 2026-01-23 |
+| [HO-TUI-001](HO-TUI-001.md) | WP-TUI | HIGH | Feature complete - awaiting hardware test | 2026-01-23 |
 | [HO-HASH-001](HO-HASH-001.md) | WP-HASH-VERIFY | HIGH | Scaffolding complete - awaiting hashes | 2026-01-23 |
 | [HO-BLE-001](HO-BLE-001.md) | WP-BLE | MEDIUM | Scaffolding complete - awaiting hardware | 2026-01-23 |
 | [HO-TTS-QUALITY-001](HO-TTS-QUALITY-001.md) | WP-TTS-QUALITY | MEDIUM | Infrastructure complete - awaiting human eval | 2026-01-23 |
@@ -26,6 +26,7 @@ The following handoffs require human intervention before completion:
 
 | Handoff | Blocker | Action Required |
 |---------|---------|-----------------|
+| HO-TUI-001 | Hardware test | Test TUI with Whisper model on audio hardware |
 | HO-HASH-001 | Model downloads | Download models and compute SHA-256 hashes |
 | HO-BLE-001 | Physical hardware | Test with Bluetooth headsets |
 | HO-TTS-QUALITY-001 | Subjective evaluation | Listen and rate TTS audio quality |
@@ -53,4 +54,4 @@ See [.dev/human.md](../human.md) for detailed instructions.
 
 ---
 
-*Last updated: 2026-01-23. HO-TUI-001 ready for implementation; other handoffs blocked on human/hardware actions.*
+*Last updated: 2026-01-23. All Beta work packages feature-complete or scaffolding-complete - awaiting human/hardware actions.*
