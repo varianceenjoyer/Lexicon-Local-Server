@@ -194,3 +194,75 @@ impl AudioFileInfo {
         self.size_bytes > Self::BLOB_THRESHOLD
     }
 }
+
+/// Identifier for a saved transcript.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct SavedTranscriptId(pub i64);
+
+/// A saved transcript from the TUI.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SavedTranscript {
+    /// Unique identifier.
+    pub id: SavedTranscriptId,
+    /// User-provided name.
+    pub name: String,
+    /// Full transcript content.
+    pub content: String,
+    /// Character count.
+    pub char_count: i64,
+    /// Associated session ID (optional).
+    pub session_id: Option<SessionId>,
+    /// Creation timestamp (ISO 8601 string).
+    pub created_at: String,
+    /// Last update timestamp (ISO 8601 string).
+    pub updated_at: String,
+}
+
+impl SavedTranscript {
+    /// Returns a preview of the transcript (first ~50 characters).
+    #[must_use]
+    pub fn preview(&self) -> String {
+        if self.content.len() > 50 {
+            format!("{}...", &self.content[..47])
+        } else {
+            self.content.clone()
+        }
+    }
+}
+
+/// Data for creating a new saved transcript.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewSavedTranscript {
+    /// User-provided name.
+    pub name: String,
+    /// Full transcript content.
+    pub content: String,
+    /// Associated session ID (optional).
+    pub session_id: Option<SessionId>,
+}
+
+impl NewSavedTranscript {
+    /// Create a new saved transcript with required fields.
+    #[must_use]
+    pub fn new(name: impl Into<String>, content: impl Into<String>) -> Self {
+        let content = content.into();
+        Self {
+            name: name.into(),
+            content,
+            session_id: None,
+        }
+    }
+
+    /// Associate with a session.
+    #[must_use]
+    pub fn with_session(mut self, session_id: SessionId) -> Self {
+        self.session_id = Some(session_id);
+        self
+    }
+
+    /// Returns the character count.
+    #[must_use]
+    pub fn char_count(&self) -> i64 {
+        self.content.chars().count() as i64
+    }
+}
