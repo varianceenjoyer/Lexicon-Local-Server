@@ -4,11 +4,18 @@
 
 #![allow(dead_code)] // Some fields/methods reserved for future use
 
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+
 use super::{Result, TuiError};
+
+/// Gain multiplier for level meter display.
+///
+/// Scales RMS values so typical speech levels display prominently.
+/// Typical speech RMS is 0.02-0.1, we want that to show as 0.2-0.8 on the meter.
+const METER_GAIN: f32 = 8.0;
 
 /// Information about an audio input device.
 #[derive(Debug, Clone)]
@@ -178,10 +185,13 @@ impl AudioDeviceManager {
                     let sample_count = data.len() / channels;
                     let rms = (mono_sum / sample_count as f32).sqrt();
 
+                    // Apply gain to make meter more responsive to typical speech levels
+                    let scaled_rms = rms * METER_GAIN;
+
                     // Apply smoothing (exponential moving average)
                     let current = f32::from_bits(level.load(Ordering::Relaxed));
                     let alpha = 0.3; // Smoothing factor
-                    let smoothed = current * (1.0 - alpha) + rms * alpha;
+                    let smoothed = current * (1.0 - alpha) + scaled_rms * alpha;
 
                     // Clamp and store
                     let clamped = smoothed.clamp(0.0, 1.0);
