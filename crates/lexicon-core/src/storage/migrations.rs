@@ -276,4 +276,81 @@ mod tests {
 
         assert_eq!(count, 1);
     }
+
+    #[test]
+    fn test_saved_transcripts_table_created() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+
+        // Check saved_transcripts table exists
+        let tables: Vec<String> = conn
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+
+        assert!(tables.contains(&"saved_transcripts".to_string()));
+    }
+
+    #[test]
+    fn test_saved_transcripts_fts_created() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+
+        // Check saved_transcripts_fts virtual table exists
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='saved_transcripts_fts'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_saved_transcripts_crud() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+
+        // Insert a saved transcript
+        conn.execute(
+            "INSERT INTO saved_transcripts (name, content, char_count) VALUES (?1, ?2, ?3)",
+            ["Test Transcript", "This is test content", "20"],
+        )
+        .unwrap();
+
+        // Verify it was inserted
+        let count: i32 = conn
+            .query_row("SELECT COUNT(*) FROM saved_transcripts", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+
+        // Verify FTS index was updated
+        let fts_count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM saved_transcripts_fts WHERE saved_transcripts_fts MATCH 'test'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(fts_count, 1);
+
+        // Delete the transcript
+        conn.execute("DELETE FROM saved_transcripts WHERE name = 'Test Transcript'", [])
+            .unwrap();
+
+        // Verify FTS index was cleaned up
+        let fts_count_after: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM saved_transcripts_fts WHERE saved_transcripts_fts MATCH 'test'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(fts_count_after, 0);
+    }
 }
