@@ -18,6 +18,12 @@ use lexicon_core::stt::{Transcriber, TranscriptionConfig, WhisperTranscriber};
 
 use super::{Result, TuiError};
 
+/// Gain multiplier for level meter display.
+///
+/// Scales RMS values so typical speech levels display prominently.
+/// Typical speech RMS is 0.02-0.1, we want that to show as 0.2-0.8 on the meter.
+const METER_GAIN: f32 = 8.0;
+
 /// Target sample rate for Whisper (16kHz).
 const TARGET_SAMPLE_RATE: u32 = 16000;
 
@@ -138,6 +144,11 @@ impl TranscriptionManager {
 
     /// Starts the transcription worker with the given configuration.
     pub fn start(&mut self, config: TranscriptionManagerConfig) -> Result<()> {
+        tracing::info!("Starting transcription manager...");
+        tracing::info!("Model path: {:?}", config.model_path);
+        tracing::info!("Model exists: {}", config.model_path.exists());
+        tracing::info!("Language: {:?}, translate: {}", config.language, config.translate);
+
         // Create channel for audio samples
         let (audio_tx, audio_rx) = mpsc::unbounded_channel();
         self.audio_tx = Some(audio_tx);
@@ -152,6 +163,7 @@ impl TranscriptionManager {
         let language = config.language.clone();
         let translate = config.translate;
 
+        tracing::info!("Spawning transcription worker thread...");
         self.worker_handle = Some(thread::spawn(move || {
             transcription_worker(
                 audio_rx,
@@ -165,7 +177,9 @@ impl TranscriptionManager {
         }));
 
         // Start audio capture
+        tracing::info!("Starting audio capture...");
         self.start_audio_capture(config.device_name)?;
+        tracing::info!("Audio capture started successfully");
 
         Ok(())
     }
@@ -219,10 +233,13 @@ impl TranscriptionManager {
                         let sample_count = data.len() / channels;
                         let rms = (mono_sum / sample_count as f32).sqrt();
 
+                        // Apply gain to make meter more responsive to typical speech levels
+                        let scaled_rms = rms * METER_GAIN;
+
                         // Smooth and store level
                         let current = f32::from_bits(level.load(Ordering::Relaxed));
                         let alpha = 0.3;
-                        let smoothed = (current * (1.0 - alpha) + rms * alpha).clamp(0.0, 1.0);
+                        let smoothed = (current * (1.0 - alpha) + scaled_rms * alpha).clamp(0.0, 1.0);
                         level.store(smoothed.to_bits(), Ordering::Relaxed);
                     }
 
@@ -341,10 +358,18 @@ fn transcription_worker(
     language: Option<String>,
     translate: bool,
 ) {
+    tracing::info!("Transcription worker thread started");
+    tracing::info!("Loading model from: {:?}", model_path);
+
     // Load model
+    tracing::debug!("Creating WhisperTranscriber...");
     let mut transcriber = match WhisperTranscriber::new() {
-        Ok(t) => t,
+        Ok(t) => {
+            tracing::info!("WhisperTranscriber created successfully");
+            t
+        }
         Err(e) => {
+            tracing::error!("Failed to create transcriber: {}", e);
             let _ = ui_tx.send(TranscriptionMessage::ModelError(format!(
                 "Failed to create transcriber: {}",
                 e
@@ -353,7 +378,9 @@ fn transcription_worker(
         }
     };
 
+    tracing::info!("Loading model file...");
     if let Err(e) = transcriber.load_model(&model_path) {
+        tracing::error!("Failed to load model: {}", e);
         let _ = ui_tx.send(TranscriptionMessage::ModelError(format!(
             "Failed to load model: {}",
             e
@@ -365,6 +392,7 @@ fn transcription_worker(
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("unknown");
+    tracing::info!("Model loaded successfully: {}", model_name);
     let _ = ui_tx.send(TranscriptionMessage::ModelLoaded(model_name.to_string()));
 
     // Configure transcription

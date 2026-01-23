@@ -122,23 +122,35 @@ impl TuiApp {
 
     /// Creates a new TUI application with the specified configuration.
     pub fn with_config(config: TuiConfig) -> Result<Self> {
+        tracing::info!("Creating TUI application...");
+        tracing::debug!("TUI config: model_path={:?}, language={:?}, translate={}",
+            config.model_path, config.language, config.translate);
+
         let audio = AudioDeviceManager::new()?;
+        tracing::info!("Audio device manager initialized");
 
         // Try to create transcription manager if model path is provided
         let (transcription, transcription_rx, transcription_enabled) =
             if let Some(model_path) = config.model_path {
+                tracing::info!("Model path provided: {:?}", model_path);
+                tracing::info!("Model file exists: {}", model_path.exists());
+
                 if model_path.exists() {
+                    tracing::info!("Creating transcription manager...");
                     let (mut manager, rx) = TranscriptionManager::create();
 
                     let trans_config = TranscriptionManagerConfig {
-                        model_path,
+                        model_path: model_path.clone(),
                         language: config.language.clone(),
                         translate: config.translate,
                         device_name: config.device_name.clone(),
                     };
 
                     match manager.start(trans_config) {
-                        Ok(()) => (Some(manager), Some(rx), true),
+                        Ok(()) => {
+                            tracing::info!("Transcription manager started successfully");
+                            (Some(manager), Some(rx), true)
+                        }
                         Err(e) => {
                             tracing::warn!("Failed to start transcription: {}", e);
                             (None, None, false)
@@ -149,8 +161,14 @@ impl TuiApp {
                     (None, None, false)
                 }
             } else {
+                tracing::info!("No model path provided, transcription disabled");
                 (None, None, false)
             };
+
+        tracing::info!(
+            "TUI initialization complete: transcription_enabled={}",
+            transcription_enabled
+        );
 
         // Try to open database if path is provided
         let database = if let Some(db_path) = config.database_path {
@@ -766,19 +784,27 @@ impl TuiApp {
 
     /// Toggles recording state.
     fn toggle_recording(&mut self) {
+        tracing::info!(
+            "Toggle recording: current={}, has_transcription={}",
+            self.recording,
+            self.transcription.is_some()
+        );
         self.recording = !self.recording;
 
         if self.recording {
             // Start recording
             if let Some(ref trans) = self.transcription {
+                tracing::info!("Starting recording with transcription manager");
                 trans.start_recording();
                 self.set_status("Recording started");
             } else {
+                tracing::warn!("No transcription manager available for recording");
                 self.set_status("Recording (no transcription model)");
             }
         } else {
             // Stop recording
             if let Some(ref trans) = self.transcription {
+                tracing::info!("Stopping recording");
                 trans.stop_recording();
             }
             self.set_status("Recording stopped");
