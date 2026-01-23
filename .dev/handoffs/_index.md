@@ -1,6 +1,6 @@
 ---
 type: index
-updated: 2026-01-22
+updated: 2026-01-23
 ---
 
 # Handoffs Index
@@ -11,22 +11,33 @@ updated: 2026-01-22
 
 ## Active Handoffs
 
-| ID | From | To | Work Package | Priority | Created |
-|----|------|----|--------------|----------|---------|
-| [HO-2026-01-22-config](HO-2026-01-22-config.md) | design-lead | developer | WP-CONFIG | high | 2026-01-22 |
+| ID | Work Package | Priority | Status | Created |
+|----|--------------|----------|--------|---------|
+| [HO-HASH-001](HO-HASH-001.md) | WP-HASH-VERIFY | HIGH | Scaffolding complete - awaiting hashes | 2026-01-23 |
+| [HO-BLE-001](HO-BLE-001.md) | WP-BLE | MEDIUM | Scaffolding complete - awaiting hardware | 2026-01-23 |
+| [HO-TTS-QUALITY-001](HO-TTS-QUALITY-001.md) | WP-TTS-QUALITY | MEDIUM | Infrastructure complete - awaiting human eval | 2026-01-23 |
 
 ---
 
-## By Recipient
+## Human-Blocked Work
 
-### developer
-- [HO-2026-01-22-config](HO-2026-01-22-config.md) — WP-CONFIG implementation ready
+The following handoffs require human intervention before completion:
 
-### qa
-*No active handoffs*
+| Handoff | Blocker | Action Required |
+|---------|---------|-----------------|
+| HO-HASH-001 | Model downloads | Download models and compute SHA-256 hashes |
+| HO-BLE-001 | Physical hardware | Test with Bluetooth headsets |
+| HO-TTS-QUALITY-001 | Subjective evaluation | Listen and rate TTS audio quality |
 
-### design-lead
-*No active handoffs*
+See [.dev/human.md](../human.md) for detailed instructions.
+
+---
+
+## Completed Handoffs
+
+| ID | Work Package | Completed | Notes |
+|----|--------------|-----------|-------|
+| [HO-CONFIG-001](HO-CONFIG-001.md) | WP-CONFIG | 2026-01-23 | System profiling + CLI config |
 
 ---
 
@@ -41,6 +52,4 @@ updated: 2026-01-22
 
 ---
 
-## Recently Completed
-
-*See [archive/handoffs/_index.md](../archive/handoffs/_index.md) for completed handoffs.*
+*Last updated: 2026-01-23. All active handoffs blocked on human/hardware actions.*
