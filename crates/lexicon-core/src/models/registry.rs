@@ -324,12 +324,12 @@ impl ModelRegistry {
         let manifest_content = reqwest::get(MANIFEST_URL)
             .await
             .map_err(|e| ModelError::ManifestError {
-                message: format!("Failed to fetch manifest: {}", e),
+                message: format!("Failed to fetch manifest: {e}"),
             })?
             .text()
             .await
             .map_err(|e| ModelError::ManifestError {
-                message: format!("Failed to read manifest response: {}", e),
+                message: format!("Failed to read manifest response: {e}"),
             })?;
 
         // Parse manifest without signature verification
@@ -353,7 +353,7 @@ impl ModelRegistry {
     /// separated by `---MANIFEST---`.
     pub fn load_manifest_from_file(&mut self, path: &Path) -> Result<()> {
         let content = std::fs::read_to_string(path).map_err(|e| ModelError::ManifestError {
-            message: format!("Failed to read manifest file: {}", e),
+            message: format!("Failed to read manifest file: {e}"),
         })?;
 
         let manifest = self.verifier.verify_and_parse(&content)?;
@@ -373,7 +373,7 @@ impl ModelRegistry {
         warn!("Loading UNSIGNED manifest from file - do not use in production!");
 
         let content = std::fs::read_to_string(path).map_err(|e| ModelError::ManifestError {
-            message: format!("Failed to read manifest file: {}", e),
+            message: format!("Failed to read manifest file: {e}"),
         })?;
 
         let manifest = ModelManifest::from_json(&content)?;
@@ -1008,15 +1008,16 @@ impl ModelRegistry {
             .await
             .map_err(|e| ModelError::DownloadFailed {
                 model_id: model_id.to_string(),
-                message: format!("HTTP request failed: {}", e),
+                message: format!("HTTP request failed: {e}"),
             })?;
 
         if !response.status().is_success() {
             let mut states = download_states.write().await;
             states.insert(model_id_owned, DownloadState::Failed);
+            let status = response.status();
             return Err(ModelError::DownloadFailed {
                 model_id: model_id.to_string(),
-                message: format!("HTTP {}", response.status()),
+                message: format!("HTTP {status}"),
             }
             .into());
         }
@@ -1031,7 +1032,7 @@ impl ModelRegistry {
         let mut file =
             std::fs::File::create(&temp_path).map_err(|e| ModelError::DownloadFailed {
                 model_id: model_id.to_string(),
-                message: format!("Failed to create file: {}", e),
+                message: format!("Failed to create file: {e}"),
             })?;
 
         let mut hasher = Sha256::new();
@@ -1041,12 +1042,12 @@ impl ModelRegistry {
         while let Some(chunk_result) = stream.next().await {
             let chunk = chunk_result.map_err(|e| ModelError::DownloadFailed {
                 model_id: model_id.to_string(),
-                message: format!("Stream error: {}", e),
+                message: format!("Stream error: {e}"),
             })?;
 
             file.write_all(&chunk).map_err(|e| ModelError::DownloadFailed {
                 model_id: model_id.to_string(),
-                message: format!("Write error: {}", e),
+                message: format!("Write error: {e}"),
             })?;
 
             hasher.update(&chunk);
