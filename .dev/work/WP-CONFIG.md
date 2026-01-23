@@ -1,7 +1,7 @@
 ---
 id: WP-CONFIG
 type: work-plan
-status: ready
+status: complete
 phase: mvp
 created: 2026-01-23
 updated: 2026-01-22
