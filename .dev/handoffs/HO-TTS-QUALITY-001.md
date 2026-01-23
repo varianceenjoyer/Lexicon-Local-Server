@@ -2,7 +2,7 @@
 
 > **ID**: HO-TTS-QUALITY-001 | **Work Package**: WP-TTS-QUALITY
 >
-> **Created**: 2026-01-23 | **Status**: Ready to Start
+> **Created**: 2026-01-23 | **Status**: 🟡 INFRASTRUCTURE COMPLETE - Awaiting Human Testing
 
 ---
 
@@ -12,12 +12,39 @@ Validate Kokoro TTS produces natural-sounding speech. This is a **Beta exit crit
 
 ---
 
+## Current Progress
+
+### Completed (2026-01-23)
+- [x] Test infrastructure: `crates/lexicon-core/src/tts/quality.rs`
+  - `QUALITY_TEST_SENTENCES` - 15 standardized test sentences
+  - `QualityAssessment` - Individual sentence scoring with MOS
+  - `QualityReport` - Aggregate report with beta criteria validation
+  - `mos_scale` module - Score descriptions
+  - 8 unit tests passing
+- [x] CLI commands: `lexicon tts-quality generate|sentences|report`
+  - Generate WAV files for all test sentences
+  - Support Kokoro and platform TTS comparison
+  - Display report from JSON file
+
+### Remaining (Requires Human)
+- [ ] **HUMAN ACTION**: Generate audio files and perform listening tests
+- [ ] Document quality baseline in `docs/TTS-QUALITY.md`
+- [ ] Archive reference audio files
+
+---
+
 ## Quick Start
 
-1. **Read the work package**: [.dev/work/WP-TTS-QUALITY.md](../work/WP-TTS-QUALITY.md)
-2. **Generate test audio files** (automated)
-3. **Perform manual listening tests** (subjective)
-4. **Document quality baseline**
+1. **Generate test audio**:
+   ```bash
+   cargo run -p lexicon-cli -- tts-quality generate --output-dir ./tts-quality-test
+   ```
+
+2. **Listen and rate** each audio file on 1-5 scale
+
+3. **Create quality report** JSON and verify `meets_beta_criteria()`
+
+4. **Document results** in `docs/TTS-QUALITY.md`
 
 ---
 
@@ -244,28 +271,39 @@ Reference audio files archived at: tests/fixtures/tts/quality_baseline/
 ## Testing Commands
 
 ```bash
-# Generate test audio
-cargo run -p lexicon-cli -- tts-quality generate --output ./tts_test
+# View test sentences
+cargo run -p lexicon-cli -- tts-quality sentences
+
+# Generate test audio (Kokoro)
+cargo run -p lexicon-cli -- tts-quality generate --output-dir ./tts-quality-test
+
+# Generate test audio (platform TTS for comparison)
+cargo run -p lexicon-cli -- tts-quality generate --output-dir ./tts-quality-platform --platform
 
 # Run unit tests
-cargo test -p lexicon-core tts::tests::quality
+cargo test -p lexicon-core tts::quality
+
+# View a quality report
+cargo run -p lexicon-cli -- tts-quality report my-report.json
 
 # List generated files
-ls -la ./tts_test/
+ls -la ./tts-quality-test/
 ```
 
 ---
 
 ## Acceptance Checklist
 
-- [ ] All test sentences synthesize without error
-- [ ] Audio files generated for manual review
-- [ ] Manual listening test completed
-- [ ] Average MOS >= 3.5
-- [ ] No sentence scores below 2.0
-- [ ] Quality documentation created
-- [ ] Known limitations documented
-- [ ] Reference audio archived
+- [x] Quality infrastructure implemented (`quality.rs`)
+- [x] CLI commands implemented (`tts-quality generate|sentences|report`)
+- [x] 8 unit tests passing
+- [ ] **HUMAN**: Audio files generated for manual review
+- [ ] **HUMAN**: Manual listening test completed
+- [ ] **HUMAN**: Average MOS >= 3.5 verified
+- [ ] **HUMAN**: No sentence scores below 2.0 verified
+- [ ] **HUMAN**: Quality documentation created (docs/TTS-QUALITY.md)
+- [ ] **HUMAN**: Known limitations documented
+- [ ] **HUMAN**: Reference audio archived
 
 ---
 
