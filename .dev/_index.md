@@ -94,6 +94,30 @@ updated: 2026-01-22
 
 ---
 
+### archive-manager
+
+**Purpose**: Maintain archive integrity, move completed documents, generate archive summaries
+
+**Inputs**:
+- Completed work packages (`work/` with status: `complete`)
+- Completed handoffs (`handoffs/` with status: `complete`)
+- Historical status reports (`status/`)
+- Archive index (`archive/_index.md`)
+
+**Outputs**:
+- Archived documents (`archive/{type}/`)
+- Updated index files
+- Archive summary reports
+- Integrity reports
+
+**Monitors**:
+- `work/_index.md` — Completed items ready to archive
+- `handoffs/_index.md` — Completed handoffs
+- `status/_index.md` — Status reports for archival
+- `archive/_index.md` — Archive health
+
+---
+
 ## Document Standards
 
 ### Frontmatter (Required)
