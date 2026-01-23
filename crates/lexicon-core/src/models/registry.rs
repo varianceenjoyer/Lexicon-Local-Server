@@ -172,6 +172,9 @@ pub struct ModelRegistry {
     verifier: ManifestVerifier,
     /// Download states for tracking in-progress downloads.
     download_states: Arc<RwLock<HashMap<ModelId, DownloadState>>>,
+    /// HTTP client with browser-like headers for model downloads.
+    /// Some CDNs/firewalls block requests without proper User-Agent headers.
+    http_client: reqwest::Client,
 }
 
 impl ModelRegistry {
@@ -190,6 +193,8 @@ impl ModelRegistry {
             ))
         })?;
 
+        let http_client = Self::build_http_client()?;
+
         let mut registry = Self {
             cache_dir: cache_dir.to_path_buf(),
             manifest: None,
@@ -197,6 +202,7 @@ impl ModelRegistry {
             thermal_state: ThermalState::Nominal,
             verifier: ManifestVerifier::default_key(),
             download_states: Arc::new(RwLock::new(HashMap::new())),
+            http_client,
         };
 
         // Scan for existing models
@@ -219,6 +225,8 @@ impl ModelRegistry {
             ))
         })?;
 
+        let http_client = Self::build_http_client()?;
+
         let mut registry = Self {
             cache_dir: cache_dir.to_path_buf(),
             manifest: None,
@@ -226,12 +234,24 @@ impl ModelRegistry {
             thermal_state: ThermalState::Nominal,
             verifier,
             download_states: Arc::new(RwLock::new(HashMap::new())),
+            http_client,
         };
 
         // Scan for existing models
         registry.scan_local_models();
 
         Ok(registry)
+    }
+
+    /// Builds an HTTP client with browser-like headers.
+    ///
+    /// Some CDNs and firewalls (particularly in corporate/WSL environments)
+    /// block requests that don't have proper User-Agent headers.
+    fn build_http_client() -> Result<reqwest::Client> {
+        reqwest::Client::builder()
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .build()
+            .map_err(|e| LexiconError::Config(format!("Failed to create HTTP client: {e}")))
     }
 
     /// Fetches and verifies the model manifest from the remote server.
@@ -248,7 +268,7 @@ impl ModelRegistry {
         info!("Fetching signed model manifest from {}", MANIFEST_URL);
 
         // Try to fetch signed manifest content (includes signature + JSON)
-        let fetch_result = reqwest::get(MANIFEST_URL).await;
+        let fetch_result = self.http_client.get(MANIFEST_URL).send().await;
 
         match fetch_result {
             Ok(response) => {
@@ -320,8 +340,11 @@ impl ModelRegistry {
         warn!("Fetching UNSIGNED manifest - do not use in production!");
         info!("Fetching model manifest from {}", MANIFEST_URL);
 
-        // Fetch manifest content
-        let manifest_content = reqwest::get(MANIFEST_URL)
+        // Fetch manifest content using client with browser-like headers
+        let manifest_content = self
+            .http_client
+            .get(MANIFEST_URL)
+            .send()
             .await
             .map_err(|e| ModelError::ManifestError {
                 message: format!("Failed to fetch manifest: {e}"),
@@ -840,6 +863,7 @@ impl ModelRegistry {
         let manifest = self.manifest.clone();
         let cache_dir = self.cache_dir.clone();
         let download_states = self.download_states.clone();
+        let http_client = self.http_client.clone();
 
         info!(
             "Starting background TTS download: {} (tier: {:?})",
@@ -850,6 +874,7 @@ impl ModelRegistry {
         // Spawn background download task
         tokio::spawn(async move {
             let result = Self::download_model_static(
+                &http_client,
                 &manifest,
                 &cache_dir,
                 &download_states,
@@ -956,6 +981,7 @@ impl ModelRegistry {
 
     /// Static download method for use in spawned tasks.
     async fn download_model_static<F>(
+        http_client: &reqwest::Client,
         manifest: &Option<ModelManifest>,
         cache_dir: &Path,
         download_states: &Arc<RwLock<HashMap<ModelId, DownloadState>>>,
@@ -1002,9 +1028,11 @@ impl ModelRegistry {
             states.insert(model_id_owned.clone(), DownloadState::Downloading);
         }
 
-        // Download
+        // Download using client with browser-like headers
         let download_url = entry.download_url(&manifest.base_url);
-        let response = reqwest::get(&download_url)
+        let response = http_client
+            .get(&download_url)
+            .send()
             .await
             .map_err(|e| ModelError::DownloadFailed {
                 model_id: model_id.to_string(),
@@ -1147,11 +1175,16 @@ impl ModelRegistry {
             })?;
         }
 
-        // Start download
-        let response = reqwest::get(url).await.map_err(|e| ModelError::DownloadFailed {
-            model_id: model_id.to_string(),
-            message: format!("HTTP request failed: {e}"),
-        })?;
+        // Start download using client with browser-like headers
+        let response = self
+            .http_client
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| ModelError::DownloadFailed {
+                model_id: model_id.to_string(),
+                message: format!("HTTP request failed: {e}"),
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -1242,11 +1275,16 @@ impl ModelRegistry {
             })?;
         }
 
-        // Start download
-        let response = reqwest::get(url).await.map_err(|e| ModelError::DownloadFailed {
-            model_id: model_id.to_string(),
-            message: format!("HTTP request failed: {e}"),
-        })?;
+        // Start download using client with browser-like headers
+        let response = self
+            .http_client
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| ModelError::DownloadFailed {
+                model_id: model_id.to_string(),
+                message: format!("HTTP request failed: {e}"),
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
