@@ -41,10 +41,12 @@
 
 mod kokoro;
 mod platform;
+pub mod quality;
 mod types;
 
 pub use kokoro::KokoroSynthesizer;
 pub use platform::PlatformSynthesizer;
+pub use quality::{QUALITY_TEST_SENTENCES, QualityAssessment, QualityReport};
 pub use types::{
     AudioBuffer, AudioChunk, SynthesisResult, StreamingReceiver, StreamingSender,
     TtsConfig, TtsEngine, VoiceGender, VoiceInfo, streaming_channel, TTS_SAMPLE_RATE,

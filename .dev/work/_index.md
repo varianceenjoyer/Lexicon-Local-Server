@@ -22,9 +22,7 @@ Work packages are self-contained units of implementation work with:
 
 | ID | Name | Priority | Phase | Handoff |
 |----|------|----------|-------|---------|
-| [WP-HASH-VERIFY](WP-HASH-VERIFY.md) | Model Hash Verification (Fallback) | HIGH | Beta | [HO-HASH-001](../handoffs/HO-HASH-001.md) |
 | [WP-BLE](WP-BLE.md) | Bluetooth HFP 1.6 Support | MEDIUM | Beta | [HO-BLE-001](../handoffs/HO-BLE-001.md) |
-| [WP-TTS-QUALITY](WP-TTS-QUALITY.md) | TTS Quality Validation | MEDIUM | Beta | [HO-TTS-QUALITY-001](../handoffs/HO-TTS-QUALITY-001.md) |
 
 ### Blocked (Beta/Release Phase)
 
@@ -40,6 +38,7 @@ Work packages are self-contained units of implementation work with:
 | ID | Name | Owner | Started | Notes |
 |----|------|-------|---------|-------|
 | [WP-HASH-VERIFY](WP-HASH-VERIFY.md) | Model Hash Verification | - | 2026-01-23 | Scaffolding complete - awaiting hash values |
+| [WP-TTS-QUALITY](WP-TTS-QUALITY.md) | TTS Quality Validation | - | 2026-01-23 | Test infrastructure complete - awaiting human eval |
 
 ### Completed (MVP/Early Beta)
 
