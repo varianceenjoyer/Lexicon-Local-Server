@@ -8,7 +8,7 @@ use rusqlite::Connection;
 use tracing::{debug, info};
 
 /// Current schema version.
-const CURRENT_VERSION: i32 = 1;
+const CURRENT_VERSION: i32 = 2;
 
 /// Run all pending migrations.
 pub fn run_migrations(conn: &Connection) -> Result<(), DatabaseError> {
@@ -57,6 +57,7 @@ fn set_version(conn: &Connection, version: i32) -> Result<(), DatabaseError> {
 fn apply_migration(conn: &Connection, version: i32) -> Result<(), DatabaseError> {
     match version {
         1 => migration_v1(conn),
+        2 => migration_v2(conn),
         _ => Err(DatabaseError::MigrationFailed {
             message: format!("Unknown migration version: {version}"),
         }),
@@ -160,6 +161,64 @@ fn migration_v1(conn: &Connection) -> Result<(), DatabaseError> {
     })?;
 
     debug!("Migration v1 applied successfully");
+    Ok(())
+}
+
+/// Migration v2: Saved transcripts for TUI.
+///
+/// Adds tables for the diagnostic TUI saved transcriptions feature:
+/// - saved_transcripts: Named transcription saves from TUI
+/// - saved_transcripts_fts: Full-text search for saved transcripts
+fn migration_v2(conn: &Connection) -> Result<(), DatabaseError> {
+    conn.execute_batch(
+        r"
+        -- Saved transcriptions table for TUI
+        CREATE TABLE IF NOT EXISTS saved_transcripts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            content TEXT NOT NULL,
+            char_count INTEGER NOT NULL,
+            session_id INTEGER REFERENCES sessions(id) ON DELETE SET NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        -- Index for listing saved transcripts by date
+        CREATE INDEX IF NOT EXISTS idx_saved_transcripts_created
+            ON saved_transcripts(created_at DESC);
+
+        -- Full-text search for saved transcripts
+        CREATE VIRTUAL TABLE IF NOT EXISTS saved_transcripts_fts USING fts5(
+            name,
+            content,
+            content='saved_transcripts',
+            content_rowid='id'
+        );
+
+        -- Triggers to keep FTS in sync
+        CREATE TRIGGER IF NOT EXISTS saved_transcripts_ai AFTER INSERT ON saved_transcripts BEGIN
+            INSERT INTO saved_transcripts_fts(rowid, name, content)
+            VALUES (new.id, new.name, new.content);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS saved_transcripts_ad AFTER DELETE ON saved_transcripts BEGIN
+            INSERT INTO saved_transcripts_fts(saved_transcripts_fts, rowid, name, content)
+            VALUES ('delete', old.id, old.name, old.content);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS saved_transcripts_au AFTER UPDATE ON saved_transcripts BEGIN
+            INSERT INTO saved_transcripts_fts(saved_transcripts_fts, rowid, name, content)
+            VALUES ('delete', old.id, old.name, old.content);
+            INSERT INTO saved_transcripts_fts(rowid, name, content)
+            VALUES (new.id, new.name, new.content);
+        END;
+        ",
+    )
+    .map_err(|e| DatabaseError::MigrationFailed {
+        message: format!("Migration v2 failed: {e}"),
+    })?;
+
+    debug!("Migration v2 applied successfully");
     Ok(())
 }
 
