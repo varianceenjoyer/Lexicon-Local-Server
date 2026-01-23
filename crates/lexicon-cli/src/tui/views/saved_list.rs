@@ -123,6 +123,11 @@ impl SavedTranscriptionsList {
         self.state.select(Some(i));
     }
 
+    /// Selects an item by index.
+    pub fn select(&mut self, index: Option<usize>) {
+        self.state.select(index);
+    }
+
     /// Returns the selected index.
     pub fn selected_index(&self) -> Option<usize> {
         self.state.selected()

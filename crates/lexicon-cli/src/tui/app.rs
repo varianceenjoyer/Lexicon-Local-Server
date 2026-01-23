@@ -1007,6 +1007,8 @@ impl TuiApp {
 
 impl Clone for SavedTranscriptionsList {
     fn clone(&self) -> Self {
-        Self::with_items(self.items().to_vec())
+        let mut cloned = Self::with_items(self.items().to_vec());
+        cloned.select(self.selected_index());
+        cloned
     }
 }
