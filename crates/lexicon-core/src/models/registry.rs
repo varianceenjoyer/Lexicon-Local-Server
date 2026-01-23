@@ -1080,7 +1080,7 @@ impl ModelRegistry {
         // Finalize
         std::fs::rename(&temp_path, &dest_path).map_err(|e| ModelError::DownloadFailed {
             model_id: model_id.to_string(),
-            message: format!("Failed to finalize: {}", e),
+            message: format!("Failed to finalize: {e}"),
         })?;
 
         {
