@@ -1143,20 +1143,21 @@ impl ModelRegistry {
         // Create parent directory if needed
         if let Some(parent) = dest_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
-                LexiconError::Config(format!("Failed to create model directory: {}", e))
+                LexiconError::Config(format!("Failed to create model directory: {e}"))
             })?;
         }
 
         // Start download
         let response = reqwest::get(url).await.map_err(|e| ModelError::DownloadFailed {
             model_id: model_id.to_string(),
-            message: format!("HTTP request failed: {}", e),
+            message: format!("HTTP request failed: {e}"),
         })?;
 
         if !response.status().is_success() {
+            let status = response.status();
             return Err(ModelError::DownloadFailed {
                 model_id: model_id.to_string(),
-                message: format!("HTTP {}: {}", response.status(), url),
+                message: format!("HTTP {status}: {url}"),
             }
             .into());
         }
@@ -1167,7 +1168,7 @@ impl ModelRegistry {
         let temp_path = dest_path.with_extension("tmp");
         let mut file = std::fs::File::create(&temp_path).map_err(|e| ModelError::DownloadFailed {
             model_id: model_id.to_string(),
-            message: format!("Failed to create temp file: {}", e),
+            message: format!("Failed to create temp file: {e}"),
         })?;
 
         let mut hasher = Sha256::new();
@@ -1177,13 +1178,13 @@ impl ModelRegistry {
         while let Some(chunk_result) = stream.next().await {
             let chunk = chunk_result.map_err(|e| ModelError::DownloadFailed {
                 model_id: model_id.to_string(),
-                message: format!("Download stream error: {}", e),
+                message: format!("Download stream error: {e}"),
             })?;
 
             // Write to file
             file.write_all(&chunk).map_err(|e| ModelError::DownloadFailed {
                 model_id: model_id.to_string(),
-                message: format!("Failed to write to file: {}", e),
+                message: format!("Failed to write to file: {e}"),
             })?;
 
             // Update hash
@@ -1213,7 +1214,7 @@ impl ModelRegistry {
         // Move temp file to final location
         std::fs::rename(&temp_path, dest_path).map_err(|e| ModelError::DownloadFailed {
             model_id: model_id.to_string(),
-            message: format!("Failed to finalize download: {}", e),
+            message: format!("Failed to finalize download: {e}"),
         })?;
 
         Ok(())
@@ -1237,20 +1238,21 @@ impl ModelRegistry {
         // Create parent directory if needed
         if let Some(parent) = dest_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
-                LexiconError::Config(format!("Failed to create model directory: {}", e))
+                LexiconError::Config(format!("Failed to create model directory: {e}"))
             })?;
         }
 
         // Start download
         let response = reqwest::get(url).await.map_err(|e| ModelError::DownloadFailed {
             model_id: model_id.to_string(),
-            message: format!("HTTP request failed: {}", e),
+            message: format!("HTTP request failed: {e}"),
         })?;
 
         if !response.status().is_success() {
+            let status = response.status();
             return Err(ModelError::DownloadFailed {
                 model_id: model_id.to_string(),
-                message: format!("HTTP {}: {}", response.status(), url),
+                message: format!("HTTP {status}: {url}"),
             }
             .into());
         }
@@ -1261,7 +1263,7 @@ impl ModelRegistry {
         let temp_path = dest_path.with_extension("tmp");
         let mut file = std::fs::File::create(&temp_path).map_err(|e| ModelError::DownloadFailed {
             model_id: model_id.to_string(),
-            message: format!("Failed to create temp file: {}", e),
+            message: format!("Failed to create temp file: {e}"),
         })?;
 
         let mut hasher = Sha256::new();
@@ -1271,13 +1273,13 @@ impl ModelRegistry {
         while let Some(chunk_result) = stream.next().await {
             let chunk = chunk_result.map_err(|e| ModelError::DownloadFailed {
                 model_id: model_id.to_string(),
-                message: format!("Download stream error: {}", e),
+                message: format!("Download stream error: {e}"),
             })?;
 
             // Write to file
             file.write_all(&chunk).map_err(|e| ModelError::DownloadFailed {
                 model_id: model_id.to_string(),
-                message: format!("Failed to write to file: {}", e),
+                message: format!("Failed to write to file: {e}"),
             })?;
 
             // Update hash
@@ -1315,7 +1317,7 @@ impl ModelRegistry {
         // Move temp file to final location
         std::fs::rename(&temp_path, dest_path).map_err(|e| ModelError::DownloadFailed {
             model_id: model_id.to_string(),
-            message: format!("Failed to finalize download: {}", e),
+            message: format!("Failed to finalize download: {e}"),
         })?;
 
         Ok(true)
