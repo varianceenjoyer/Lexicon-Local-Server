@@ -820,6 +820,228 @@ impl Database {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Saved Transcript Operations (TUI)
+    // -------------------------------------------------------------------------
+
+    /// Create a new saved transcript.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatabaseError` if the operation fails.
+    pub fn create_saved_transcript(
+        &self,
+        transcript: &NewSavedTranscript,
+    ) -> DbResult<SavedTranscriptId> {
+        let char_count = transcript.char_count();
+
+        self.conn
+            .execute(
+                "INSERT INTO saved_transcripts (name, content, char_count, session_id)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    transcript.name,
+                    transcript.content,
+                    char_count,
+                    transcript.session_id.map(|s| s.0),
+                ],
+            )
+            .map_err(|e| DatabaseError::QueryFailed {
+                message: format!("Failed to create saved transcript: {e}"),
+            })?;
+
+        let id = self.conn.last_insert_rowid();
+        debug!("Created saved transcript with id {}", id);
+        Ok(SavedTranscriptId(id))
+    }
+
+    /// Get a saved transcript by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatabaseError::NotFound` if the transcript doesn't exist.
+    pub fn get_saved_transcript(&self, id: SavedTranscriptId) -> DbResult<SavedTranscript> {
+        self.conn
+            .query_row(
+                "SELECT id, name, content, char_count, session_id, created_at, updated_at
+                 FROM saved_transcripts WHERE id = ?1",
+                params![id.0],
+                |row| {
+                    Ok(SavedTranscript {
+                        id: SavedTranscriptId(row.get(0)?),
+                        name: row.get(1)?,
+                        content: row.get(2)?,
+                        char_count: row.get(3)?,
+                        session_id: row.get::<_, Option<i64>>(4)?.map(SessionId),
+                        created_at: row.get(5)?,
+                        updated_at: row.get(6)?,
+                    })
+                },
+            )
+            .map_err(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => DatabaseError::NotFound {
+                    entity: "saved_transcript".to_string(),
+                    id: id.0.to_string(),
+                },
+                other => DatabaseError::QueryFailed {
+                    message: format!("Failed to get saved transcript: {other}"),
+                },
+            })
+    }
+
+    /// List all saved transcripts, ordered by most recent first.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatabaseError` if the query fails.
+    pub fn list_saved_transcripts(&self) -> DbResult<Vec<SavedTranscript>> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT id, name, content, char_count, session_id, created_at, updated_at
+                 FROM saved_transcripts ORDER BY created_at DESC",
+            )
+            .map_err(|e| DatabaseError::QueryFailed {
+                message: format!("Failed to prepare saved transcripts query: {e}"),
+            })?;
+
+        let transcripts = stmt
+            .query_map([], |row| {
+                Ok(SavedTranscript {
+                    id: SavedTranscriptId(row.get(0)?),
+                    name: row.get(1)?,
+                    content: row.get(2)?,
+                    char_count: row.get(3)?,
+                    session_id: row.get::<_, Option<i64>>(4)?.map(SessionId),
+                    created_at: row.get(5)?,
+                    updated_at: row.get(6)?,
+                })
+            })
+            .map_err(|e| DatabaseError::QueryFailed {
+                message: format!("Failed to query saved transcripts: {e}"),
+            })?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| DatabaseError::QueryFailed {
+                message: format!("Failed to collect saved transcripts: {e}"),
+            })?;
+
+        Ok(transcripts)
+    }
+
+    /// Update a saved transcript.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatabaseError::NotFound` if the transcript doesn't exist.
+    pub fn update_saved_transcript(
+        &self,
+        id: SavedTranscriptId,
+        transcript: &NewSavedTranscript,
+    ) -> DbResult<()> {
+        let char_count = transcript.char_count();
+
+        let rows = self
+            .conn
+            .execute(
+                "UPDATE saved_transcripts
+                 SET name = ?1, content = ?2, char_count = ?3, session_id = ?4,
+                     updated_at = datetime('now')
+                 WHERE id = ?5",
+                params![
+                    transcript.name,
+                    transcript.content,
+                    char_count,
+                    transcript.session_id.map(|s| s.0),
+                    id.0,
+                ],
+            )
+            .map_err(|e| DatabaseError::QueryFailed {
+                message: format!("Failed to update saved transcript: {e}"),
+            })?;
+
+        if rows == 0 {
+            return Err(DatabaseError::NotFound {
+                entity: "saved_transcript".to_string(),
+                id: id.0.to_string(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Delete a saved transcript.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatabaseError::NotFound` if the transcript doesn't exist.
+    pub fn delete_saved_transcript(&self, id: SavedTranscriptId) -> DbResult<()> {
+        let rows = self
+            .conn
+            .execute("DELETE FROM saved_transcripts WHERE id = ?1", params![id.0])
+            .map_err(|e| DatabaseError::QueryFailed {
+                message: format!("Failed to delete saved transcript: {e}"),
+            })?;
+
+        if rows == 0 {
+            return Err(DatabaseError::NotFound {
+                entity: "saved_transcript".to_string(),
+                id: id.0.to_string(),
+            });
+        }
+
+        debug!("Deleted saved transcript {}", id.0);
+        Ok(())
+    }
+
+    /// Search saved transcripts using FTS5.
+    ///
+    /// Searches both name and content fields.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatabaseError` if the search query is invalid or fails.
+    pub fn search_saved_transcripts(&self, query: &str) -> DbResult<Vec<SavedTranscript>> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT st.id, st.name, st.content, st.char_count, st.session_id,
+                        st.created_at, st.updated_at
+                 FROM saved_transcripts_fts fts
+                 JOIN saved_transcripts st ON fts.rowid = st.id
+                 WHERE saved_transcripts_fts MATCH ?1
+                 ORDER BY bm25(saved_transcripts_fts)",
+            )
+            .map_err(|e| DatabaseError::QueryFailed {
+                message: format!("Failed to prepare saved transcript search: {e}"),
+            })?;
+
+        let transcripts = stmt
+            .query_map(params![query], |row| {
+                Ok(SavedTranscript {
+                    id: SavedTranscriptId(row.get(0)?),
+                    name: row.get(1)?,
+                    content: row.get(2)?,
+                    char_count: row.get(3)?,
+                    session_id: row.get::<_, Option<i64>>(4)?.map(SessionId),
+                    created_at: row.get(5)?,
+                    updated_at: row.get(6)?,
+                })
+            })
+            .map_err(|e| DatabaseError::QueryFailed {
+                message: format!("Failed to search saved transcripts: {e}"),
+            })?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| DatabaseError::QueryFailed {
+                message: format!("Failed to collect saved transcript search results: {e}"),
+            })?;
+
+        debug!(
+            "Saved transcript search '{}' returned {} results",
+            query,
+            transcripts.len()
+        );
+        Ok(transcripts)
+    }
+
     /// Check if WAL mode is enabled.
     ///
     /// # Errors
