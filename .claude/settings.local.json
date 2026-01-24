@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__mcp-agent-mail__send_message",
+      "mcp__mcp-agent-mail__fetch_inbox",
+      "mcp__mcp-agent-mail__acknowledge_message",
+      "mcp__mcp-agent-mail__macro_start_session",
+      "mcp__mcp-agent-mail__search_messages",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__read_multiple_files",
+      "mcp__mcp-agent-mail__file_reservation_paths",
+      "mcp__mcp-agent-mail__whois",
+      "WebSearch",
+      "mcp__mcp-agent-mail__release_file_reservations",
+      "WebFetch(domain:www.lightrider.com)",
+      "mcp__mcp-agent-mail__summarize_thread",
+      "mcp__mcp-agent-mail__reply_message",
+      "WebFetch(domain:superpowered.com)",
+      "WebFetch(domain:open-fixture-library.org)",
+      "WebFetch(domain:github.com)",
+      "mcp__filesystem__read_text_file",
+      "mcp__mcp-agent-mail__macro_contact_handshake",
+      "Bash(flutter --version:*)",
+      "mcp__filesystem__directory_tree",
+      "Bash(cargo test:*)",
+      "Bash(powershell.exe -Command \"cargo test -p lexicon-cli --test cli_tests test_model_path_construction test_data_dir_construction\")",
+      "Bash(cmd.exe /c \"cargo test -p lexicon-cli --test cli_tests 2>&1\")",
+      "Bash(powershell -Command:*)",
+      "Bash(dir:*)"
+    ]
+  }
+}
