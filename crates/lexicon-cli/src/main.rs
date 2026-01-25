@@ -125,6 +125,7 @@ enum Commands {
     },
 
     /// TTS quality validation for Beta exit criteria
+    #[cfg(feature = "tts")]
     TtsQuality {
         #[command(subcommand)]
         action: TtsQualityAction,
@@ -307,6 +308,7 @@ enum ConfigAction {
     Path,
 }
 
+#[cfg(feature = "tts")]
 #[derive(Subcommand)]
 enum TtsQualityAction {
     /// Generate test audio files for manual quality assessment
@@ -389,6 +391,7 @@ fn main() -> Result<()> {
             ConfigAction::Recommend { json } => cmd_config_recommend(json),
             ConfigAction::Path => cmd_config_path(),
         },
+        #[cfg(feature = "tts")]
         Commands::TtsQuality { action } => match action {
             TtsQualityAction::Generate { output_dir, platform } => {
                 cmd_tts_quality_generate(&output_dir, platform)
@@ -1829,6 +1832,7 @@ fn cmd_config_path() -> Result<()> {
 // ============================================================================
 
 /// Generate test audio files for manual quality assessment.
+#[cfg(feature = "tts")]
 fn cmd_tts_quality_generate(output_dir: &Path, use_platform: bool) -> Result<()> {
     use lexicon_core::tts::{QUALITY_TEST_SENTENCES, TtsManager, TtsEngine, TtsConfig};
     use std::fs;
@@ -1929,6 +1933,7 @@ fn cmd_tts_quality_generate(output_dir: &Path, use_platform: bool) -> Result<()>
 }
 
 /// Show test sentences that will be used for quality assessment.
+#[cfg(feature = "tts")]
 fn cmd_tts_quality_sentences() -> Result<()> {
     use lexicon_core::tts::QUALITY_TEST_SENTENCES;
 
@@ -1956,6 +1961,7 @@ fn cmd_tts_quality_sentences() -> Result<()> {
 }
 
 /// Display a quality report from a JSON file.
+#[cfg(feature = "tts")]
 fn cmd_tts_quality_report(report_file: Option<PathBuf>) -> Result<()> {
     use lexicon_core::tts::QualityReport;
 

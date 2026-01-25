@@ -11,9 +11,16 @@ rust-version.workspace = true
 name = "lexicon"
 path = "src/main.rs"
 
+[features]
+default = ["stt", "tts", "storage", "audio"]
+stt = ["lexicon-core/stt", "lexicon-server/stt"]
+tts = ["lexicon-core/tts", "lexicon-server/tts"]
+storage = ["lexicon-core/storage", "lexicon-server/storage"]
+audio = ["lexicon-core/audio", "lexicon-core/audio-convert"]
+
 [dependencies]
-lexicon-core = { workspace = true, features = ["stt", "tts", "storage", "audio", "audio-convert", "system-profile"] }
-lexicon-server = { path = "../lexicon-server" }
+lexicon-core = { workspace = true, features = ["system-profile"] }
+lexicon-server = { path = "../lexicon-server", default-features = false }
 
 # Error handling
 thiserror.workspace = true

@@ -45,6 +45,7 @@ TARGET_NAME="arm64"
 BUILD_MODE="debug"
 RELEASE_FLAG=""
 DO_PUSH=false
+# TTS disabled on Android due to ONNX Runtime C++ ABI incompatibility
 FEATURES="stt,storage,audio"
 
 show_help() {
@@ -63,7 +64,6 @@ TARGETS:
 OPTIONS:
     --release       Build in release mode (optimized, stripped)
     --push          Push binary to connected Android device via adb
-    --features STR  Comma-separated features (default: stt,storage,audio)
     --help          Show this help message
 
 EXAMPLES:
@@ -107,10 +107,6 @@ while [[ $# -gt 0 ]]; do
         --push|-p)
             DO_PUSH=true
             shift
-            ;;
-        --features)
-            FEATURES="$2"
-            shift 2
             ;;
         --help|-h)
             show_help
@@ -178,7 +174,7 @@ fi
 echo "NDK: $NDK_PATH"
 echo "Target: $TARGET_NAME ($RUST_TARGET)"
 echo "Mode: $BUILD_MODE"
-echo "Features: $FEATURES"
+echo "Features: $FEATURES (TTS disabled - ONNX Runtime incompatible)"
 echo "API Level: $ANDROID_API_LEVEL"
 echo ""
 
@@ -226,6 +222,11 @@ export CC="$CLANG"
 export CXX="$CLANGXX"
 export AR="$AR"
 
+# C++ standard library (required for ort-sys/ONNX Runtime)
+LIBCXX_PATH="$NDK_PATH/toolchains/llvm/prebuilt/$HOST_TAG/sysroot/usr/lib/$CLANG_PREFIX"
+export CXXFLAGS="-stdlib=libc++"
+export RUSTFLAGS="-L $LIBCXX_PATH -l c++ -l c++abi"
+
 # Cargo linker configuration
 LINKER_VAR="CARGO_TARGET_${RUST_TARGET^^}_LINKER"
 LINKER_VAR="${LINKER_VAR//-/_}"
@@ -251,10 +252,7 @@ echo ""
 
 cd "$PROJECT_DIR"
 
-BUILD_CMD="cargo build -p lexicon-cli --target $RUST_TARGET"
-if [ -n "$FEATURES" ]; then
-    BUILD_CMD="$BUILD_CMD --no-default-features --features $FEATURES"
-fi
+BUILD_CMD="cargo build -p lexicon-cli --target $RUST_TARGET --no-default-features --features $FEATURES"
 if [ -n "$RELEASE_FLAG" ]; then
     BUILD_CMD="$BUILD_CMD $RELEASE_FLAG"
 fi
