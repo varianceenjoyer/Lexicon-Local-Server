@@ -35,39 +35,39 @@ pub const HASHES_LAST_VERIFIED: &str = "PENDING";
 
 /// SHA-256 hash for ggml-tiny.bin (whisper-tiny multilingual)
 /// Source: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
-pub const HASH_WHISPER_TINY: &str = "PENDING_HUMAN_VERIFICATION";
+pub const HASH_WHISPER_TINY: &str = "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21";
 
 /// SHA-256 hash for ggml-tiny-q5_1.bin (whisper-tiny-q5_1 quantized)
 /// Source: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin
-pub const HASH_WHISPER_TINY_Q5_1: &str = "PENDING_HUMAN_VERIFICATION";
+pub const HASH_WHISPER_TINY_Q5_1: &str = "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7";
 
 /// SHA-256 hash for ggml-base.bin (whisper-base multilingual)
 /// Source: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin
-pub const HASH_WHISPER_BASE: &str = "PENDING_HUMAN_VERIFICATION";
+pub const HASH_WHISPER_BASE: &str = "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe";
 
 /// SHA-256 hash for ggml-base-q5_1.bin (whisper-base-q5_1 quantized)
 /// Source: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin
-pub const HASH_WHISPER_BASE_Q5_1: &str = "PENDING_HUMAN_VERIFICATION";
+pub const HASH_WHISPER_BASE_Q5_1: &str = "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898";
 
 /// SHA-256 hash for ggml-small.bin (whisper-small multilingual)
 /// Source: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin
-pub const HASH_WHISPER_SMALL: &str = "PENDING_HUMAN_VERIFICATION";
+pub const HASH_WHISPER_SMALL: &str = "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b";
 
 /// SHA-256 hash for ggml-small-q5_1.bin (whisper-small-q5_1 quantized)
 /// Source: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin
-pub const HASH_WHISPER_SMALL_Q5_1: &str = "PENDING_HUMAN_VERIFICATION";
+pub const HASH_WHISPER_SMALL_Q5_1: &str = "bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30";
 
 /// SHA-256 hash for ggml-medium.bin (whisper-medium multilingual)
 /// Source: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin
-pub const HASH_WHISPER_MEDIUM: &str = "PENDING_HUMAN_VERIFICATION";
+pub const HASH_WHISPER_MEDIUM: &str = "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208";
 
 /// SHA-256 hash for ggml-large-v3.bin (whisper-large-v3)
 /// Source: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin
-pub const HASH_WHISPER_LARGE_V3: &str = "PENDING_HUMAN_VERIFICATION";
+pub const HASH_WHISPER_LARGE_V3: &str = "64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2";
 
 /// SHA-256 hash for ggml-large-v3-turbo.bin (whisper-large-v3-turbo)
 /// Source: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin
-pub const HASH_WHISPER_LARGE_V3_TURBO: &str = "PENDING_HUMAN_VERIFICATION";
+pub const HASH_WHISPER_LARGE_V3_TURBO: &str = "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69";
 
 // =============================================================================
 // Kokoro TTS Model Hashes (hexgrad/Kokoro-82M on Hugging Face)
@@ -75,7 +75,7 @@ pub const HASH_WHISPER_LARGE_V3_TURBO: &str = "PENDING_HUMAN_VERIFICATION";
 
 /// SHA-256 hash for kokoro-v0_19.onnx (Kokoro TTS v0.19)
 /// Source: https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.onnx
-pub const HASH_KOKORO_TTS: &str = "PENDING_HUMAN_VERIFICATION";
+pub const HASH_KOKORO_TTS: &str = "ebef42457f7efee9b60b4f1d5aec7692f2925923948a0d7a2a49d2c9edf57e49";
 
 // =============================================================================
 // Hash Registry Implementation
