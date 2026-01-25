@@ -6,55 +6,26 @@
 
 ---
 
-## Priority 1: Security (WP-HASH-VERIFY)
+## ~~Priority 1: Security (WP-HASH-VERIFY)~~ ✅ COMPLETE
 
-**Task**: Acquire SHA-256 hashes for model files
+**Task**: ~~Acquire SHA-256 hashes for model files~~ **DONE (2026-01-25)**
 
-The hash verification system is implemented but needs actual hash values to function. This is a **security requirement** for Beta release.
+All model hashes have been acquired and verified. The following hashes are now in `crates/lexicon-core/src/models/hashes.rs`:
 
-### Option A: Using Lexicon CLI (Recommended)
+| Model | Status |
+|-------|--------|
+| whisper-tiny | ✅ Verified |
+| whisper-tiny-q5_1 | ✅ Verified |
+| whisper-base | ✅ Verified |
+| whisper-base-q5_1 | ✅ Verified |
+| whisper-small | ✅ Verified |
+| whisper-small-q5_1 | ✅ Verified |
+| whisper-medium | ✅ Verified |
+| whisper-large-v3 | ✅ Verified |
+| whisper-large-v3-turbo | ✅ Verified |
+| kokoro-tts | ✅ Verified |
 
-If you have models already downloaded:
-
-```bash
-# Show hash verification status
-lexicon models hash-status
-
-# Compute hash for a downloaded model
-lexicon models hash tiny
-lexicon models hash base
-lexicon models hash /path/to/model.bin
-```
-
-### Option B: Manual Download and Hash
-
-```bash
-# Create temp directory
-mkdir -p /tmp/model-hashes && cd /tmp/model-hashes
-
-# Download and hash Whisper models
-for model in tiny.en base.en small.en medium.en large-v3; do
-  wget "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${model}.bin"
-  sha256sum "ggml-${model}.bin" >> hashes.txt
-done
-
-# Kokoro TTS
-wget "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.onnx"
-sha256sum "kokoro-v0_19.onnx" >> hashes.txt
-
-cat hashes.txt
-```
-
-### After Acquisition
-
-Update constants in `crates/lexicon-core/src/models/hashes.rs`:
-- `HASH_WHISPER_TINY_EN`
-- `HASH_WHISPER_BASE_EN`
-- `HASH_WHISPER_SMALL_EN`
-- `HASH_WHISPER_MEDIUM_EN`
-- `HASH_WHISPER_LARGE_V3`
-- `HASH_KOKORO_TTS`
-- `HASHES_LAST_VERIFIED` date
+**Remaining**: Integration of `ModelHashRegistry` into download flow (see [WP-HASH-VERIFY](work/WP-HASH-VERIFY.md) Phase 3)
 
 **Related**: [HO-HASH-001](handoffs/HO-HASH-001.md)
 

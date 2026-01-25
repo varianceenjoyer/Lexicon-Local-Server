@@ -285,12 +285,14 @@ mod tests {
     }
 
     #[test]
-    fn test_get_strict_pending() {
+    fn test_get_strict_valid() {
         let registry = ModelHashRegistry::new();
         let result = registry.get_strict("whisper-tiny");
 
-        // Should return error because hash is pending
-        assert!(matches!(result, Err(HashError::PendingVerification(_))));
+        // Should return the hash since all hashes are now verified
+        assert!(result.is_ok());
+        let hash = result.unwrap();
+        assert_eq!(hash.len(), 64); // SHA-256 hex is 64 chars
     }
 
     #[test]
@@ -328,30 +330,29 @@ mod tests {
         let registry = ModelHashRegistry::new();
         let pending = registry.pending_models();
 
-        // All models should be pending since we used placeholder hashes
-        assert!(!pending.is_empty());
-        assert!(pending.contains(&"whisper-tiny"));
+        // All hashes are now verified - no pending models
+        assert!(pending.is_empty());
     }
 
     #[test]
     fn test_is_production_ready() {
         let registry = ModelHashRegistry::new();
 
-        // Not production ready with placeholder hashes
-        assert!(!registry.is_production_ready());
+        // Production ready with all hashes verified (2026-01-25)
+        assert!(registry.is_production_ready());
     }
 
     #[test]
-    fn test_verify_file_pending_hash() {
+    fn test_verify_file_hash_mismatch() {
         let registry = ModelHashRegistry::new();
         let mut temp = NamedTempFile::new().unwrap();
-        temp.write_all(b"test content").unwrap();
+        temp.write_all(b"test content that does not match whisper-tiny model").unwrap();
         temp.flush().unwrap();
 
         let result = registry.verify_file("whisper-tiny", temp.path());
 
-        // Should fail because hash is pending verification
-        assert!(matches!(result, Err(HashError::PendingVerification(_))));
+        // Should fail because file content doesn't match expected hash
+        assert!(matches!(result, Err(HashError::HashMismatch { .. })));
     }
 
     #[test]

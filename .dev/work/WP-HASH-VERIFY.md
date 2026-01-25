@@ -1,10 +1,10 @@
 # WP-HASH-VERIFY: Model Hash Verification for Fallback Downloads
 
-> **Status**: In Progress (scaffolding complete) | **Priority**: HIGH | **Phase**: Beta
+> **Status**: In Progress (hashes verified, integration pending) | **Priority**: HIGH | **Phase**: Beta
 >
 > **Related**: WP-MODEL (existing), R-SEC-01 (security patterns)
 >
-> **Created**: 2026-01-23 | **Last Updated**: 2026-01-23
+> **Created**: 2026-01-23 | **Last Updated**: 2026-01-25
 
 ---
 
@@ -268,23 +268,147 @@ Models from Hugging Face ggerganov/whisper.cpp:
 |------|--------|
 | 2026-01-23 | Work package created from Beta exit criteria |
 | 2026-01-23 | Scaffolding complete: `hashes.rs` with registry structure and tests |
+| 2026-01-25 | **All hashes acquired and verified** - human intervention complete |
+| 2026-01-25 | Work package updated with Phase 3 integration plan |
 
 ---
 
 ## Current Progress
+
+### ✅ Phase 1: Hash Registry Implementation (Complete)
 
 **Scaffolding Complete** - The `ModelHashRegistry` implementation exists in `crates/lexicon-core/src/models/hashes.rs` with:
 - `ModelHashRegistry` struct with global singleton pattern
 - `get()`, `get_strict()`, `verify_file()`, `compute_hash()` methods
 - `HashError` enum with proper error types
 - Comprehensive unit tests
-- Placeholder hashes (`PENDING_HUMAN_VERIFICATION`)
+
+### ✅ Phase 2: Hash Acquisition (Complete - 2026-01-25)
+
+All SHA-256 hashes have been acquired and verified:
+
+| Model | Hash Status |
+|-------|-------------|
+| whisper-tiny | ✅ Verified |
+| whisper-tiny-q5_1 | ✅ Verified |
+| whisper-base | ✅ Verified |
+| whisper-base-q5_1 | ✅ Verified |
+| whisper-small | ✅ Verified |
+| whisper-small-q5_1 | ✅ Verified |
+| whisper-medium | ✅ Verified |
+| whisper-large-v3 | ✅ Verified |
+| whisper-large-v3-turbo | ✅ Verified |
+| kokoro-tts | ✅ Verified |
+
+`HASHES_LAST_VERIFIED` updated to `2026-01-25`.
+
+### 🔄 Phase 3: Download Integration (Pending)
 
 **Remaining Work**:
-1. Download each model from Hugging Face
-2. Compute SHA-256 hashes
-3. Replace `PENDING_HUMAN_VERIFICATION` with actual hashes
-4. Update `HASHES_LAST_VERIFIED` date
-5. Integrate `ModelHashRegistry` into download flow in `registry.rs`
 
-*Requires human intervention to download models and verify hashes.*
+1. **Integrate `ModelHashRegistry` into `registry.rs`**
+   - Replace `"skip"` hash logic in fallback manifest with registry lookup
+   - Modify `verify_model_hash()` to use `ModelHashRegistry::global().verify_file()`
+   - Update `download_with_verification()` to consult hash registry for fallback downloads
+
+2. **Update fallback manifest handling**
+   - Remove `"skip"` hashes from `FALLBACK_MANIFEST_JSON`
+   - Use `ModelHashRegistry::get()` to resolve hashes at runtime
+   - Ensure hash verification cannot be bypassed
+
+3. **Add integration tests**
+   - Test fallback download with hash verification
+   - Test rejection of corrupted/tampered files
+   - Test error messages on hash mismatch
+
+4. **CLI enhancements** (optional)
+   - `lexicon models hash <model>` - compute hash of local model
+   - `lexicon models hash-status` - show verification status for all models
+
+---
+
+## Implementation Plan
+
+### Step 1: Refactor `verify_model_hash()` in `registry.rs`
+
+```rust
+fn verify_model_hash(&self, path: &Path, expected_hash: &str) -> Result<()> {
+    // If hash is "skip", try to resolve from compiled hash registry
+    let hash_to_verify = if expected_hash == "skip" {
+        // Extract model_id from path or entry
+        let model_id = self.model_id_from_path(path)?;
+        ModelHashRegistry::global()
+            .get(&model_id)
+            .ok_or_else(|| HashError::NoHashAvailable(model_id.clone()))?
+    } else {
+        expected_hash
+    };
+
+    // Use registry's verify_file for consistent hashing
+    ModelHashRegistry::global()
+        .verify_file(&model_id, path)
+        .map(|_| ())
+}
+```
+
+### Step 2: Update fallback manifest to reference registry
+
+Instead of embedding `"skip"` in the JSON, modify `load_fallback_manifest()` to inject real hashes:
+
+```rust
+fn load_fallback_manifest(&mut self) -> Result<()> {
+    let mut manifest = ModelManifest::from_json(FALLBACK_MANIFEST_JSON)?;
+
+    // Replace "skip" hashes with actual hashes from registry
+    for (id, entry) in manifest.models.iter_mut() {
+        if entry.hash_sha256 == "skip" {
+            if let Some(hash) = ModelHashRegistry::global().get(id) {
+                entry.hash_sha256 = hash.to_string();
+            }
+        }
+    }
+
+    self.manifest = Some(manifest);
+    Ok(())
+}
+```
+
+### Step 3: Remove "skip" bypass paths
+
+Search for and eliminate all code paths that skip verification:
+- `if expected_hash == "skip"` branches
+- `if entry.hash_sha256 != "skip"` conditionals
+
+### Step 4: Add security assertion
+
+In release builds, assert no "skip" values exist:
+
+```rust
+#[cfg(not(debug_assertions))]
+fn validate_no_skip_hashes(&self) {
+    assert!(
+        ModelHashRegistry::global().pending_models().is_empty(),
+        "Production build contains unverified model hashes"
+    );
+}
+```
+
+---
+
+## Acceptance Criteria Update
+
+### Hash Coverage ✅
+- [x] SHA-256 hashes documented for all fallback model URLs
+- [x] Hashes verified against official sources
+
+### Download Verification (Phase 3)
+- [ ] Fallback downloads compute SHA-256 during streaming
+- [ ] Downloads rejected on hash mismatch
+- [ ] Partial files deleted on verification failure
+- [ ] Clear error message includes expected vs actual hash
+- [ ] Retry possible after failure
+
+### Security Properties (Phase 3)
+- [ ] No "skip" hash values in production code paths
+- [ ] Hash values compiled into binary (already done)
+- [ ] Hash verification cannot be bypassed by configuration
