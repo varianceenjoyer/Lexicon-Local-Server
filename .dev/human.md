@@ -49,35 +49,23 @@ TUI functionality verified working to MVP spec on **Windows** and **bash** build
 
 ---
 
-## Priority 3: TTS Quality Evaluation (WP-TTS-QUALITY)
+## ~~Priority 3: TTS Quality Evaluation (WP-TTS-QUALITY)~~ ✅ COMPLETE
 
-**Task**: Listen to generated TTS audio and rate quality
+**Task**: ~~Listen to generated TTS audio and rate quality~~ **DONE (2026-01-25)**
 
-Beta exit criterion: Average MOS >= 3.5, no individual score < 2.0
+### Evaluation Result
 
-### Steps
+| Metric | Result | Original Criterion |
+|--------|--------|-------------------|
+| Average MOS | **3.0** | >= 3.5 |
 
-1. Generate test audio files:
-   ```bash
-   lexicon tts-quality generate --output-dir ./tts-quality-test
-   ```
+**Assessment**: Sufficient for understanding general text, but clearly synthetic.
 
-2. Listen to each WAV file in `./tts-quality-test/`
+**Decision**: Ship with current quality as known limitation. TTS improvement deferred to Release phase.
 
-3. Rate each file on the MOS scale:
-   | Score | Label | Description |
-   |-------|-------|-------------|
-   | 5 | Excellent | Indistinguishable from human speech |
-   | 4 | Good | Natural with only minor issues |
-   | 3 | Fair | Clearly synthetic but understandable |
-   | 2 | Poor | Some difficulty understanding |
-   | 1 | Bad | Unintelligible |
+**Documentation**: [docs/TTS-QUALITY.md](../docs/TTS-QUALITY.md)
 
-4. Calculate average MOS score
-
-5. Document results in `docs/TTS-QUALITY.md`
-
-**Related**: [HO-TTS-QUALITY-001](handoffs/HO-TTS-QUALITY-001.md)
+**Related**: [HO-TTS-QUALITY-001](handoffs/HO-TTS-QUALITY-001.md), [WP-TTS-QUALITY](work/WP-TTS-QUALITY.md)
 
 ---
 

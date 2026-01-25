@@ -1,10 +1,10 @@
 # WP-TTS-QUALITY: TTS Quality Validation
 
-> **Status**: In Progress (infrastructure complete) | **Priority**: MEDIUM | **Phase**: Beta
+> **Status**: ✅ COMPLETE (shipped as known limitation) | **Priority**: HIGH | **Phase**: Beta
 >
 > **Research**: [R-TTS-01](../design/research/R-TTS-01-alternative-tts-engines.md)
 >
-> **Created**: 2026-01-23 | **Last Updated**: 2026-01-23
+> **Created**: 2026-01-23 | **Last Updated**: 2026-01-25
 
 ---
 
@@ -161,7 +161,7 @@ lexicon tts-quality report
 - [ ] Punctuation affects prosody appropriately
 
 ### Quality Metrics
-- [ ] Average MOS >= 3.5 across test sentences
+- [ ] ❌ Average MOS >= 3.5 across test sentences — **Actual: 3.0**
 - [ ] Intelligibility >= 4.0 for all sentences
 - [ ] No sentence scores below 2.0 on any metric
 - [ ] Natural-sounding for conversational sentences
@@ -284,6 +284,8 @@ For each test sentence:
 |------|--------|
 | 2026-01-23 | Work package created for Beta exit criteria |
 | 2026-01-23 | Test infrastructure implemented: `quality.rs` with test sentences, `QualityAssessment`, `QualityReport` |
+| 2026-01-25 | **Human evaluation completed**: MOS 3.0 — does not meet 3.5 criterion |
+| 2026-01-25 | **Decision**: Ship as known limitation, defer improvement to Release |
 
 ---
 
@@ -304,8 +306,33 @@ Implemented files:
 - `lexicon tts-quality report` - Display quality reports
 
 **Remaining (Requires Human)**:
-- [ ] Manual listening tests (human evaluation)
+- [x] Manual listening tests (human evaluation) — **COMPLETED 2026-01-25**
 - [ ] Quality documentation (docs/TTS-QUALITY.md)
 - [ ] Reference audio archive
 
-*Test infrastructure and CLI complete. Manual listening tests require human evaluation.*
+---
+
+## Human Evaluation Results (2026-01-25)
+
+| Metric | Result | Criterion | Status |
+|--------|--------|-----------|--------|
+| **Average MOS** | **3.0** | >= 3.5 | ❌ Not Met |
+
+**Assessment**: Sufficient for understanding general text, but clearly synthetic.
+
+### Interpretation
+
+MOS 3.0 corresponds to "Fair" on the quality scale:
+- Words are understandable
+- Speech is clearly synthetic
+- Acceptable for functional use cases
+- Does not meet the polish expected for Beta release
+
+### Decision (2026-01-25)
+
+**Chosen**: Document as known limitation and ship.
+
+- MOS 3.0 is acceptable for Beta — speech is understandable
+- TTS quality improvement deferred to Release phase
+- Can switch to alternative TTS model later if needed
+- Documented in `docs/TTS-QUALITY.md`
