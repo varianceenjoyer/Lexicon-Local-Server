@@ -1,10 +1,10 @@
 ---
 id: WP-TUI
 type: work-plan
-status: feature_complete
+status: complete
 phase: beta
 created: 2026-01-23
-updated: 2026-01-23
+updated: 2026-01-25
 author: design-lead
 consumers: [developer]
 depends-on: [WP-CORE, WP-AUDIO, WP-STT, WP-DB, WP-CLI]
@@ -15,7 +15,7 @@ tags: [tui, cli, audio, transcription, diagnostics]
 
 # WP-TUI: Diagnostic TUI for Real-Time Transcription
 
-> **Phase**: Beta | **Priority**: HIGH | **Status**: FEATURE COMPLETE
+> **Phase**: Beta | **Priority**: HIGH | **Status**: COMPLETE
 
 ## Summary
 
@@ -750,6 +750,7 @@ END;
 |------|--------|
 | 2026-01-23 | Work package created |
 | 2026-01-23 | Feature complete - all implementation items done |
+| 2026-01-25 | Hardware verification complete - MVP spec validated on Windows and bash builds |
 
 ---
 

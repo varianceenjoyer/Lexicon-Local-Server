@@ -2,9 +2,9 @@
 
 > **ID**: HO-TUI-001 | **Work Package**: WP-TUI
 >
-> **Created**: 2026-01-23 | **Status**: Feature Complete
+> **Created**: 2026-01-23 | **Status**: Complete
 >
-> **Last Updated**: 2026-01-23
+> **Last Updated**: 2026-01-25
 
 ---
 
@@ -825,7 +825,7 @@ cargo test -p lexicon-cli buffer
 - [x] Voice input in save dialog (transcribed text appends to dialog when recording)
 
 ### Remaining
-- [ ] Test with actual Whisper model on hardware
+- [x] Test with actual Whisper model on hardware (verified 2026-01-25 on Windows and bash builds)
 
 ---
 
@@ -846,13 +846,13 @@ cargo test -p lexicon-cli buffer
 ### Recording
 - [x] Ctrl+T toggles recording
 - [x] Recording indicator visible (● REC)
-- [ ] Transcription streams to text area (needs STT integration)
+- [x] Transcription streams to text area (verified on Windows and bash builds)
 - [x] Char counter updates
 
 ### Buffer
 - [x] 100k char limit enforced
 - [x] Auto-flush triggers at limit
-- [ ] User notified of auto-flush
+- [x] User notified of auto-flush
 
 ### Database
 - [x] Schema migration v2 for `saved_transcripts` table

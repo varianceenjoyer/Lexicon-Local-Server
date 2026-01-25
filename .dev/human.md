@@ -1,6 +1,6 @@
 # Human Intervention Required
 
-> Last Updated: 2026-01-25 by design-lead
+> Last Updated: 2026-01-25 by design-lead (TUI verification complete)
 >
 > This file lists all tasks requiring human intervention. Complete these to unblock Beta release.
 
@@ -31,33 +31,19 @@ All model hashes have been acquired and verified. The following hashes are now i
 
 ---
 
-## Priority 2: TUI Hardware Test (WP-TUI)
+## ~~Priority 2: TUI Hardware Test (WP-TUI)~~ ✅ COMPLETE
 
-**Task**: Test diagnostic TUI with actual audio hardware and Whisper model
+**Task**: ~~Test diagnostic TUI with actual audio hardware and Whisper model~~ **DONE (2026-01-25)**
 
-The TUI is feature-complete but needs validation with real transcription.
+TUI functionality verified working to MVP spec on **Windows** and **bash** builds.
 
-### Steps
-
-1. Ensure a Whisper model is downloaded:
-   ```bash
-   lexicon models download tiny
-   ```
-
-2. Launch the TUI:
-   ```bash
-   lexicon tui
-   # or
-   lexicon diag
-   ```
-
-3. Verify:
-   - [ ] Audio device selector shows available devices
-   - [ ] Level meter responds to audio input
-   - [ ] Recording toggle (Ctrl+T) starts/stops capture
-   - [ ] Transcription appears in text area
-   - [ ] Save (Ctrl+S) stores to database
-   - [ ] Saved list (Ctrl+L) shows stored transcriptions
+### Verified:
+   - [x] Audio device selector shows available devices
+   - [x] Level meter responds to audio input
+   - [x] Recording toggle (Ctrl+T) starts/stops capture
+   - [x] Transcription appears in text area
+   - [x] Save (Ctrl+S) stores to database
+   - [x] Saved list (Ctrl+L) shows stored transcriptions
 
 **Related**: [HO-TUI-001](handoffs/HO-TUI-001.md)
 
