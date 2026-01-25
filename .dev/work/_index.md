@@ -1,6 +1,6 @@
 # Work Packages Index
 
-> **Status**: Active | **Last Updated**: 2026-01-23 (WP-TUI feature complete)
+> **Status**: Active | **Last Updated**: 2026-01-25 (Status report generated)
 >
 > This index tracks all actionable work packages for Lexicon Local Server.
 
@@ -25,7 +25,7 @@ Work packages are self-contained units of implementation work with:
 | [WP-FFI-TEST](WP-FFI-TEST.md) | Mobile FFI Binding Tests | HIGH | macOS/Android SDK | Swift/Kotlin unit tests |
 | [WP-DIARIZATION](WP-DIARIZATION.md) | Speaker Diarization (Neural) | MEDIUM | Release phase | ECAPA-TDNN integration |
 | [WP-IOS](WP-IOS.md) | iOS Platform Integration | HIGH | WP-FFI, macOS required | XCFramework + Swift |
-| [WP-ANDROID](WP-ANDROID.md) | Android Platform Integration | HIGH | WP-FFI, NDK required | AAR + Kotlin |
+| [WP-ANDROID](WP-ANDROID.md) | Android Platform Integration | HIGH | Device testing | STT+TTS working on emulator |
 
 ### Ready for Implementation
 
@@ -208,4 +208,4 @@ See [../docs/android-emulation/](../docs/android-emulation/) for Android emulati
 
 ---
 
-*Last updated: 2026-01-23. WP-TUI feature complete - awaiting hardware testing. Some Beta work packages awaiting human/hardware actions.*
+*Last updated: 2026-01-25. All Beta scaffolding complete. Four work packages awaiting human/hardware validation. See [.dev/human.md](../human.md) for action items.*

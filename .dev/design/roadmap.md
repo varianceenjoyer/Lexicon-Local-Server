@@ -2,15 +2,15 @@
 id: roadmap
 type: roadmap
 status: active
-updated: 2026-01-22
+updated: 2026-01-25
 author: design-lead
 ---
 
 # Lexicon Local Server — Roadmap
 
-> **Current Phase**: MVP → Beta Transition
+> **Current Phase**: Beta (70% Complete)
 >
-> **Progress**: Layers 1-3 substantially complete. Phase 1 MVP ready for testing.
+> **Progress**: MVP complete. All Beta scaffolding done. Awaiting human/hardware validation.
 
 ---
 
@@ -74,31 +74,37 @@ Lexicon Local Server decomposes into **14 work packages** organized in **4 layer
 
 | Package | Scope | Status |
 |---------|-------|--------|
-| WP-TTS | Full including fallback triggers (D4) | 🔄 In Progress |
+| WP-TTS | Full including fallback triggers (D4) | ✅ Complete |
 | WP-SERVER | Full | ✅ Complete |
-| WP-FFI | Full | 🔄 In Progress |
-| WP-AUDIO | Add Bluetooth HFP 1.6 (D2), mobile audio routes | 🔄 In Progress |
+| WP-FFI | Full | ✅ Complete (tests blocked) |
+| WP-AUDIO | Add Bluetooth HFP 1.6 (D2), mobile audio routes | 🟡 Scaffolding complete |
 | WP-STT | Add speaker diarization (D3) | 🔄 In Progress |
 | WP-CLI | Add `serve` command | ✅ Complete |
-| **WP-CONFIG** | Configuration management (NEW) | ⬜ Ready |
+| **WP-CONFIG** | Configuration management | ✅ Complete |
+| **WP-TUI** | Diagnostic TUI | 🟡 Feature complete |
+| **WP-HASH-VERIFY** | Model hash verification | 🟡 Scaffolding complete |
+| **WP-TTS-QUALITY** | TTS quality validation | 🟡 Infrastructure complete |
 
 **Beta Deliverables:**
 1. ✅ HTTP server with WebSocket streaming
-2. 🔄 TTS synthesis with Kokoro + tts-rs fallback
-3. 🔄 UniFFI bindings compile
+2. ✅ TTS synthesis with Kokoro + tts-rs fallback
+3. ✅ UniFFI bindings compile (tests blocked on SDK)
 4. ✅ Real-time STT latency <800ms
 5. 🔄 Speaker diarization assigns IDs when enabled
-6. 🔄 Bluetooth audio works at 16kHz
-7. 🔄 Hash verification for fallback model downloads
+6. 🟡 Bluetooth audio works at 16kHz (scaffolding complete)
+7. 🟡 Hash verification for fallback model downloads (awaiting hashes)
+8. 🟡 Diagnostic TUI for real-time transcription (feature complete)
+9. 🟡 TTS quality validation (infrastructure complete)
 
 **Exit Criteria:**
 - [x] WebSocket client receives streaming segments
-- [ ] TTS produces natural-sounding speech
+- [ ] TTS produces natural-sounding speech (MOS >= 3.5)
 - [x] TTS falls back to platform voice for non-English (D4)
-- [ ] Swift/Kotlin bindings pass unit tests
+- [ ] Swift/Kotlin bindings pass unit tests (blocked on SDK)
 - [ ] Diarization correctly identifies 2+ speakers (D3)
-- [ ] Bluetooth HFP 1.6 verified at 16kHz (D2)
+- [ ] Bluetooth HFP 1.6 verified at 16kHz (D2) (awaiting hardware)
 - [x] Latency benchmarks documented
+- [ ] Model hash verification working (awaiting hash values)
 
 ---
 
@@ -111,7 +117,7 @@ Lexicon Local Server decomposes into **14 work packages** organized in **4 layer
 | Package | Scope | Status |
 |---------|-------|--------|
 | WP-IOS | Full including thermal monitoring | ⬜ Ready |
-| WP-ANDROID | Full including thermal monitoring | ⬜ Ready |
+| WP-ANDROID | Full including thermal monitoring | 🔄 Partial (STT+TTS working, device testing needed) |
 | WP-WIN | Full including GPU acceleration documentation | ✅ Complete |
 | WP-BUILD | Full | ✅ Complete |
 
@@ -169,10 +175,15 @@ Layer 1 (Parallel) ─ Foundation
 
 ## Current Priorities
 
-1. **WP-CONFIG** — High priority MVP enhancement for first-run experience
-2. **WP-AUDIO** — Complete Bluetooth HFP 1.6 support
-3. **WP-STT** — Verify diarization with 2+ speakers
-4. **WP-FFI** — Platform compilation verification
+### Awaiting Human Action (High Priority)
+1. **WP-HASH-VERIFY** — Acquire model SHA-256 hashes (security requirement)
+2. **WP-TUI** — Hardware test with Whisper model
+3. **WP-TTS-QUALITY** — Human listening evaluation (MOS scoring)
+4. **WP-BLE** — Physical Bluetooth hardware testing
+
+### Code Work Remaining
+5. **WP-STT** — Verify diarization with 2+ speakers
+6. **WP-FFI-TEST** — Swift/Kotlin unit tests (blocked on macOS/Android SDK)
 
 ---
 

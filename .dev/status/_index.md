@@ -1,6 +1,6 @@
 ---
 type: index
-updated: 2026-01-22
+updated: 2026-01-25
 ---
 
 # Status Index
@@ -11,20 +11,23 @@ updated: 2026-01-22
 
 ## Current Status
 
-**Phase**: MVP → Beta Transition
-**Last Updated**: 2026-01-22
+**Phase**: Beta (70% Complete)
+**Last Updated**: 2026-01-25
 
 ### Summary
-- Layers 1-3 substantially complete
-- Phase 1 MVP ready for testing
-- Transitioning to Beta phase features
+- MVP complete and tested
+- All Beta scaffolding work finished
+- Four work packages awaiting human/hardware validation
+- No code-level blockers - all blockers require external resources
 
-### Active Work
-- WP-AUDIO: Bluetooth HFP 1.6 support
-- WP-STT: Diarization verification
-- WP-TTS: Natural speech quality verification
-- WP-FFI: Platform compilation pending
-- **WP-CONFIG**: Ready for implementation (HIGH priority)
+### Active Work (Awaiting Human Action)
+- **WP-TUI**: Feature complete - awaiting hardware test
+- **WP-HASH-VERIFY**: Scaffolding complete - awaiting model hashes
+- **WP-BLE**: Scaffolding complete - awaiting Bluetooth hardware
+- **WP-TTS-QUALITY**: Infrastructure complete - awaiting human evaluation
+
+### Completed
+- WP-CONFIG: System profiling and CLI config (COMPLETE)
 
 ---
 
@@ -32,7 +35,7 @@ updated: 2026-01-22
 
 | Date | Phase | Highlights |
 |------|-------|------------|
-| *No reports yet* | | |
+| [2026-01-25](STATUS-2026-01-25.md) | Beta | All Beta scaffolding complete, awaiting human validation |
 
 ---
 

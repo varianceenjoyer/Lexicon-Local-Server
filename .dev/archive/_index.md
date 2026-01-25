@@ -1,6 +1,6 @@
 ---
 type: index
-updated: 2026-01-22
+updated: 2026-01-25
 ---
 
 # Archive Index
@@ -32,7 +32,7 @@ archive/
 
 | ID | From → To | Work Package | Completed |
 |----|-----------|--------------|-----------|
-| *None archived yet* | | | |
+| HO-2026-01-22-config | design-lead → developer | WP-CONFIG | 2026-01-23 |
 
 ---
 

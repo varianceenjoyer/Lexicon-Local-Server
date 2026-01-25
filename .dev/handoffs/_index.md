@@ -1,6 +1,6 @@
 ---
 type: index
-updated: 2026-01-23
+updated: 2026-01-25
 ---
 
 # Handoffs Index
@@ -54,4 +54,4 @@ See [.dev/human.md](../human.md) for detailed instructions.
 
 ---
 
-*Last updated: 2026-01-23. All Beta work packages feature-complete or scaffolding-complete - awaiting human/hardware actions.*
+*Last updated: 2026-01-25. All Beta work packages feature-complete or scaffolding-complete - awaiting human/hardware actions. See [.dev/human.md](../human.md) for details.*
