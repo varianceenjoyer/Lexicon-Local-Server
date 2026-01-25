@@ -81,6 +81,13 @@ impl Platform {
             Platform::AndroidArm32
         }
 
+        // Android x86/x86_64 (emulators like Cuttlefish)
+        #[cfg(all(target_os = "android", any(target_arch = "x86_64", target_arch = "x86")))]
+        {
+            // Treat x86_64 emulator as arm64 equivalent for model selection
+            Platform::AndroidArm64
+        }
+
         #[cfg(not(any(
             target_os = "macos",
             target_os = "windows",

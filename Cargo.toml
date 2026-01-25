@@ -95,7 +95,7 @@ hyper = { version = "1", features = ["full"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 
 # Internal crates
-lexicon-core = { path = "crates/lexicon-core" }
+lexicon-core = { path = "crates/lexicon-core", default-features = false }
 
 # FFI (UniFFI for Swift/Kotlin bindings)
 uniffi = "0.31"

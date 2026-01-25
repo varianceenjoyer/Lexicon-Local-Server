@@ -62,12 +62,15 @@ ls -la
 # Should see: bin/, etc/, lib64/, usr/
 ```
 
-### Setting Up PATH
+### Setting Up Environment Variables
+
+**Critical:** The following environment variables must be set for Cuttlefish to work properly:
 
 ```bash
 # Add to ~/.bashrc or ~/.profile
-export PATH="$HOME/cuttlefish/bin:$PATH"
 export CUTTLEFISH_HOME="$HOME/cuttlefish"
+export ANDROID_HOST_OUT="$CUTTLEFISH_HOME"
+export PATH="$CUTTLEFISH_HOME/bin:$PATH"
 
 # Apply changes
 source ~/.bashrc
@@ -76,6 +79,11 @@ source ~/.bashrc
 which launch_cvd
 # Should output: /home/<user>/cuttlefish/bin/launch_cvd
 ```
+
+**Important Notes:**
+- `ANDROID_HOST_OUT` is required for the `cvd` command to locate binaries correctly
+- Without `ANDROID_HOST_OUT`, you may see errors like: `exec of /bin/assemble_cvd failed (No such file or directory)`
+- The `cvd` wrapper command is preferred over `launch_cvd` directly
 
 ### Verifying Installation
 

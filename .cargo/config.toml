@@ -1,0 +1,44 @@
+# Cargo configuration for cross-compilation
+# See: https://doc.rust-lang.org/cargo/reference/config.html
+
+# Android targets - used with cargo-ndk
+# The linkers are provided by the Android NDK (set ANDROID_NDK_HOME)
+
+[target.aarch64-linux-android]
+# ARM64 - most modern Android devices
+# cargo-ndk handles linker selection automatically
+
+[target.x86_64-linux-android]
+# x86_64 - Cuttlefish emulator and some Chromebooks
+
+[target.armv7-linux-androideabi]
+# ARM32 - older Android devices
+
+[target.i686-linux-android]
+# x86 - older emulators
+
+# Environment variables for native builds
+[env]
+# These are set when ANDROID_NDK_HOME is defined
+# CMAKE_TOOLCHAIN_FILE is needed for whisper.cpp cross-compilation
+
+# Build configuration
+[build]
+# Uncomment to set default target for Android development:
+# target = "aarch64-linux-android"
+
+# Profile optimizations
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.release.package."*"]
+opt-level = 3
+
+# Android-specific release profile
+[profile.release-android]
+inherits = "release"
+# Android apps typically use smaller binaries
+opt-level = "s"
