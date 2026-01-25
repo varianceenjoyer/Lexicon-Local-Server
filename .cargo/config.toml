@@ -1,12 +1,20 @@
 # Cargo configuration for cross-compilation
 # See: https://doc.rust-lang.org/cargo/reference/config.html
 
-# Android targets - used with cargo-ndk
+# Android targets - used with cargo-ndk or direct NDK toolchain
 # The linkers are provided by the Android NDK (set ANDROID_NDK_HOME)
+#
+# For Windows cross-compilation to Android:
+#   1. Install Android NDK (r26+) via Android Studio or standalone
+#   2. Set ANDROID_NDK_HOME environment variable
+#   3. Run: rustup target add aarch64-linux-android
+#   4. Use scripts/android/build-android-tui.ps1
 
 [target.aarch64-linux-android]
 # ARM64 - most modern Android devices
-# cargo-ndk handles linker selection automatically
+# Linker is set dynamically by build script based on ANDROID_NDK_HOME
+# On Windows: %ANDROID_NDK_HOME%\toolchains\llvm\prebuilt\windows-x86_64\bin\aarch64-linux-android26-clang.cmd
+# On Linux:   $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang
 
 [target.x86_64-linux-android]
 # x86_64 - Cuttlefish emulator and some Chromebooks

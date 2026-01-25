@@ -898,6 +898,7 @@ impl TuiApp {
     }
 
     /// Copies the buffer to clipboard.
+    #[cfg(not(target_os = "android"))]
     fn copy_to_clipboard(&mut self) {
         use arboard::Clipboard;
 
@@ -917,6 +918,12 @@ impl TuiApp {
                 self.set_status(&format!("Clipboard error: {}", e));
             }
         }
+    }
+
+    /// Clipboard is not supported on Android.
+    #[cfg(target_os = "android")]
+    fn copy_to_clipboard(&mut self) {
+        self.set_status("Clipboard not supported on Android");
     }
 
     /// Sets a status message.

@@ -47,6 +47,9 @@ cpal.workspace = true
 # TUI
 ratatui.workspace = true
 crossterm.workspace = true
+
+# Clipboard (desktop platforms only - not supported on Android)
+[target.'cfg(not(target_os = "android"))'.dependencies]
 arboard.workspace = true
 
 [dev-dependencies]
