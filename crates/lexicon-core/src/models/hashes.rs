@@ -27,7 +27,7 @@ use std::sync::OnceLock;
 use sha2::{Digest, Sha256};
 
 /// Date when hashes were last verified against Hugging Face
-pub const HASHES_LAST_VERIFIED: &str = "PENDING";
+pub const HASHES_LAST_VERIFIED: &str = "2026-01-25";
 
 // =============================================================================
 // Whisper Model Hashes (ggerganov/whisper.cpp on Hugging Face)
