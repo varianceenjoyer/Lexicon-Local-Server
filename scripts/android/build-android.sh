@@ -2,10 +2,11 @@
 # build-android.sh
 # Cross-compile Lexicon for Android targets
 #
-# Usage: ./build-android.sh [target] [--release] [--stt]
+# Usage: ./build-android.sh [target] [--release] [--stt] [--tts]
 #   target: arm64 (default), x86_64, arm32, x86
 #   --release: Build in release mode
 #   --stt: Include STT (speech-to-text) feature
+#   --tts: Include TTS (text-to-speech) feature (requires ONNX Runtime setup)
 #   --no-default-features: Build without any features
 
 set -e
@@ -37,7 +38,18 @@ while [[ $# -gt 0 ]]; do
             RELEASE_FLAG="--release"
             ;;
         --stt)
-            FEATURES="stt"
+            if [ -z "$FEATURES" ]; then
+                FEATURES="stt"
+            else
+                FEATURES="$FEATURES,stt"
+            fi
+            ;;
+        --tts)
+            if [ -z "$FEATURES" ]; then
+                FEATURES="tts"
+            else
+                FEATURES="$FEATURES,tts"
+            fi
             ;;
         --no-default-features)
             NO_DEFAULT_FEATURES="--no-default-features"
@@ -99,6 +111,30 @@ export WHISPER_DONT_GENERATE_BINDINGS=1
 export WHISPER_BUILD_TESTS="OFF"
 export WHISPER_BUILD_EXAMPLES="OFF"
 
+# ONNX Runtime for TTS (if building with --tts)
+ONNX_ANDROID_DIR="${ONNXRUNTIME_ANDROID_DIR:-$HOME/.onnxruntime-android}"
+if [[ "$FEATURES" == *"tts"* ]]; then
+    # Map target to ONNX Runtime directory
+    ORT_ARCH_DIR=$(case $TARGET_NAME in
+        arm64) echo "arm64-v8a" ;;
+        x86_64) echo "x86_64" ;;
+        arm32) echo "armeabi-v7a" ;;
+        x86) echo "x86" ;;
+    esac)
+
+    if [ -d "$ONNX_ANDROID_DIR/jni/$ORT_ARCH_DIR" ]; then
+        export ORT_LIB_LOCATION="$ONNX_ANDROID_DIR/jni/$ORT_ARCH_DIR"
+        export ORT_INCLUDE_DIR="$ONNX_ANDROID_DIR/headers"
+        # ort-sys requires dynamic linking for Android pre-built binaries
+        export ORT_PREFER_DYNAMIC_LINK=1
+        echo "ONNX Runtime: $ORT_LIB_LOCATION"
+    else
+        echo "ERROR: ONNX Runtime Android not found at $ONNX_ANDROID_DIR"
+        echo "Run: scripts/android/setup-onnx-android.sh"
+        exit 1
+    fi
+fi
+
 echo "CMake toolchain: $CMAKE_TOOLCHAIN_FILE"
 echo "Android ABI: $ANDROID_ABI"
 echo "Android Platform: $ANDROID_PLATFORM"
@@ -138,11 +174,14 @@ if [ -f "$OUTPUT_DIR/liblexicon_ffi.so" ]; then
         file "$OUTPUT_DIR/liblexicon_ffi.so"
     fi
 
-    # Note about libc++_shared.so for STT builds
-    if [ "$FEATURES" = "stt" ]; then
+    # Note about dependencies for STT/TTS builds
+    if [[ "$FEATURES" == *"stt"* ]] || [[ "$FEATURES" == *"tts"* ]]; then
         echo ""
-        echo "NOTE: STT build requires libc++_shared.so to be bundled with the library."
-        echo "Copy from: \$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/<arch>/libc++_shared.so"
+        echo "NOTE: This build requires bundling additional libraries:"
+        echo "  libc++_shared.so - from NDK: \$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/<arch>/"
+    fi
+    if [[ "$FEATURES" == *"tts"* ]]; then
+        echo "  libonnxruntime.so - from: $ONNX_ANDROID_DIR/jni/$ORT_ARCH_DIR/"
     fi
 else
     echo "WARNING: Library not found at expected location"

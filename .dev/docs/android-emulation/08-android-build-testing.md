@@ -60,7 +60,7 @@ target/aarch64-linux-android/release/liblexicon_ffi.so # ~2.9 MB
 |---------|--------|-------|
 | Core FFI | Working | Initialization, context management, platform detection |
 | STT (whisper-rs) | **Working** | Requires patched whisper-rs-sys (see below) |
-| TTS (ort) | Blocked | ort-sys has no Android x86_64 pre-built binaries |
+| TTS (ort) | **Working** | Uses ONNX Runtime AAR from Maven Central |
 
 ### whisper-rs-sys Patch
 
@@ -86,12 +86,26 @@ STT builds require `libc++_shared.so` from the NDK to be bundled:
 $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/<arch>/libc++_shared.so
 ```
 
+### TTS Build Requirements
+
+TTS builds require ONNX Runtime Android libraries. Run the setup script first:
+```bash
+bash scripts/android/setup-onnx-android.sh
+```
+
+This downloads the official ONNX Runtime AAR from Maven Central and extracts native libraries for all architectures.
+
+TTS builds require bundling `libonnxruntime.so`:
+```
+~/.onnxruntime-android/jni/<arch>/libonnxruntime.so
+```
+
 ### Build Sizes (Release)
 
-| Target | Core Only | With STT |
-|--------|-----------|----------|
-| arm64-v8a | 2.9 MB | 3.7 MB |
-| x86_64 | 3.4 MB | 4.3 MB |
+| Target | Core Only | STT Only | TTS Only | STT+TTS |
+|--------|-----------|----------|----------|---------|
+| arm64-v8a | 2.9 MB | 3.7 MB | ~38 MB | ~39 MB |
+| x86_64 | 3.4 MB | 4.3 MB | 40 MB | 41 MB |
 
 ---
 
@@ -153,7 +167,9 @@ The following FFI functions have been verified on Cuttlefish:
 | `Transcriber::new()` | Working | Creates transcriber instance |
 | `Transcriber::load_model()` | Working | Loads Whisper model (~3s for base) |
 | `Transcriber::transcribe()` | Working* | *Slow on emulator, too slow to complete |
-| `Synthesizer::new()` | Working | Creates stub (TTS disabled) |
+| `Synthesizer::new()` | Working | Creates synthesizer instance |
+| `Synthesizer::synthesize()` | Working | TTS synthesis function available |
+| `Synthesizer::list_voices()` | Working | Lists available voices |
 
 ### Transcription Performance Note
 
@@ -195,12 +211,10 @@ android/
 
 1. ~~**Resolve whisper-rs-sys cross-compilation**~~ - DONE (patched)
 
-2. **Resolve ort-sys Android builds** (for TTS feature)
-   - Option A: Build ONNX Runtime for Android from source
-   - Option B: Use pre-built Android ONNX Runtime AAR
+2. ~~**Resolve ort-sys Android builds**~~ - DONE (uses ONNX Runtime AAR)
 
 3. **Complete Android project**
-   - Add Gradle wrapper
+   - ~~Add Gradle wrapper~~ - DONE
    - Create example app with transcription demo
    - Add instrumentation tests
 
