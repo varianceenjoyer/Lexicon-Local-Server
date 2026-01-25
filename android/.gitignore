@@ -1,0 +1,16 @@
+# Android build artifacts
+.gradle/
+build/
+*.iml
+local.properties
+
+# Native libraries (built by scripts/android/build-android.sh)
+**/jniLibs/**/*.so
+
+# IDE
+.idea/
+*.ipr
+*.iws
+
+# Gradle wrapper jar (download on first run)
+gradle/wrapper/gradle-wrapper.jar

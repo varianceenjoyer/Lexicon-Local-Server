@@ -1,6 +1,6 @@
 # WP-ANDROID: Android Platform Integration
 
-> **Status**: Blocked (Release Phase) | **Priority**: HIGH | **Phase**: Release
+> **Status**: In Progress | **Priority**: HIGH | **Phase**: Release
 >
 > **Research**: [R-THR-01](../design/research/R-THR-01-thermal-profiling.md), [R-ORT-01](../design/research/R-ORT-01-ort-mobile-builds.md)
 >
@@ -34,7 +34,9 @@ Create Android shared library and Kotlin bindings for embedding Lexicon in Andro
 - Android-specific UI components
 - Wear OS support
 - Android Auto integration
-- x86/x86_64 builds (emulator-only, low priority)
+
+### Emulator Support (Added)
+- x86_64 builds for Cuttlefish emulator testing (development only)
 
 ---
 
@@ -298,15 +300,16 @@ class TranscriptionService : Service() {
 ## Acceptance Criteria
 
 ### Build
-- [ ] Shared library compiles for `aarch64-linux-android`
+- [x] Shared library compiles for `aarch64-linux-android` (3.7 MB with STT)
 - [ ] Shared library compiles for `armv7-linux-androideabi`
+- [x] Shared library compiles for `x86_64-linux-android` (4.3 MB with STT, for Cuttlefish)
 - [ ] AAR package builds with Gradle
 - [ ] No warnings in release build
 - [ ] ProGuard rules preserve FFI classes
 
 ### FFI Integration
-- [ ] UniFFI generates Kotlin bindings
-- [ ] All public APIs accessible from Kotlin
+- [x] UniFFI generates Kotlin bindings
+- [x] All public APIs accessible from Kotlin
 - [ ] Errors map to Kotlin exceptions
 - [ ] Coroutine support for async operations
 - [ ] No memory leaks (LeakCanary)
@@ -494,7 +497,10 @@ Android has variable memory limits:
 | Date | Update |
 |------|--------|
 | 2026-01-23 | Work package created for Release phase |
+| 2026-01-25 | STT feature building for Android via patched whisper-rs-sys |
+| 2026-01-25 | Tested on Cuttlefish emulator (API 33) - FFI working |
+| 2026-01-25 | Created Android project structure at `android/lexicon-android/` |
 
 ---
 
-*Blocked until Release phase. Requires Android NDK for development.*
+*In progress. STT working, TTS blocked on ort-sys Android builds.*
