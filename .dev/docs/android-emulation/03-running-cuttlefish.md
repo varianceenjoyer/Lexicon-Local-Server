@@ -2,9 +2,11 @@
 
 > **Work Plan:** WP-CUTTLEFISH-03
 >
-> **Status:** TODO
+> **Status:** VERIFIED
 >
 > **Purpose:** Document day-to-day Cuttlefish operation.
+>
+> **Last Verified:** 2026-01-25 on Ubuntu 25.10 (kernel 6.17.0-8-generic)
 
 ---
 
@@ -14,16 +16,105 @@ Complete [02-cuttlefish-installation.md](02-cuttlefish-installation.md) before p
 
 ---
 
+## Verified Quick Start (Ubuntu 25.10 / Kernel 6.17+)
+
+This was verified working on 2026-01-25:
+
+```bash
+# 1. Clean any stale state
+pkill -9 -f "launch_cvd|run_cvd|crosvm|modem_simulator" 2>/dev/null
+rm -rf /home/dev/cuttlefish/instances
+
+# 2. Launch with sandbox disabled (required for kernel 6.17+)
+cd /home/dev/cuttlefish && ./bin/launch_cvd --enable_sandbox=false --daemon
+
+# 3. Wait for boot (~30 seconds)
+sleep 30
+
+# 4. Verify device is connected
+/home/dev/cuttlefish/bin/adb devices
+# Expected: 0.0.0.0:6520    device
+
+# 5. Verify Android is running
+/home/dev/cuttlefish/bin/adb -s 0.0.0.0:6520 shell getprop ro.build.version.release
+# Expected: 13
+
+# 6. Access WebRTC UI (optional)
+# Open https://localhost:8443 in browser (accept self-signed cert)
+```
+
+**Verified Configuration:**
+| Component | Version |
+|-----------|---------|
+| OS | Ubuntu 25.10 (Questing Quokka) |
+| Kernel | 6.17.0-8-generic |
+| CPU | AMD Ryzen 5 3600 (SVM) |
+| Android | 13 |
+| Device | Cuttlefish x86_64 phone |
+
+---
+
+## Environment Setup (Required)
+
+Before running any Cuttlefish commands, ensure these environment variables are set:
+
+```bash
+export CUTTLEFISH_HOME="$HOME/cuttlefish"
+export ANDROID_HOST_OUT="$CUTTLEFISH_HOME"
+export PATH="$CUTTLEFISH_HOME/bin:$PATH"
+```
+
+Add these to `~/.bashrc` for persistence. **Without `ANDROID_HOST_OUT`**, you will see errors like:
+```
+exec of /bin/assemble_cvd failed (No such file or directory)
+```
+
+---
+
 ## Starting Cuttlefish
 
-### Basic Launch
+### Important: Kernel 6.17+ Compatibility
+
+On Ubuntu 25.10 with kernel 6.17+, Cuttlefish requires disabling the seccomp sandbox due to compatibility issues with crosvm. Without this flag, you will see `pcivirtio-console` crashes with SIGSEGV.
+
+**Required flag for kernel 6.17+:**
+```bash
+cd /home/dev/cuttlefish && ./bin/launch_cvd --enable_sandbox=false
+```
+
+This was verified working on 2026-01-25. See [06-troubleshooting.md](06-troubleshooting.md) for details.
+
+---
+
+### Using cvd (Recommended)
+
+The `cvd` wrapper is the preferred method for managing Cuttlefish:
 
 ```bash
 # Start with default settings
+cvd start
+
+# Start in daemon mode (background)
+cvd start --daemon
+
+# Check status
+cvd status
+
+# Stop the device
+cvd stop
+```
+
+### Using launch_cvd (Alternative)
+
+```bash
+# Start with default settings (kernel < 6.17)
 launch_cvd
 
 # Start in daemon mode (background)
 launch_cvd --daemon
+
+# Start with sandbox disabled (REQUIRED for kernel 6.17+)
+cd /home/dev/cuttlefish && ./bin/launch_cvd --enable_sandbox=false --daemon
 ```
 
 ### Headless Mode
@@ -31,8 +122,16 @@ launch_cvd --daemon
 For CI and automated testing, use headless mode:
 
 ```bash
+# For kernel < 6.17
 launch_cvd \
     --daemon \
+    --start_webrtc=false \
+    --gpu_mode=guest_swiftshader
+
+# For kernel 6.17+ (includes sandbox workaround)
+cd /home/dev/cuttlefish && ./bin/launch_cvd \
+    --daemon \
+    --enable_sandbox=false \
     --start_webrtc=false \
     --gpu_mode=guest_swiftshader
 ```
@@ -70,15 +169,19 @@ adb shell getprop sys.boot_completed
 ### Local Connection
 
 ```bash
-# Connect to default instance
-adb connect localhost:6520
+# Use the Cuttlefish-provided ADB
+/home/dev/cuttlefish/bin/adb devices
+# Output: 0.0.0.0:6520    device
 
-# Verify connection
-adb devices
-# Output: localhost:6520    device
+# Connect explicitly (usually auto-connected)
+/home/dev/cuttlefish/bin/adb connect 0.0.0.0:6520
 
 # Run commands
-adb shell ls /data
+/home/dev/cuttlefish/bin/adb -s 0.0.0.0:6520 shell ls /data
+
+# Verify Android version
+/home/dev/cuttlefish/bin/adb -s 0.0.0.0:6520 shell getprop ro.build.version.release
+# Output: 13
 ```
 
 ### Remote Connection

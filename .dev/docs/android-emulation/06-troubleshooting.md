@@ -2,9 +2,11 @@
 
 > **Work Plan:** WP-CUTTLEFISH-06
 >
-> **Status:** TODO
+> **Status:** VERIFIED
 >
 > **Purpose:** Document common issues and maintenance procedures.
+>
+> **Last Verified:** 2026-01-25 on Ubuntu 25.10 (kernel 6.17.0-8-generic)
 
 ---
 
@@ -92,6 +94,74 @@ For Azure:
 
 ### Network Issues
 
+#### Stale Network Devices (Launch Fails)
+
+**Symptoms:**
+```
+Check failed: result.ok() Received `false`
+Device "cvd-wtap-01" in use
+```
+
+**Cause:** Previous Cuttlefish crash left network tap devices in a stale state.
+
+**Solution:**
+```bash
+# List stale Cuttlefish network devices
+ip link show | grep "cvd-"
+
+# Remove stale tap devices (requires sudo)
+sudo ip link delete cvd-wtap-01
+sudo ip link delete cvd-mtap-01
+sudo ip link delete cvd-etap-01
+
+# Or restart the cuttlefish host resources service
+sudo systemctl restart cuttlefish-host-resources
+
+# Then relaunch
+rm -rf /home/dev/cuttlefish/instances
+cd /home/dev/cuttlefish && ./bin/launch_cvd
+```
+
+#### Stale Instance Files (kernel-log-pipe exists)
+
+**Symptoms:**
+```
+Unable to create named pipe at /home/dev/cuttlefish/instances/cvd-1/internal/kernel-log-pipe: File exists
+```
+
+**Solution:**
+```bash
+# Kill any stale processes
+pkill -9 -f "launch_cvd|run_cvd|crosvm|modem_simulator"
+sleep 2
+
+# Remove the stale instance directory
+rm -rf /home/dev/cuttlefish/instances
+
+# Relaunch
+cd /home/dev/cuttlefish && ./bin/launch_cvd
+```
+
+#### Port Already in Use
+
+**Symptoms:**
+```
+Port 9200 Bind failed (Address already in use)
+```
+
+**Solution:**
+```bash
+# Find and kill the process using the port
+lsof -i :9200 | grep -v PID | awk '{print $2}' | xargs -r kill -9
+
+# Or kill the modem simulator specifically
+pkill -9 -f modem_simulator
+
+# Clean and restart
+rm -rf /home/dev/cuttlefish/instances
+cd /home/dev/cuttlefish && ./bin/launch_cvd
+```
+
 #### ADB Connection Refused
 
 **Symptoms:**
@@ -159,6 +229,60 @@ sudo virsh net-autostart default
 # Verify
 sudo virsh net-list
 ```
+
+---
+
+### crosvm Crashes
+
+#### virtio-console Crash (SIGSEGV)
+
+**Symptoms:**
+```
+[ERROR:external/crosvm/src/linux/mod.rs:1878] child pcivirtio-console (pid XXXXX) died: signo 17, status 11, code 2
+failed write to child device process serial: failed to send packet: Broken pipe
+```
+
+**Cause:** Incompatibility between crosvm version and newer kernels (6.x+), specifically with seccomp sandbox policies.
+
+**Verified Solution (Ubuntu 25.10 / Kernel 6.17+):**
+
+Disable the seccomp sandbox:
+
+```bash
+cd /home/dev/cuttlefish && ./bin/launch_cvd --enable_sandbox=false
+```
+
+This was verified working on 2026-01-25 with:
+- Ubuntu 25.10 (Questing Quokka)
+- Kernel 6.17.0-8-generic
+- AMD Ryzen 5 3600 (SVM virtualization)
+- Cuttlefish Android 13
+
+**Alternative Workarounds:**
+
+1. Try running with console disabled:
+```bash
+cvd start --daemon --console=false
+```
+
+2. Try with different kernel settings:
+```bash
+cvd start --daemon --enable_minimal_mode=true
+```
+
+3. Download a newer cuttlefish release or build from source with matching kernel headers.
+
+**Alternative: Docker-based Cuttlefish**
+
+Use Docker-based Cuttlefish with Ubuntu 22.04. See [07-docker-cuttlefish.md](07-docker-cuttlefish.md) for complete setup instructions.
+
+```bash
+cd scripts/cuttlefish/docker
+./setup.sh
+./run.sh start
+```
+
+This runs Cuttlefish inside an Ubuntu 22.04 container with compatible kernel interfaces while using KVM passthrough for hardware acceleration.
 
 ---
 
