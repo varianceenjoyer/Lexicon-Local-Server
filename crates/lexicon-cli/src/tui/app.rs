@@ -90,7 +90,8 @@ pub struct TuiApp {
     /// Current view mode.
     mode: TuiMode,
     /// Audio device manager (for level monitoring when no transcription).
-    audio: AudioDeviceManager,
+    /// None on Android where cpal/oboe requires an app context.
+    audio: Option<AudioDeviceManager>,
     /// Transcription buffer.
     buffer: TranscriptionBuffer,
     /// Recording state.
@@ -148,8 +149,18 @@ impl TuiApp {
         tracing::debug!("TUI config: model_path={:?}, language={:?}, translate={}",
             config.model_path, config.language, config.translate);
 
-        let audio = AudioDeviceManager::new()?;
-        tracing::info!("Audio device manager initialized");
+        // Audio device manager is optional - it may fail on Android where cpal/oboe
+        // requires an Android app context (JNI Activity) that doesn't exist for CLI binaries
+        let audio = match AudioDeviceManager::new() {
+            Ok(mgr) => {
+                tracing::info!("Audio device manager initialized");
+                Some(mgr)
+            }
+            Err(e) => {
+                tracing::warn!("Audio device manager unavailable: {} (audio level meter disabled)", e);
+                None
+            }
+        };
 
         // Try to create transcription manager if model path is provided
         let (transcription, transcription_rx, transcription_enabled) =
@@ -418,26 +429,34 @@ impl TuiApp {
                     }
                 }
                 KeyCode::Down => {
-                    if self.dropdown_selection < self.audio.device_count().saturating_sub(1) {
+                    let device_count = self.audio.as_ref().map(|a| a.device_count()).unwrap_or(0);
+                    if self.dropdown_selection < device_count.saturating_sub(1) {
                         self.dropdown_selection += 1;
                     }
                 }
                 KeyCode::Enter => {
                     // Update both the audio device manager (for level meter when no transcription)
                     // and the transcription manager's audio capture device
-                    let _ = self.audio.select_device(self.dropdown_selection);
+                    let mut status_msg: Option<String> = None;
 
-                    // Also update transcription manager's device if available
-                    if let Some(ref mut trans) = self.transcription {
-                        if let Some(device) = self.audio.selected_device() {
-                            if let Err(e) = trans.change_device(Some(device.name.clone())) {
-                                self.set_status(&format!("Device switch failed: {}", e));
-                            } else {
-                                self.set_status(&format!("Switched to: {}", device.name));
+                    if let Some(ref mut audio) = self.audio {
+                        let _ = audio.select_device(self.dropdown_selection);
+                        let device_name = audio.selected_device().map(|d| d.name.clone());
+
+                        // Also update transcription manager's device if available
+                        if let Some(ref mut trans) = self.transcription {
+                            if let Some(name) = device_name {
+                                match trans.change_device(Some(name.clone())) {
+                                    Ok(()) => status_msg = Some(format!("Switched to: {}", name)),
+                                    Err(e) => status_msg = Some(format!("Device switch failed: {}", e)),
+                                }
                             }
                         }
                     }
 
+                    if let Some(msg) = status_msg {
+                        self.set_status(&msg);
+                    }
                     self.device_dropdown_open = false;
                 }
                 KeyCode::Esc => {
@@ -516,10 +535,14 @@ impl TuiApp {
             (KeyCode::Char('n'), KeyModifiers::CONTROL) => {
                 self.handle_new_transcription();
             }
-            // Tab: Open device dropdown
+            // Tab: Open device dropdown (only if audio is available)
             (KeyCode::Tab, _) => {
-                self.dropdown_selection = self.audio.selected_index();
-                self.device_dropdown_open = true;
+                if let Some(ref audio) = self.audio {
+                    self.dropdown_selection = audio.selected_index();
+                    self.device_dropdown_open = true;
+                } else {
+                    self.set_status("Audio devices unavailable");
+                }
             }
             // Scroll
             (KeyCode::Up, _) => {
@@ -602,7 +625,8 @@ impl TuiApp {
 
     /// Renders the header with device selector.
     fn render_header(&self, frame: &mut Frame, area: Rect) {
-        let device_name = self.audio.selected_device()
+        let device_name = self.audio.as_ref()
+            .and_then(|a| a.selected_device())
             .map(|d| d.name.as_str())
             .unwrap_or("No device");
 
@@ -648,8 +672,10 @@ impl TuiApp {
         // Level meter - use transcription manager if available, otherwise audio manager
         let level = if let Some(ref trans) = self.transcription {
             trans.get_level()
+        } else if let Some(ref audio) = self.audio {
+            audio.get_level()
         } else {
-            self.audio.get_level()
+            0.0
         };
         let meter = LevelMeter::new(level).width(20);
         frame.render_widget(meter, Rect::new(chunks[1].x, chunks[1].y, 20, 1));
@@ -745,7 +771,10 @@ impl TuiApp {
     fn render_device_dropdown(&self, frame: &mut Frame, area: Rect) {
         use ratatui::widgets::Clear;
 
-        let devices = self.audio.devices();
+        let Some(ref audio) = self.audio else {
+            return;
+        };
+        let devices = audio.devices();
         if devices.is_empty() {
             return;
         }
@@ -775,7 +804,7 @@ impl TuiApp {
             }
 
             let is_selected = i == self.dropdown_selection;
-            let is_current = i == self.audio.selected_index();
+            let is_current = i == audio.selected_index();
 
             let prefix = if is_current { "\u{2713} " } else { "  " };
             let name = if device.name.len() > (inner.width as usize - 4) {
