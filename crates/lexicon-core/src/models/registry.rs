@@ -5,6 +5,7 @@
 //! appropriate models based on device capabilities.
 
 use crate::error::{LexiconError, ModelError, Result};
+use crate::models::hashes::ModelHashRegistry;
 use crate::models::manifest::{ManifestVerifier, ModelEntry, ModelManifest};
 use crate::models::types::{
     DownloadProgress, DownloadState, ModelId, ModelInfo, ModelReadinessStatus, ModelType,
@@ -28,11 +29,9 @@ const MANIFEST_SIG_URL: &str = "https://models.lexicon.dev/manifest.json.minisig
 /// Used when the primary manifest server is unavailable.
 /// These models are from the official ggerganov/whisper.cpp repository on Hugging Face.
 ///
-/// Note: Hash values are set to "skip" to bypass verification for fallback downloads.
-/// This is acceptable because:
-/// 1. Hugging Face uses HTTPS with certificate validation
-/// 2. The models are from the official ggerganov/whisper.cpp repository
-/// 3. This is only used as a fallback when the primary signed manifest is unavailable
+/// Note: Hash values are set to "skip" in the JSON, but actual verification uses
+/// compiled-in hashes from `ModelHashRegistry`. The "skip" value signals to the
+/// verification code to look up the real hash from the registry.
 ///
 /// The download_path uses the model ID with .bin extension to match CLI expectations,
 /// while the actual Hugging Face URL is constructed using the ggml-*.bin naming convention.
@@ -445,7 +444,7 @@ impl ModelRegistry {
 
         // Check if already downloaded and verified
         if dest_path.exists() {
-            if self.verify_model_hash(&dest_path, &entry.hash_sha256).is_ok() {
+            if self.verify_model_hash(&dest_path, &entry.hash_sha256, Some(model_id)).is_ok() {
                 debug!("Model {} already downloaded and verified", model_id);
                 return Ok(dest_path);
             }
@@ -515,7 +514,7 @@ impl ModelRegistry {
 
         // Check if already downloaded and verified
         if dest_path.exists() {
-            if self.verify_model_hash(&dest_path, &entry.hash_sha256).is_ok() {
+            if self.verify_model_hash(&dest_path, &entry.hash_sha256, Some(model_id)).is_ok() {
                 debug!("Model {} already downloaded and verified", model_id);
                 return Ok(dest_path);
             }
@@ -587,7 +586,7 @@ impl ModelRegistry {
             return false;
         }
 
-        self.verify_model_hash(&path, &entry.hash_sha256).is_ok()
+        self.verify_model_hash(&path, &entry.hash_sha256, Some(model_id)).is_ok()
     }
 
     /// Returns the local path for a model.
@@ -1012,6 +1011,16 @@ impl ModelRegistry {
 
         // Check if already downloaded
         if dest_path.exists() {
+            // Resolve hash to verify against - use registry for "skip" hashes
+            let expected_hash = if entry.hash_sha256 == "skip" {
+                ModelHashRegistry::global()
+                    .get(model_id)
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| entry.hash_sha256.clone())
+            } else {
+                entry.hash_sha256.clone()
+            };
+
             // Verify hash
             let file = std::fs::File::open(&dest_path).map_err(|_| ModelError::NotFound {
                 path: dest_path.clone(),
@@ -1023,7 +1032,7 @@ impl ModelRegistry {
             })?;
             let computed = format!("{:x}", hasher.finalize());
 
-            if computed == entry.hash_sha256 {
+            if computed == expected_hash {
                 return Ok(dest_path);
             }
             std::fs::remove_file(&dest_path).ok();
@@ -1095,21 +1104,39 @@ impl ModelRegistry {
             ));
         }
 
-        // Verify (skip if hash is "skip" for fallback manifest)
-        if entry.hash_sha256 != "skip" {
-            let computed_hash = format!("{:x}", hasher.finalize());
-            if computed_hash != entry.hash_sha256 {
-                std::fs::remove_file(&temp_path).ok();
-                let mut states = download_states.write().await;
-                states.insert(model_id_owned, DownloadState::Failed);
-                return Err(ModelError::VerificationFailed {
-                    expected: entry.hash_sha256.clone(),
-                    actual: computed_hash,
+        // Verify hash - resolve from registry if "skip"
+        let hash_to_verify = if entry.hash_sha256 == "skip" {
+            // Look up hash from compiled registry
+            match ModelHashRegistry::global().get(model_id) {
+                Some(hash) => {
+                    debug!("Using compiled hash for fallback model {}", model_id);
+                    hash.to_string()
                 }
-                .into());
+                None => {
+                    std::fs::remove_file(&temp_path).ok();
+                    let mut states = download_states.write().await;
+                    states.insert(model_id_owned, DownloadState::Failed);
+                    return Err(ModelError::VerificationFailed {
+                        expected: format!("compiled hash for {}", model_id),
+                        actual: "no hash in registry".to_string(),
+                    }
+                    .into());
+                }
             }
         } else {
-            debug!("Skipping hash verification (fallback manifest)");
+            entry.hash_sha256.clone()
+        };
+
+        let computed_hash = format!("{:x}", hasher.finalize());
+        if computed_hash != hash_to_verify {
+            std::fs::remove_file(&temp_path).ok();
+            let mut states = download_states.write().await;
+            states.insert(model_id_owned, DownloadState::Failed);
+            return Err(ModelError::VerificationFailed {
+                expected: hash_to_verify,
+                actual: computed_hash,
+            }
+            .into());
         }
 
         // Finalize
@@ -1130,13 +1157,34 @@ impl ModelRegistry {
 
     /// Verifies a model file's SHA-256 hash.
     ///
-    /// If `expected_hash` is "skip", verification is bypassed (used for fallback downloads).
-    fn verify_model_hash(&self, path: &Path, expected_hash: &str) -> Result<()> {
-        // Skip verification if hash is "skip" (fallback manifest)
-        if expected_hash == "skip" {
-            debug!("Skipping hash verification for {} (fallback manifest)", path.display());
-            return Ok(());
-        }
+    /// If `expected_hash` is "skip", the hash is looked up from the compiled-in
+    /// `ModelHashRegistry` using the model_id extracted from the file path.
+    fn verify_model_hash(&self, path: &Path, expected_hash: &str, model_id: Option<&str>) -> Result<()> {
+        // Resolve the actual hash to verify against
+        let hash_to_verify = if expected_hash == "skip" {
+            // Look up hash from compiled registry
+            let id = model_id.ok_or_else(|| ModelError::VerificationFailed {
+                expected: "model_id required for fallback hash lookup".to_string(),
+                actual: "none provided".to_string(),
+            })?;
+
+            match ModelHashRegistry::global().get(id) {
+                Some(hash) => {
+                    debug!("Using compiled hash for fallback model {}", id);
+                    hash.to_string()
+                }
+                None => {
+                    warn!("No compiled hash available for model {}, verification will fail", id);
+                    return Err(ModelError::VerificationFailed {
+                        expected: format!("compiled hash for {}", id),
+                        actual: "no hash in registry".to_string(),
+                    }
+                    .into());
+                }
+            }
+        } else {
+            expected_hash.to_string()
+        };
 
         let file = std::fs::File::open(path).map_err(|_| ModelError::NotFound {
             path: path.to_path_buf(),
@@ -1151,9 +1199,9 @@ impl ModelRegistry {
 
         let computed_hash = format!("{:x}", hasher.finalize());
 
-        if computed_hash != expected_hash {
+        if computed_hash != hash_to_verify {
             return Err(ModelError::VerificationFailed {
-                expected: expected_hash.to_string(),
+                expected: hash_to_verify,
                 actual: computed_hash,
             }
             .into());
@@ -1236,19 +1284,35 @@ impl ModelRegistry {
             progress_callback(progress);
         }
 
-        // Verify hash (skip if hash is "skip" for fallback manifest)
-        if expected_hash != "skip" {
-            let computed_hash = format!("{:x}", hasher.finalize());
-            if computed_hash != expected_hash {
-                std::fs::remove_file(&temp_path).ok();
-                return Err(ModelError::VerificationFailed {
-                    expected: expected_hash.to_string(),
-                    actual: computed_hash,
+        // Verify hash - resolve from registry if "skip"
+        let hash_to_verify = if expected_hash == "skip" {
+            // Look up hash from compiled registry
+            match ModelHashRegistry::global().get(model_id.as_str()) {
+                Some(hash) => {
+                    debug!("Using compiled hash for fallback model {}", model_id);
+                    hash.to_string()
                 }
-                .into());
+                None => {
+                    std::fs::remove_file(&temp_path).ok();
+                    return Err(ModelError::VerificationFailed {
+                        expected: format!("compiled hash for {}", model_id),
+                        actual: "no hash in registry".to_string(),
+                    }
+                    .into());
+                }
             }
         } else {
-            debug!("Skipping hash verification (fallback manifest)");
+            expected_hash.to_string()
+        };
+
+        let computed_hash = format!("{:x}", hasher.finalize());
+        if computed_hash != hash_to_verify {
+            std::fs::remove_file(&temp_path).ok();
+            return Err(ModelError::VerificationFailed {
+                expected: hash_to_verify,
+                actual: computed_hash,
+            }
+            .into());
         }
 
         // Move temp file to final location
@@ -1344,19 +1408,35 @@ impl ModelRegistry {
             }
         }
 
-        // Verify hash (skip if hash is "skip" for fallback manifest)
-        if expected_hash != "skip" {
-            let computed_hash = format!("{:x}", hasher.finalize());
-            if computed_hash != expected_hash {
-                std::fs::remove_file(&temp_path).ok();
-                return Err(ModelError::VerificationFailed {
-                    expected: expected_hash.to_string(),
-                    actual: computed_hash,
+        // Verify hash - resolve from registry if "skip"
+        let hash_to_verify = if expected_hash == "skip" {
+            // Look up hash from compiled registry
+            match ModelHashRegistry::global().get(model_id.as_str()) {
+                Some(hash) => {
+                    debug!("Using compiled hash for fallback model {}", model_id);
+                    hash.to_string()
                 }
-                .into());
+                None => {
+                    std::fs::remove_file(&temp_path).ok();
+                    return Err(ModelError::VerificationFailed {
+                        expected: format!("compiled hash for {}", model_id),
+                        actual: "no hash in registry".to_string(),
+                    }
+                    .into());
+                }
             }
         } else {
-            debug!("Skipping hash verification (fallback manifest)");
+            expected_hash.to_string()
+        };
+
+        let computed_hash = format!("{:x}", hasher.finalize());
+        if computed_hash != hash_to_verify {
+            std::fs::remove_file(&temp_path).ok();
+            return Err(ModelError::VerificationFailed {
+                expected: hash_to_verify,
+                actual: computed_hash,
+            }
+            .into());
         }
 
         // Move temp file to final location
@@ -1400,7 +1480,7 @@ impl ModelRegistry {
             let model_id = ModelId::new(id);
             let local_path = self.model_path(entry);
             let exists = local_path.exists();
-            let verified = exists && self.verify_model_hash(&local_path, &entry.hash_sha256).is_ok();
+            let verified = exists && self.verify_model_hash(&local_path, &entry.hash_sha256, Some(id)).is_ok();
 
             self.models.insert(
                 model_id,

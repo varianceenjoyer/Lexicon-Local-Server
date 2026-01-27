@@ -38,7 +38,6 @@ Work packages are self-contained units of implementation work with:
 | ID | Name | Owner | Started | Notes |
 |----|------|-------|---------|-------|
 | [WP-BLE](WP-BLE.md) | Bluetooth HFP 1.6 Support | - | 2026-01-23 | Scaffolding complete - awaiting hardware test |
-| [WP-HASH-VERIFY](WP-HASH-VERIFY.md) | Model Hash Verification | - | 2026-01-23 | Phase 3 integration pending |
 
 ### Completed (MVP/Early Beta)
 
@@ -59,6 +58,7 @@ Work packages are self-contained units of implementation work with:
 | [WP-CONFIG](WP-CONFIG.md) | Local Configuration Management | 2026-01-23 | System profiling + CLI config commands |
 | [WP-TUI](WP-TUI.md) | Diagnostic TUI | 2026-01-25 | Hardware verified on Windows and bash |
 | [WP-TTS-QUALITY](WP-TTS-QUALITY.md) | TTS Quality Validation | 2026-01-25 | MOS 3.0, shipped as known limitation |
+| [WP-HASH-VERIFY](WP-HASH-VERIFY.md) | Model Hash Verification | 2026-01-27 | Fallback hash verification integrated |
 
 ---
 
@@ -90,7 +90,7 @@ Mobile platform deployment:
 
 ### Must Complete for Beta
 1. **WP-CONFIG** - Enables automatic model selection (COMPLETE)
-2. **WP-HASH-VERIFY** - Security requirement (hashes verified, Phase 3 pending)
+2. **WP-HASH-VERIFY** - Security requirement (COMPLETE)
 3. **WP-TUI** - Diagnostic TUI for real-time transcription (COMPLETE)
 4. **WP-TTS-QUALITY** - TTS quality validation (COMPLETE - MOS 3.0)
 
@@ -114,13 +114,13 @@ Mobile platform deployment:
 
 ### Work Packages (Beta) - In Progress
 - [WP-BLE](WP-BLE.md) - Bluetooth HFP support (awaiting hardware)
-- [WP-HASH-VERIFY](WP-HASH-VERIFY.md) - Model verification (Phase 3 pending)
 - [WP-FFI-TEST](WP-FFI-TEST.md) - Mobile binding tests (blocked on SDK)
 
 ### Work Packages (Beta) - Complete
 - [WP-CONFIG](WP-CONFIG.md) - Configuration management
 - [WP-TUI](WP-TUI.md) - Diagnostic TUI (verified working)
 - [WP-TTS-QUALITY](WP-TTS-QUALITY.md) - TTS quality validation (MOS 3.0)
+- [WP-HASH-VERIFY](WP-HASH-VERIFY.md) - Model hash verification (fallback integrated)
 
 ### Work Packages (Release)
 - [WP-DIARIZATION](WP-DIARIZATION.md) - Speaker diarization
@@ -133,7 +133,7 @@ Mobile platform deployment:
 ### Handoffs (Complete)
 - [HO-CONFIG-001](../handoffs/HO-CONFIG-001.md) - System profiling and CLI config
 - [HO-TUI-001](../handoffs/HO-TUI-001.md) - Diagnostic TUI (verified working)
-- [HO-HASH-001](../handoffs/HO-HASH-001.md) - Fallback hash verification (hashes acquired)
+- [HO-HASH-001](../handoffs/HO-HASH-001.md) - Fallback hash verification (complete)
 - [HO-TTS-QUALITY-001](../handoffs/HO-TTS-QUALITY-001.md) - TTS quality validation (MOS 3.0)
 
 ---
