@@ -640,4 +640,89 @@ mod tests {
         let source = source.unwrap();
         assert!(source.duration().as_secs() > 0, "Duration should be > 0");
     }
+
+    #[test]
+    fn test_streaming_sends_audio_chunks() {
+        use tokio::sync::mpsc;
+        use std::time::Duration as StdDuration;
+
+        // Create a short test WAV file
+        let mut temp = NamedTempFile::new().unwrap();
+
+        // WAV header for 16kHz mono 16-bit, 0.1 second of audio
+        let sample_rate: u32 = 16000;
+        let num_samples: u32 = 1600; // 0.1 second
+        let data_size: u32 = num_samples * 2;
+
+        // RIFF header
+        temp.write_all(b"RIFF").unwrap();
+        temp.write_all(&(36 + data_size).to_le_bytes()).unwrap();
+        temp.write_all(b"WAVE").unwrap();
+
+        // fmt chunk
+        temp.write_all(b"fmt ").unwrap();
+        temp.write_all(&16u32.to_le_bytes()).unwrap();
+        temp.write_all(&1u16.to_le_bytes()).unwrap(); // PCM
+        temp.write_all(&1u16.to_le_bytes()).unwrap(); // mono
+        temp.write_all(&sample_rate.to_le_bytes()).unwrap();
+        temp.write_all(&(sample_rate * 2).to_le_bytes()).unwrap();
+        temp.write_all(&2u16.to_le_bytes()).unwrap();
+        temp.write_all(&16u16.to_le_bytes()).unwrap();
+
+        // data chunk with some audio (sine wave)
+        temp.write_all(b"data").unwrap();
+        temp.write_all(&data_size.to_le_bytes()).unwrap();
+
+        for i in 0..num_samples {
+            let sample = ((i as f32 * 0.1).sin() * 16000.0) as i16;
+            temp.write_all(&sample.to_le_bytes()).unwrap();
+        }
+        temp.flush().unwrap();
+
+        // Create simulated source with fast playback
+        let config = SimulatedAudioConfig {
+            file_path: temp.path().to_path_buf(),
+            loop_playback: false,
+            speed: 10.0, // 10x speed for faster test
+        };
+
+        let mut source = SimulatedAudioSource::new(config).unwrap();
+
+        // Create channel to receive audio
+        let (tx, mut rx) = mpsc::unbounded_channel();
+
+        // Start streaming
+        source.start(tx).unwrap();
+        assert!(source.is_playing());
+
+        // Wait for some chunks (with timeout)
+        let mut received_chunks = 0;
+        let mut total_samples = 0;
+        let start = std::time::Instant::now();
+
+        while start.elapsed() < StdDuration::from_secs(2) {
+            match rx.try_recv() {
+                Ok(chunk) => {
+                    if chunk.is_empty() {
+                        // Empty chunk signals completion
+                        break;
+                    }
+                    received_chunks += 1;
+                    total_samples += chunk.len();
+                }
+                Err(mpsc::error::TryRecvError::Empty) => {
+                    std::thread::sleep(StdDuration::from_millis(10));
+                }
+                Err(mpsc::error::TryRecvError::Disconnected) => {
+                    break;
+                }
+            }
+        }
+
+        source.stop();
+
+        // Verify we received audio data
+        assert!(received_chunks > 0, "Should have received at least one chunk");
+        assert!(total_samples > 0, "Should have received audio samples");
+    }
 }
