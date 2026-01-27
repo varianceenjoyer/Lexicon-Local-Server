@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+#[cfg(not(target_os = "android"))]
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use tokio::sync::mpsc;
 
@@ -87,6 +88,9 @@ impl Default for TranscriptionManagerConfig {
 }
 
 /// Manages background transcription processing.
+///
+/// On Android, audio capture is disabled because cpal/oboe requires an Android
+/// app context that doesn't exist for standalone CLI binaries.
 pub struct TranscriptionManager {
     /// Sender for messages to the UI.
     tx: mpsc::UnboundedSender<TranscriptionMessage>,
@@ -96,7 +100,8 @@ pub struct TranscriptionManager {
     recording: Arc<AtomicBool>,
     /// Current audio level (shared with audio thread).
     level: Arc<AtomicU32>,
-    /// Audio capture stream.
+    /// Audio capture stream (not available on Android).
+    #[cfg(not(target_os = "android"))]
     stream: Option<cpal::Stream>,
     /// Worker thread handle.
     worker_handle: Option<thread::JoinHandle<()>>,
@@ -110,6 +115,7 @@ impl TranscriptionManager {
     /// Creates a new transcription manager.
     ///
     /// This does NOT start the transcription worker. Call `start()` to begin.
+    #[cfg(not(target_os = "android"))]
     pub fn new() -> (Self, mpsc::UnboundedReceiver<TranscriptionMessage>) {
         let (tx, rx) = mpsc::unbounded_channel();
         let (tx_clone, rx_return) = (tx.clone(), rx);
@@ -132,7 +138,31 @@ impl TranscriptionManager {
         (manager, rx2)
     }
 
+    /// Creates a new transcription manager.
+    ///
+    /// This does NOT start the transcription worker. Call `start()` to begin.
+    /// On Android, audio capture is not available.
+    #[cfg(target_os = "android")]
+    pub fn new() -> (Self, mpsc::UnboundedReceiver<TranscriptionMessage>) {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx_clone, rx_return) = (tx.clone(), rx);
+
+        let manager = Self {
+            tx: tx_clone,
+            rx: rx_return,
+            recording: Arc::new(AtomicBool::new(false)),
+            level: Arc::new(AtomicU32::new(0)),
+            worker_handle: None,
+            audio_tx: None,
+            shutdown: Arc::new(AtomicBool::new(false)),
+        };
+
+        let (_, rx2) = mpsc::unbounded_channel();
+        (manager, rx2)
+    }
+
     /// Creates a new transcription manager with proper channel setup.
+    #[cfg(not(target_os = "android"))]
     pub fn create() -> (Self, mpsc::UnboundedReceiver<TranscriptionMessage>) {
         let (ui_tx, ui_rx) = mpsc::unbounded_channel();
 
@@ -150,7 +180,38 @@ impl TranscriptionManager {
         (manager, ui_rx)
     }
 
+    /// Creates a new transcription manager with proper channel setup.
+    ///
+    /// On Android, audio capture is not available.
+    #[cfg(target_os = "android")]
+    pub fn create() -> (Self, mpsc::UnboundedReceiver<TranscriptionMessage>) {
+        let (ui_tx, ui_rx) = mpsc::unbounded_channel();
+
+        let manager = Self {
+            tx: ui_tx,
+            rx: mpsc::unbounded_channel().1, // Unused placeholder
+            recording: Arc::new(AtomicBool::new(false)),
+            level: Arc::new(AtomicU32::new(0)),
+            worker_handle: None,
+            audio_tx: None,
+            shutdown: Arc::new(AtomicBool::new(false)),
+        };
+
+        (manager, ui_rx)
+    }
+
     /// Starts the transcription worker with the given configuration.
+    ///
+    /// On Android, this returns an error because audio capture is not available.
+    #[cfg(target_os = "android")]
+    pub fn start(&mut self, _config: TranscriptionManagerConfig) -> Result<()> {
+        Err(TuiError::Audio(
+            "Transcription unavailable on Android (requires app context for audio)".to_string(),
+        ))
+    }
+
+    /// Starts the transcription worker with the given configuration.
+    #[cfg(not(target_os = "android"))]
     pub fn start(&mut self, config: TranscriptionManagerConfig) -> Result<()> {
         tracing::info!("Starting transcription manager...");
         tracing::info!("Model path: {:?}", config.model_path);
@@ -193,6 +254,7 @@ impl TranscriptionManager {
     }
 
     /// Starts audio capture on the specified device.
+    #[cfg(not(target_os = "android"))]
     fn start_audio_capture(&mut self, device_name: Option<String>) -> Result<()> {
         let host = cpal::default_host();
 
@@ -315,6 +377,18 @@ impl TranscriptionManager {
     /// Changes the audio capture device.
     ///
     /// Stops the current audio stream and starts a new one on the specified device.
+    /// On Android, this returns an error because audio capture is not available.
+    #[cfg(target_os = "android")]
+    pub fn change_device(&mut self, _device_name: Option<String>) -> Result<()> {
+        Err(TuiError::Audio(
+            "Audio unavailable on Android".to_string(),
+        ))
+    }
+
+    /// Changes the audio capture device.
+    ///
+    /// Stops the current audio stream and starts a new one on the specified device.
+    #[cfg(not(target_os = "android"))]
     pub fn change_device(&mut self, device_name: Option<String>) -> Result<()> {
         tracing::info!("Changing audio device to: {:?}", device_name);
 
@@ -332,6 +406,18 @@ impl TranscriptionManager {
     }
 
     /// Shuts down the transcription manager.
+    #[cfg(target_os = "android")]
+    pub fn shutdown(&mut self) {
+        self.shutdown.store(true, Ordering::Relaxed);
+
+        // Wait for worker to finish
+        if let Some(handle) = self.worker_handle.take() {
+            let _ = handle.join();
+        }
+    }
+
+    /// Shuts down the transcription manager.
+    #[cfg(not(target_os = "android"))]
     pub fn shutdown(&mut self) {
         self.shutdown.store(true, Ordering::Relaxed);
         self.stream = None;

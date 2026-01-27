@@ -1,12 +1,17 @@
 //! Audio Device Manager for TUI
 //!
 //! Handles device enumeration, selection, and real-time level monitoring.
+//!
+//! NOTE: On Android, cpal/oboe requires an Android app context (JNI Activity)
+//! that doesn't exist for standalone CLI binaries. The TUI gracefully degrades
+//! with audio features disabled on Android.
 
 #![allow(dead_code)] // Some fields/methods reserved for future use
 
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
+#[cfg(not(target_os = "android"))]
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 use super::{Result, TuiError};
@@ -33,6 +38,9 @@ pub struct AudioDeviceInfo {
 }
 
 /// Manages audio device enumeration and selection for the TUI.
+///
+/// On Android, audio functionality is disabled because cpal/oboe requires
+/// an Android app context that doesn't exist for standalone CLI binaries.
 pub struct AudioDeviceManager {
     /// Available input devices.
     devices: Vec<AudioDeviceInfo>,
@@ -40,9 +48,11 @@ pub struct AudioDeviceManager {
     selected: usize,
     /// Current audio level (0.0 - 1.0), stored as u32 bits of f32.
     level: Arc<AtomicU32>,
-    /// Level monitoring stream.
+    /// Level monitoring stream (not available on Android).
+    #[cfg(not(target_os = "android"))]
     level_stream: Option<cpal::Stream>,
-    /// Host handle.
+    /// Host handle (not available on Android).
+    #[cfg(not(target_os = "android"))]
     _host: cpal::Host,
 }
 
@@ -50,6 +60,20 @@ impl AudioDeviceManager {
     /// Creates a new audio device manager.
     ///
     /// Enumerates available devices and selects the default.
+    ///
+    /// On Android, this returns an error because cpal/oboe requires an Android
+    /// app context (JNI Activity) that doesn't exist for standalone CLI binaries.
+    #[cfg(target_os = "android")]
+    pub fn new() -> Result<Self> {
+        Err(TuiError::Audio(
+            "Audio unavailable on Android (requires app context)".to_string(),
+        ))
+    }
+
+    /// Creates a new audio device manager.
+    ///
+    /// Enumerates available devices and selects the default.
+    #[cfg(not(target_os = "android"))]
     pub fn new() -> Result<Self> {
         let host = cpal::default_host();
         let devices = Self::enumerate_devices_internal(&host)?;
@@ -72,16 +96,15 @@ impl AudioDeviceManager {
     }
 
     /// Enumerates all available input devices.
+    #[cfg(not(target_os = "android"))]
     fn enumerate_devices_internal(host: &cpal::Host) -> Result<Vec<AudioDeviceInfo>> {
-        let default_name = host
-            .default_input_device()
-            .and_then(|d| d.name().ok());
+        let default_name = host.default_input_device().and_then(|d| d.name().ok());
 
         let mut devices = Vec::new();
 
-        let input_devices = host.input_devices().map_err(|e| {
-            TuiError::Audio(format!("Failed to enumerate devices: {}", e))
-        })?;
+        let input_devices = host
+            .input_devices()
+            .map_err(|e| TuiError::Audio(format!("Failed to enumerate devices: {}", e)))?;
 
         for device in input_devices {
             if let Ok(name) = device.name() {
@@ -124,6 +147,15 @@ impl AudioDeviceManager {
     }
 
     /// Selects a device by index.
+    #[cfg(target_os = "android")]
+    pub fn select_device(&mut self, _index: usize) -> Result<()> {
+        Err(TuiError::Audio(
+            "Audio unavailable on Android".to_string(),
+        ))
+    }
+
+    /// Selects a device by index.
+    #[cfg(not(target_os = "android"))]
     pub fn select_device(&mut self, index: usize) -> Result<()> {
         if index >= self.devices.len() {
             return Err(TuiError::Audio("Invalid device index".to_string()));
@@ -145,6 +177,7 @@ impl AudioDeviceManager {
     }
 
     /// Starts level monitoring on the selected device.
+    #[cfg(not(target_os = "android"))]
     fn start_level_monitoring(&mut self) -> Result<()> {
         let host = cpal::default_host();
 
@@ -213,12 +246,22 @@ impl AudioDeviceManager {
     }
 
     /// Stops level monitoring.
+    #[cfg(not(target_os = "android"))]
     fn stop_level_monitoring(&mut self) {
         self.level_stream = None;
         self.level.store(0_f32.to_bits(), Ordering::Relaxed);
     }
 
     /// Refreshes the device list.
+    #[cfg(target_os = "android")]
+    pub fn refresh_devices(&mut self) -> Result<()> {
+        Err(TuiError::Audio(
+            "Audio unavailable on Android".to_string(),
+        ))
+    }
+
+    /// Refreshes the device list.
+    #[cfg(not(target_os = "android"))]
     pub fn refresh_devices(&mut self) -> Result<()> {
         let host = cpal::default_host();
         self.devices = Self::enumerate_devices_internal(&host)?;
@@ -238,6 +281,7 @@ impl AudioDeviceManager {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 impl Drop for AudioDeviceManager {
     fn drop(&mut self) {
         self.stop_level_monitoring();

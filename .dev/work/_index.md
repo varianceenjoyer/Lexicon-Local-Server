@@ -29,7 +29,9 @@ Work packages are self-contained units of implementation work with:
 
 ### Ready for Implementation
 
-*No work packages currently ready - all Beta packages in progress or blocked.*
+| ID | Name | Priority | Notes |
+|----|------|----------|-------|
+| [WP-AUDIO-SIM](WP-AUDIO-SIM.md) | Simulated Audio Device | HIGH | Android TUI testing support |
 
 ### In Progress
 
@@ -94,17 +96,21 @@ Mobile platform deployment:
 
 ### Should Complete for Beta
 5. **WP-BLE** - Audio quality improvement (scaffolding complete)
+6. **WP-AUDIO-SIM** - Simulated audio for Android testing
 
 ### Must Complete for Release
-6. **WP-IOS** - iOS platform support
-7. **WP-ANDROID** - Android platform support
+7. **WP-IOS** - iOS platform support
+8. **WP-ANDROID** - Android platform support
 
 ### Nice to Have for Release
-8. **WP-DIARIZATION** - Multi-speaker support
+9. **WP-DIARIZATION** - Multi-speaker support
 
 ---
 
 ## Quick Links
+
+### Work Packages (Beta) - Ready
+- [WP-AUDIO-SIM](WP-AUDIO-SIM.md) - Simulated audio device for Android testing
 
 ### Work Packages (Beta) - In Progress
 - [WP-BLE](WP-BLE.md) - Bluetooth HFP support (awaiting hardware)
@@ -187,7 +193,8 @@ Beta Phase Dependencies:
   WP-HASH-VERIFY ───────────┤
   WP-BLE ───────────────────┼──▶ Beta Release
   WP-TTS-QUALITY ───────────┤
-  WP-TUI ───────────────────┘
+  WP-TUI ───────────────────┤
+  WP-AUDIO-SIM ─────────────┘ (Android TUI testing)
 
 Release Phase Dependencies:
   WP-FFI (complete) ─────────┬──▶ WP-IOS ─────────┐
@@ -207,4 +214,4 @@ See [../docs/android-emulation/](../docs/android-emulation/) for Android emulati
 
 ---
 
-*Last updated: 2026-01-27. Beta at 85% completion. Three of four human-blocked items resolved. Only Bluetooth hardware testing remains. See [.dev/human.md](../human.md) for action items.*
+*Last updated: 2026-01-27. Beta at 85% completion. WP-AUDIO-SIM added for Android TUI testing. See [.dev/human.md](../human.md) for action items.*
