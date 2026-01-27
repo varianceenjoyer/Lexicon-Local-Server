@@ -584,4 +584,60 @@ mod tests {
         assert!(duration.as_secs_f64() > 0.9 && duration.as_secs_f64() < 1.1,
             "Duration was {:?}", duration);
     }
+
+    #[test]
+    fn test_load_fixture_wav() {
+        // Load the woodchuck.wav fixture if it exists
+        let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("tests/fixtures/audio/woodchuck.wav");
+
+        if !fixture_path.exists() {
+            eprintln!("Skipping test: fixture not found at {:?}", fixture_path);
+            return;
+        }
+
+        let config = SimulatedAudioConfig {
+            file_path: fixture_path,
+            loop_playback: false,
+            speed: 1.0,
+        };
+
+        let source = SimulatedAudioSource::new(config);
+        assert!(source.is_ok(), "Failed to load fixture WAV: {:?}", source.err());
+
+        let source = source.unwrap();
+        assert!(source.duration().as_secs() > 0, "Duration should be > 0");
+    }
+
+    #[test]
+    fn test_load_fixture_mp3() {
+        // Load the dolly.mp3 fixture if it exists
+        let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("tests/fixtures/audio/dolly.mp3");
+
+        if !fixture_path.exists() {
+            eprintln!("Skipping test: fixture not found at {:?}", fixture_path);
+            return;
+        }
+
+        let config = SimulatedAudioConfig {
+            file_path: fixture_path,
+            loop_playback: false,
+            speed: 1.0,
+        };
+
+        let source = SimulatedAudioSource::new(config);
+        assert!(source.is_ok(), "Failed to load fixture MP3: {:?}", source.err());
+
+        let source = source.unwrap();
+        assert!(source.duration().as_secs() > 0, "Duration should be > 0");
+    }
 }

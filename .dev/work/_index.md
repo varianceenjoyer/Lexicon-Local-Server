@@ -71,7 +71,8 @@ Core transcription capability on desktop:
 Enhanced features and security:
 - **WP-CONFIG** - System profiling and model recommendations (COMPLETE)
 - **WP-TUI** - Diagnostic TUI for real-time transcription (COMPLETE)
-- **WP-HASH-VERIFY** - Secure fallback downloads (hashes verified, Phase 3 pending)
+- **WP-HASH-VERIFY** - Secure fallback downloads (COMPLETE)
+- **WP-AUDIO-SIM** - Simulated audio for Android testing (core complete, testing pending)
 - **WP-BLE** - Bluetooth audio quality (scaffolding complete, awaiting hardware)
 - **WP-TTS-QUALITY** - TTS quality validation (COMPLETE - MOS 3.0)
 - **WP-FFI-TEST** - Mobile binding tests (blocked on SDK)
