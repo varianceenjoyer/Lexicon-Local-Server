@@ -104,3 +104,140 @@ A single-thread patch is available for Cuttlefish testing:
 ```
 
 **Note:** This patch has not been verified to fix the pthread crash. The issue appears to occur during whisper initialization before the patched code path is reached. Further investigation needed.
+
+---
+
+## ARM64 Emulation (QEMU on x86_64)
+
+This section covers testing ARM64 Android builds using QEMU TCG emulation on an x86_64 host. This is slower than x86_64 Cuttlefish but tests the actual ARM64 binary.
+
+> **Documentation:** See [.dev/docs/android-emulation/09-arm64-qemu-emulation.md](../docs/android-emulation/09-arm64-qemu-emulation.md) for full setup instructions.
+
+### Start ARM64 Emulator
+
+```bash
+# Start QEMU ARM64 emulator (background)
+./scripts/cuttlefish/run-arm64-qemu.sh --daemon
+
+# Or manually:
+qemu-system-aarch64 \
+  -machine virt,gic-version=2 \
+  -cpu max \
+  -accel tcg,thread=multi \
+  -m 4096 \
+  -smp 4 \
+  -bios ~/cuttlefish/etc/bootloader_aarch64/bootloader.qemu \
+  -nographic \
+  -drive file=~/cuttlefish-arm64/super.img,format=raw,if=virtio \
+  -drive file=~/cuttlefish-arm64/boot.img,format=raw,if=virtio \
+  -netdev user,id=net0,hostfwd=tcp::5555-:5555 \
+  -device virtio-net-pci,netdev=net0 \
+  &
+```
+
+### Wait for Boot
+
+```bash
+# Automated wait (polls every 30s, timeout 30min)
+./scripts/cuttlefish/wait-for-arm64.sh
+
+# Or manual check:
+adb connect localhost:5555
+adb devices
+```
+
+**Expected boot time:** 5-30 minutes (TCG software emulation is slow)
+
+### Build for ARM64
+
+```bash
+# Build ARM64 release binary
+bash scripts/android/build-android-tui.sh arm64 --release
+
+# Verify target
+file target/aarch64-linux-android/release/lexicon
+# Expected: ELF 64-bit LSB pie executable, ARM aarch64
+```
+
+### Push ARM64 Build + Dependencies
+
+```bash
+# Connect to device
+adb connect localhost:5555
+
+# Push ARM64 binary
+adb push target/aarch64-linux-android/release/lexicon /data/local/tmp/lexicon
+
+# Push ARM64 libc++ (if built)
+adb push dist/android/arm64/libc++_shared.so /data/local/tmp/
+
+# Push model
+adb push models/ggml-base.bin /data/local/tmp/
+
+# Push test audio
+adb push tests/fixtures/audio/woodchuck.wav /data/local/tmp/
+
+# Make executable
+adb shell chmod +x /data/local/tmp/lexicon
+```
+
+### Setup Models Directory (ARM64)
+
+```bash
+adb shell "mkdir -p /data/local/tmp/models && cp /data/local/tmp/ggml-base.bin /data/local/tmp/models/"
+```
+
+### Run TUI Test (ARM64)
+
+```bash
+adb shell "export HOME=/data/local/tmp && \
+  export LEXICON_DATA_DIR=/data/local/tmp/lexicon-data && \
+  mkdir -p /data/local/tmp/lexicon-data && \
+  LD_LIBRARY_PATH=/data/local/tmp \
+  /data/local/tmp/lexicon tui \
+    --no-mouse \
+    --model base \
+    --simulated-audio /data/local/tmp/woodchuck.wav"
+```
+
+### Transcribe Test (ARM64)
+
+```bash
+adb shell "export HOME=/data/local/tmp && \
+  export LEXICON_DATA_DIR=/data/local/tmp/lexicon-data && \
+  mkdir -p /data/local/tmp/lexicon-data && \
+  LD_LIBRARY_PATH=/data/local/tmp \
+  /data/local/tmp/lexicon transcribe /data/local/tmp/woodchuck.wav --model base"
+```
+
+### Stop ARM64 Emulator
+
+```bash
+# Find PID
+ps aux | grep qemu-system-aarch64
+
+# Kill by PID
+kill -9 <PID>
+
+# Or kill all QEMU
+pkill -f qemu-system-aarch64
+```
+
+### ARM64 vs x86_64 Quick Reference
+
+| Item | x86_64 Cuttlefish | ARM64 QEMU |
+|------|-------------------|------------|
+| **Binary path** | `target/x86_64-linux-android/release/lexicon` | `target/aarch64-linux-android/release/lexicon` |
+| **libc++ path** | `dist/android/x86_64/libc++_shared.so` | `dist/android/arm64/libc++_shared.so` |
+| **Build command** | `build-android-tui.sh x86_64 --release` | `build-android-tui.sh arm64 --release` |
+| **ADB port** | `localhost:6520` | `localhost:5555` |
+| **Boot time** | 30-60s | 5-30 min |
+| **Performance** | Faster (KVM) | Slower (TCG) |
+| **pthread issue** | Yes (crashes) | Unknown (needs testing) |
+
+### ARM64 Known Issues
+
+1. **Very slow boot**: TCG emulation is 10-100x slower than native. Be patient.
+2. **High CPU usage**: 100% CPU is normal during emulation - all ARM instructions are translated in software.
+3. **Graphics unavailable**: Use `-nographic` and access via ADB only.
+4. **pthread behavior**: ARM64 may handle threading differently than x86_64 Cuttlefish - this needs testing.
