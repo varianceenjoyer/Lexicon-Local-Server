@@ -1,6 +1,6 @@
 # Human Intervention Required
 
-> Last Updated: 2026-01-25 by design-lead (TUI verification complete)
+> Last Updated: 2026-01-27 by developer (WP-HASH-VERIFY Phase 3 complete, WP-AUDIO-SIM core complete)
 >
 > This file lists all tasks requiring human intervention. Complete these to unblock Beta release.
 
@@ -9,8 +9,9 @@
 ## ~~Priority 1: Security (WP-HASH-VERIFY)~~ ✅ COMPLETE
 
 **Task**: ~~Acquire SHA-256 hashes for model files~~ **DONE (2026-01-25)**
+**Integration**: ~~Integrate `ModelHashRegistry` into download flow~~ **DONE (2026-01-27)**
 
-All model hashes have been acquired and verified. The following hashes are now in `crates/lexicon-core/src/models/hashes.rs`:
+All model hashes have been acquired, verified, and integrated into the download verification flow:
 
 | Model | Status |
 |-------|--------|
@@ -25,9 +26,9 @@ All model hashes have been acquired and verified. The following hashes are now i
 | whisper-large-v3-turbo | ✅ Verified |
 | kokoro-tts | ✅ Verified |
 
-**Remaining**: Integration of `ModelHashRegistry` into download flow (see [WP-HASH-VERIFY](work/WP-HASH-VERIFY.md) Phase 3)
+**All phases complete**: Hash registry integrated into `registry.rs`. Fallback downloads now verified.
 
-**Related**: [HO-HASH-001](handoffs/HO-HASH-001.md)
+**Related**: [HO-HASH-001](handoffs/HO-HASH-001.md), [WP-HASH-VERIFY](work/WP-HASH-VERIFY.md)
 
 ---
 
