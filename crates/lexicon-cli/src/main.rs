@@ -156,6 +156,14 @@ enum Commands {
         /// Translate non-English speech to English
         #[arg(long)]
         translate: bool,
+
+        /// Path to audio file for simulated input (enables simulation mode)
+        #[arg(long)]
+        simulated_audio: Option<PathBuf>,
+
+        /// Loop simulated audio playback continuously
+        #[arg(long)]
+        simulated_loop: bool,
     },
 
     /// Diagnostic TUI (alias for tui command)
@@ -183,6 +191,14 @@ enum Commands {
         /// Translate non-English speech to English
         #[arg(long)]
         translate: bool,
+
+        /// Path to audio file for simulated input (enables simulation mode)
+        #[arg(long)]
+        simulated_audio: Option<PathBuf>,
+
+        /// Loop simulated audio playback continuously
+        #[arg(long)]
+        simulated_loop: bool,
     },
 }
 
@@ -399,9 +415,9 @@ fn main() -> Result<()> {
             TtsQualityAction::Sentences => cmd_tts_quality_sentences(),
             TtsQualityAction::Report { report_file } => cmd_tts_quality_report(report_file),
         },
-        Commands::Tui { device, no_mouse, buffer_size, model, language, translate } |
-        Commands::Diag { device, no_mouse, buffer_size, model, language, translate } => {
-            cmd_tui(device, no_mouse, buffer_size, model, language, translate)
+        Commands::Tui { device, no_mouse, buffer_size, model, language, translate, simulated_audio, simulated_loop } |
+        Commands::Diag { device, no_mouse, buffer_size, model, language, translate, simulated_audio, simulated_loop } => {
+            cmd_tui(device, no_mouse, buffer_size, model, language, translate, simulated_audio, simulated_loop)
         }
     }
 }
@@ -500,6 +516,8 @@ fn cmd_tui(
     model: Option<PathBuf>,
     language: String,
     translate: bool,
+    simulated_audio: Option<PathBuf>,
+    simulated_loop: bool,
 ) -> Result<()> {
     use tui::{TuiApp, app::TuiConfig};
 
@@ -526,6 +544,8 @@ fn cmd_tui(
         translate,
         database_path,
         confirm_new_transcription: core_config.tui.confirm_new_transcription,
+        simulated_audio,
+        simulated_loop,
     };
 
     let mut app = TuiApp::with_config(config)

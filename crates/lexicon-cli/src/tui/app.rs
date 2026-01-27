@@ -68,6 +68,10 @@ pub struct TuiConfig {
     pub database_path: Option<PathBuf>,
     /// Whether to prompt before creating a new transcription with unsaved changes.
     pub confirm_new_transcription: bool,
+    /// Path to simulated audio file (enables simulation mode).
+    pub simulated_audio: Option<PathBuf>,
+    /// Loop simulated audio playback.
+    pub simulated_loop: bool,
 }
 
 impl Default for TuiConfig {
@@ -81,6 +85,8 @@ impl Default for TuiConfig {
             translate: false,
             database_path: None,
             confirm_new_transcription: true,
+            simulated_audio: None,
+            simulated_loop: false,
         }
     }
 }
@@ -177,6 +183,8 @@ impl TuiApp {
                         language: config.language.clone(),
                         translate: config.translate,
                         device_name: config.device_name.clone(),
+                        simulated_audio: config.simulated_audio.clone(),
+                        simulated_loop: config.simulated_loop,
                     };
 
                     match manager.start(trans_config) {

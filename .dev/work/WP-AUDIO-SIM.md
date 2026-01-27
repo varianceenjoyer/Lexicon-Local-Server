@@ -1,7 +1,7 @@
 ---
 id: WP-AUDIO-SIM
 type: work-plan
-status: ready
+status: in-progress
 phase: beta
 created: 2026-01-27
 updated: 2026-01-27
@@ -15,7 +15,7 @@ tags: [android, testing, audio, tui, simulation]
 
 # WP-AUDIO-SIM: Simulated Audio Device for Android Testing
 
-> **Phase**: Beta | **Priority**: HIGH | **Status**: Ready
+> **Phase**: Beta | **Priority**: HIGH | **Status**: In Progress (core implementation complete)
 
 ## Summary
 
@@ -337,9 +337,52 @@ pub struct TuiConfig {
 
 ---
 
+## Implementation Progress
+
+### ✅ Completed (2026-01-27)
+
+1. **Created `audio_sim.rs` module** (`crates/lexicon-cli/src/tui/audio_sim.rs`)
+   - `SimulatedAudioConfig` struct with file_path, loop_playback, speed
+   - `SimulatedAudioSource` struct with streaming, level monitoring, position tracking
+   - `AudioSimError` enum for error handling
+   - Audio loading via symphonia (WAV, MP3, FLAC, OGG support)
+   - Resampling to 16kHz mono via rubato
+   - Real-time streaming with drift-corrected pacing
+   - RMS level calculation for meter display
+   - Unit tests for RMS calculation, config, and WAV loading
+
+2. **Added CLI flags** (`crates/lexicon-cli/src/main.rs`)
+   - `--simulated-audio <path>` - Path to audio file for simulation mode
+   - `--simulated-loop` - Enable loop playback
+   - Available on both `tui` and `diag` commands
+
+3. **Updated TuiConfig** (`crates/lexicon-cli/src/tui/app.rs`)
+   - Added `simulated_audio: Option<PathBuf>`
+   - Added `simulated_loop: bool`
+
+4. **Integrated with TranscriptionManager** (`crates/lexicon-cli/src/tui/transcription.rs`)
+   - Added `simulated_source: Option<SimulatedAudioSource>` field
+   - Updated `start()` to use simulated audio when configured
+   - `get_level()` returns simulated source level when active
+   - `shutdown()` stops simulated source
+   - Android platform support via simulated audio
+
+5. **Added dependencies** (`crates/lexicon-cli/Cargo.toml`)
+   - `symphonia` for audio file decoding
+   - `rubato` for sample rate conversion
+
+### 🔄 Remaining (Testing)
+
+- [ ] Create test audio fixtures in `tests/fixtures/audio/`
+- [ ] End-to-end integration test with simulated audio
+- [ ] Manual test on Android emulator (Cuttlefish)
+
+---
+
 ## Changelog
 
 | Date | Update |
 |------|--------|
 | 2026-01-27 | Initial work plan created |
+| 2026-01-27 | Core implementation complete - audio_sim module, CLI flags, TUI integration |
 

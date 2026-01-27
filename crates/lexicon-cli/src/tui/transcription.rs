@@ -2,6 +2,12 @@
 //!
 //! Handles audio capture, resampling, and speech-to-text processing
 //! in a background thread, sending results back to the UI.
+//!
+//! # Simulated Audio Mode
+//!
+//! When `simulated_audio` is set in the config, audio is read from a file
+//! instead of capturing from a real device. This enables testing on platforms
+//! where audio hardware is unavailable (e.g., Android CLI without app context).
 
 #![allow(dead_code)] // Some methods reserved for future use
 
@@ -19,6 +25,7 @@ use lexicon_core::stt::{
     install_whisper_logging_hooks, Transcriber, TranscriptionConfig, WhisperTranscriber,
 };
 
+use super::audio_sim::{SimulatedAudioConfig, SimulatedAudioSource};
 use super::{Result, TuiError};
 
 /// Gain multiplier for level meter display.
@@ -74,6 +81,10 @@ pub struct TranscriptionManagerConfig {
     pub translate: bool,
     /// Device name to use (None for default).
     pub device_name: Option<String>,
+    /// Path to simulated audio file (enables simulation mode).
+    pub simulated_audio: Option<PathBuf>,
+    /// Loop simulated audio playback.
+    pub simulated_loop: bool,
 }
 
 impl Default for TranscriptionManagerConfig {
@@ -83,6 +94,8 @@ impl Default for TranscriptionManagerConfig {
             language: Some("en".to_string()),
             translate: false,
             device_name: None,
+            simulated_audio: None,
+            simulated_loop: false,
         }
     }
 }
@@ -90,7 +103,8 @@ impl Default for TranscriptionManagerConfig {
 /// Manages background transcription processing.
 ///
 /// On Android, audio capture is disabled because cpal/oboe requires an Android
-/// app context that doesn't exist for standalone CLI binaries.
+/// app context that doesn't exist for standalone CLI binaries. However, simulated
+/// audio mode can be used to test transcription from audio files.
 pub struct TranscriptionManager {
     /// Sender for messages to the UI.
     tx: mpsc::UnboundedSender<TranscriptionMessage>,
@@ -103,6 +117,8 @@ pub struct TranscriptionManager {
     /// Audio capture stream (not available on Android).
     #[cfg(not(target_os = "android"))]
     stream: Option<cpal::Stream>,
+    /// Simulated audio source (for testing without real audio hardware).
+    simulated_source: Option<SimulatedAudioSource>,
     /// Worker thread handle.
     worker_handle: Option<thread::JoinHandle<()>>,
     /// Audio samples channel (to worker).
@@ -126,6 +142,7 @@ impl TranscriptionManager {
             recording: Arc::new(AtomicBool::new(false)),
             level: Arc::new(AtomicU32::new(0)),
             stream: None,
+            simulated_source: None,
             worker_handle: None,
             audio_tx: None,
             shutdown: Arc::new(AtomicBool::new(false)),
@@ -141,7 +158,7 @@ impl TranscriptionManager {
     /// Creates a new transcription manager.
     ///
     /// This does NOT start the transcription worker. Call `start()` to begin.
-    /// On Android, audio capture is not available.
+    /// On Android, audio capture is not available but simulated audio can be used.
     #[cfg(target_os = "android")]
     pub fn new() -> (Self, mpsc::UnboundedReceiver<TranscriptionMessage>) {
         let (tx, rx) = mpsc::unbounded_channel();
@@ -152,6 +169,7 @@ impl TranscriptionManager {
             rx: rx_return,
             recording: Arc::new(AtomicBool::new(false)),
             level: Arc::new(AtomicU32::new(0)),
+            simulated_source: None,
             worker_handle: None,
             audio_tx: None,
             shutdown: Arc::new(AtomicBool::new(false)),
@@ -172,6 +190,7 @@ impl TranscriptionManager {
             recording: Arc::new(AtomicBool::new(false)),
             level: Arc::new(AtomicU32::new(0)),
             stream: None,
+            simulated_source: None,
             worker_handle: None,
             audio_tx: None,
             shutdown: Arc::new(AtomicBool::new(false)),
@@ -182,7 +201,7 @@ impl TranscriptionManager {
 
     /// Creates a new transcription manager with proper channel setup.
     ///
-    /// On Android, audio capture is not available.
+    /// On Android, audio capture is not available but simulated audio can be used.
     #[cfg(target_os = "android")]
     pub fn create() -> (Self, mpsc::UnboundedReceiver<TranscriptionMessage>) {
         let (ui_tx, ui_rx) = mpsc::unbounded_channel();
@@ -192,6 +211,7 @@ impl TranscriptionManager {
             rx: mpsc::unbounded_channel().1, // Unused placeholder
             recording: Arc::new(AtomicBool::new(false)),
             level: Arc::new(AtomicU32::new(0)),
+            simulated_source: None,
             worker_handle: None,
             audio_tx: None,
             shutdown: Arc::new(AtomicBool::new(false)),
@@ -202,25 +222,42 @@ impl TranscriptionManager {
 
     /// Starts the transcription worker with the given configuration.
     ///
-    /// On Android, this returns an error because audio capture is not available.
+    /// On Android, this returns an error unless simulated audio is configured,
+    /// because real audio capture is not available.
     #[cfg(target_os = "android")]
-    pub fn start(&mut self, _config: TranscriptionManagerConfig) -> Result<()> {
-        Err(TuiError::Audio(
-            "Transcription unavailable on Android (requires app context for audio)".to_string(),
-        ))
+    pub fn start(&mut self, config: TranscriptionManagerConfig) -> Result<()> {
+        // Check if simulated audio is enabled
+        if config.simulated_audio.is_none() {
+            return Err(TuiError::Audio(
+                "Transcription unavailable on Android (requires app context for audio). \
+                 Use --simulated-audio to test with an audio file.".to_string(),
+            ));
+        }
+
+        // Use common implementation for simulated audio
+        self.start_common(config)
     }
 
     /// Starts the transcription worker with the given configuration.
     #[cfg(not(target_os = "android"))]
     pub fn start(&mut self, config: TranscriptionManagerConfig) -> Result<()> {
+        self.start_common(config)
+    }
+
+    /// Common start implementation for both platforms.
+    fn start_common(&mut self, config: TranscriptionManagerConfig) -> Result<()> {
         tracing::info!("Starting transcription manager...");
         tracing::info!("Model path: {:?}", config.model_path);
         tracing::info!("Model exists: {}", config.model_path.exists());
         tracing::info!("Language: {:?}, translate: {}", config.language, config.translate);
 
+        if let Some(ref path) = config.simulated_audio {
+            tracing::info!("Simulated audio mode: {:?}", path);
+        }
+
         // Create channel for audio samples
         let (audio_tx, audio_rx) = mpsc::unbounded_channel();
-        self.audio_tx = Some(audio_tx);
+        self.audio_tx = Some(audio_tx.clone());
 
         // Clone shared state for worker
         let ui_tx = self.tx.clone();
@@ -245,11 +282,49 @@ impl TranscriptionManager {
             );
         }));
 
-        // Start audio capture
-        tracing::info!("Starting audio capture...");
-        self.start_audio_capture(config.device_name)?;
-        tracing::info!("Audio capture started successfully");
+        // Start audio source (simulated or real)
+        if let Some(audio_path) = config.simulated_audio {
+            tracing::info!("Starting simulated audio from: {:?}", audio_path);
+            self.start_simulated_audio(audio_path, config.simulated_loop, audio_tx)?;
+        } else {
+            #[cfg(not(target_os = "android"))]
+            {
+                tracing::info!("Starting real audio capture...");
+                self.start_audio_capture(config.device_name)?;
+            }
+            #[cfg(target_os = "android")]
+            {
+                return Err(TuiError::Audio(
+                    "Real audio capture not available on Android".to_string(),
+                ));
+            }
+        }
 
+        tracing::info!("Audio source started successfully");
+        Ok(())
+    }
+
+    /// Starts simulated audio from a file.
+    fn start_simulated_audio(
+        &mut self,
+        path: PathBuf,
+        loop_playback: bool,
+        audio_tx: mpsc::UnboundedSender<Vec<f32>>,
+    ) -> Result<()> {
+        let sim_config = SimulatedAudioConfig {
+            file_path: path,
+            loop_playback,
+            speed: 1.0,
+        };
+
+        let mut source = SimulatedAudioSource::new(sim_config)
+            .map_err(|e| TuiError::Audio(format!("Failed to load simulated audio: {}", e)))?;
+
+        source
+            .start(audio_tx)
+            .map_err(|e| TuiError::Audio(format!("Failed to start simulated audio: {}", e)))?;
+
+        self.simulated_source = Some(source);
         Ok(())
     }
 
@@ -355,8 +430,22 @@ impl TranscriptionManager {
     }
 
     /// Returns the current audio level (0.0 - 1.0).
+    ///
+    /// If simulated audio is active, returns its level; otherwise returns the
+    /// real audio capture level.
     pub fn get_level(&self) -> f32 {
+        // Prefer simulated source level when active
+        if let Some(ref source) = self.simulated_source {
+            if source.is_playing() {
+                return source.get_level();
+            }
+        }
         f32::from_bits(self.level.load(Ordering::Relaxed))
+    }
+
+    /// Returns whether simulated audio is being used.
+    pub fn is_simulated(&self) -> bool {
+        self.simulated_source.is_some()
     }
 
     /// Starts recording.
@@ -410,6 +499,12 @@ impl TranscriptionManager {
     pub fn shutdown(&mut self) {
         self.shutdown.store(true, Ordering::Relaxed);
 
+        // Stop simulated audio source
+        if let Some(ref mut source) = self.simulated_source {
+            source.stop();
+        }
+        self.simulated_source = None;
+
         // Wait for worker to finish
         if let Some(handle) = self.worker_handle.take() {
             let _ = handle.join();
@@ -421,6 +516,12 @@ impl TranscriptionManager {
     pub fn shutdown(&mut self) {
         self.shutdown.store(true, Ordering::Relaxed);
         self.stream = None;
+
+        // Stop simulated audio source
+        if let Some(ref mut source) = self.simulated_source {
+            source.stop();
+        }
+        self.simulated_source = None;
 
         // Wait for worker to finish
         if let Some(handle) = self.worker_handle.take() {

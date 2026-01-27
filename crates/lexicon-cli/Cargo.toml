@@ -48,6 +48,10 @@ chrono.workspace = true
 # Audio file reading
 hound.workspace = true
 
+# Audio format conversion for simulated audio source
+symphonia.workspace = true
+rubato.workspace = true
+
 # Audio capture (for TUI)
 cpal.workspace = true
 

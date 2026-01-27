@@ -9,9 +9,11 @@
 //! - Scrollable text area for transcription output
 //! - Save/rename dialog with keyboard shortcuts
 //! - Saved transcriptions browser
+//! - Simulated audio source for Android/headless testing
 
 pub mod app;
 mod audio;
+pub mod audio_sim;
 mod buffer;
 pub mod dialogs;
 mod transcription;
@@ -25,6 +27,8 @@ pub use app::TuiApp;
 pub use app::TuiMode;
 #[allow(unused_imports)]
 pub use audio::AudioDeviceManager;
+#[allow(unused_imports)]
+pub use audio_sim::{AudioSimError, SimulatedAudioConfig, SimulatedAudioSource};
 #[allow(unused_imports)]
 pub use buffer::TranscriptionBuffer;
 #[allow(unused_imports)]
