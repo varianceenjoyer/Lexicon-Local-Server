@@ -29,15 +29,14 @@ Work packages are self-contained units of implementation work with:
 
 ### Ready for Implementation
 
-| ID | Name | Priority | Notes |
-|----|------|----------|-------|
-| [WP-AUDIO-SIM](WP-AUDIO-SIM.md) | Simulated Audio Device | HIGH | Android TUI testing support |
+(None - all high priority items in progress or complete)
 
 ### In Progress
 
 | ID | Name | Owner | Started | Notes |
 |----|------|-------|---------|-------|
 | [WP-BLE](WP-BLE.md) | Bluetooth HFP 1.6 Support | - | 2026-01-23 | Scaffolding complete - awaiting hardware test |
+| [WP-AUDIO-SIM](WP-AUDIO-SIM.md) | Simulated Audio Device | - | 2026-01-27 | Core complete - testing remaining |
 
 ### Completed (MVP/Early Beta)
 
@@ -109,8 +108,8 @@ Mobile platform deployment:
 
 ## Quick Links
 
-### Work Packages (Beta) - Ready
-- [WP-AUDIO-SIM](WP-AUDIO-SIM.md) - Simulated audio device for Android testing
+### Work Packages (Beta) - In Progress
+- [WP-AUDIO-SIM](WP-AUDIO-SIM.md) - Simulated audio device (core complete, testing pending)
 
 ### Work Packages (Beta) - In Progress
 - [WP-BLE](WP-BLE.md) - Bluetooth HFP support (awaiting hardware)
@@ -214,4 +213,4 @@ See [../docs/android-emulation/](../docs/android-emulation/) for Android emulati
 
 ---
 
-*Last updated: 2026-01-27. Beta at 85% completion. WP-AUDIO-SIM added for Android TUI testing. See [.dev/human.md](../human.md) for action items.*
+*Last updated: 2026-01-27. Beta at 90% completion. WP-HASH-VERIFY complete. WP-AUDIO-SIM core implementation complete. See [.dev/human.md](../human.md) for action items.*
