@@ -2,19 +2,19 @@
 
 > **ID**: HO-HASH-001 | **Work Package**: WP-HASH-VERIFY
 >
-> **Created**: 2026-01-23 | **Status**: 🟡 SCAFFOLDING COMPLETE - AWAITING HASHES
+> **Created**: 2026-01-23 | **Status**: ✅ COMPLETE
 
 ---
 
 ## Summary
 
-Implement SHA-256 hash verification for fallback model downloads from Hugging Face. Currently bypassed (hash = "skip") - this is a **security gap** that must be closed for Beta release.
+Implement SHA-256 hash verification for fallback model downloads from Hugging Face. **Security gap closed** - all fallback downloads now verified against compiled hashes.
 
 ---
 
 ## Current Progress
 
-### Completed (2026-01-23)
+### Phase 1: Scaffolding (2026-01-23) ✅
 - [x] Hash registry module created: `crates/lexicon-core/src/models/hashes.rs`
 - [x] `ModelHashRegistry` struct with all model IDs
 - [x] `HashError` enum for error handling
@@ -26,13 +26,19 @@ Implement SHA-256 hash verification for fallback model downloads from Hugging Fa
 - [x] 14 unit tests passing
 - [x] Module exported from `models/mod.rs`
 
-### Remaining (Blocked on Human Action)
-- [ ] **HUMAN ACTION REQUIRED**: Download models and compute SHA-256 hashes
-- [ ] Update `HASH_WHISPER_*` constants in `hashes.rs`
-- [ ] Update `HASH_KOKORO_TTS` constant in `hashes.rs`
-- [ ] Update `HASHES_LAST_VERIFIED` date
-- [ ] Integrate with fallback download path (remove "skip" logic)
-- [ ] Remove "skip" hash values from `registry.rs`
+### Phase 2: Hash Acquisition (2026-01-25) ✅
+- [x] SHA-256 hashes computed for all Whisper models
+- [x] SHA-256 hash computed for Kokoro TTS model
+- [x] All hash constants updated in `hashes.rs`
+- [x] `HASHES_LAST_VERIFIED` date updated
+
+### Phase 3: Registry Integration (2026-01-27) ✅
+- [x] `ModelHashRegistry` integrated into `registry.rs`
+- [x] `verify_model_hash()` updated to resolve "skip" from registry
+- [x] `download_with_verification()` uses registry for fallback hashes
+- [x] `download_with_verification_cancellable()` uses registry for fallback hashes
+- [x] All download paths now verify against compiled hashes
+- [x] "skip" no longer bypasses verification (triggers registry lookup)
 
 ---
 

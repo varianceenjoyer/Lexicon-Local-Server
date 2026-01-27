@@ -51,4 +51,4 @@ See [.dev/human.md](../human.md) for detailed instructions.
 
 ---
 
-*Last updated: 2026-01-27. Three of four human-blocked items complete. Only Bluetooth hardware testing remains. See [.dev/human.md](../human.md) for details.*
+*Last updated: 2026-01-27. Four of four human-blocked items complete (hashes acquired and integrated). Only Bluetooth hardware testing remains for WP-BLE. See [.dev/human.md](../human.md) for details.*
