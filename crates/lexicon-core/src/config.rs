@@ -166,7 +166,7 @@ pub struct SttConfig {
 
 impl SttConfig {
     fn default_model() -> String {
-        "whisper-base-q5_1".to_string()
+        "whisper-base".to_string()
     }
 
     fn default_max_speakers() -> u32 {
@@ -803,7 +803,7 @@ mod tests {
     fn test_stt_config_defaults() {
         let config = SttConfig::default();
 
-        assert_eq!(config.default_model, "whisper-base-q5_1");
+        assert_eq!(config.default_model, "whisper-base");
         assert!(!config.diarization_enabled);
         assert_eq!(config.max_speakers, 4);
         assert!(config.gpu_enabled);

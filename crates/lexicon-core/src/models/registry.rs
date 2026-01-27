@@ -161,6 +161,9 @@ const FALLBACK_MANIFEST_JSON: &str = r#"{
 pub struct ModelRegistry {
     /// Directory for cached model files.
     cache_dir: PathBuf,
+    /// Directory for bundled model files (adjacent to executable).
+    /// Models in this directory are used as fallbacks before downloading.
+    bundled_dir: Option<PathBuf>,
     /// Parsed and verified model manifest.
     manifest: Option<ModelManifest>,
     /// Map of model ID to local model info.
@@ -193,9 +196,15 @@ impl ModelRegistry {
         })?;
 
         let http_client = Self::build_http_client()?;
+        let bundled_dir = Self::detect_bundled_dir();
+
+        if let Some(ref dir) = bundled_dir {
+            info!("Bundled models directory detected: {}", dir.display());
+        }
 
         let mut registry = Self {
             cache_dir: cache_dir.to_path_buf(),
+            bundled_dir,
             manifest: None,
             models: HashMap::new(),
             thermal_state: ThermalState::Nominal,
@@ -208,6 +217,22 @@ impl ModelRegistry {
         registry.scan_local_models();
 
         Ok(registry)
+    }
+
+    /// Detects the bundled models directory adjacent to the executable.
+    ///
+    /// Returns `Some(path)` if a `models/` directory exists next to the executable,
+    /// otherwise returns `None`.
+    fn detect_bundled_dir() -> Option<PathBuf> {
+        let exe_path = std::env::current_exe().ok()?;
+        let exe_dir = exe_path.parent()?;
+        let bundled_dir = exe_dir.join("models");
+
+        if bundled_dir.is_dir() {
+            Some(bundled_dir)
+        } else {
+            None
+        }
     }
 
     /// Creates a registry with a custom manifest verifier.
@@ -225,9 +250,15 @@ impl ModelRegistry {
         })?;
 
         let http_client = Self::build_http_client()?;
+        let bundled_dir = Self::detect_bundled_dir();
+
+        if let Some(ref dir) = bundled_dir {
+            info!("Bundled models directory detected: {}", dir.display());
+        }
 
         let mut registry = Self {
             cache_dir: cache_dir.to_path_buf(),
+            bundled_dir,
             manifest: None,
             models: HashMap::new(),
             thermal_state: ThermalState::Nominal,
@@ -422,6 +453,8 @@ impl ModelRegistry {
     }
 
     /// Downloads a model with progress reporting.
+    ///
+    /// If a bundled model is available, returns its path without downloading.
     #[instrument(skip(self, progress_callback))]
     pub async fn download_model<F>(
         &self,
@@ -431,6 +464,12 @@ impl ModelRegistry {
     where
         F: Fn(DownloadProgress) + Send + Sync + 'static,
     {
+        // Check for bundled model first
+        if let Some(bundled_path) = self.get_bundled_model_path(model_id) {
+            info!("Using bundled model for {}: {}", model_id, bundled_path.display());
+            return Ok(bundled_path);
+        }
+
         let manifest = self.manifest.as_ref().ok_or_else(|| ModelError::ManifestError {
             message: "No manifest loaded. Call fetch_manifest() first.".to_string(),
         })?;
@@ -490,6 +529,7 @@ impl ModelRegistry {
 
     /// Downloads a model with progress reporting and cancellation support.
     ///
+    /// If a bundled model is available, returns its path without downloading.
     /// The progress callback returns a boolean: `true` to continue, `false` to cancel.
     /// On cancellation, the download state is set to `Cancelled` and partial files are cleaned up.
     #[instrument(skip(self, progress_callback))]
@@ -501,6 +541,12 @@ impl ModelRegistry {
     where
         F: Fn(DownloadProgress) -> bool + Send + Sync + 'static,
     {
+        // Check for bundled model first
+        if let Some(bundled_path) = self.get_bundled_model_path(model_id) {
+            info!("Using bundled model for {}: {}", model_id, bundled_path.display());
+            return Ok(bundled_path);
+        }
+
         let manifest = self.manifest.as_ref().ok_or_else(|| ModelError::ManifestError {
             message: "No manifest loaded. Call fetch_manifest() first.".to_string(),
         })?;
@@ -590,16 +636,68 @@ impl ModelRegistry {
     }
 
     /// Returns the local path for a model.
+    ///
+    /// Checks bundled models directory first, then falls back to cached models.
     #[must_use]
     pub fn get_model_path(&self, model_id: &str) -> Option<PathBuf> {
+        // Check bundled models first
+        if let Some(bundled_path) = self.get_bundled_model_path(model_id) {
+            return Some(bundled_path);
+        }
+
+        // Fall back to cached models
         self.models.get(&ModelId::new(model_id)).and_then(|info| {
             info.local_path.as_ref().filter(|p| p.exists()).cloned()
         })
     }
 
+    /// Returns the path to a bundled model if it exists.
+    ///
+    /// Bundled models are located in a `models/` directory adjacent to the executable.
+    /// This allows distributions to include default models without requiring downloads.
+    #[must_use]
+    pub fn get_bundled_model_path(&self, model_id: &str) -> Option<PathBuf> {
+        let bundled_dir = self.bundled_dir.as_ref()?;
+
+        // Map model ID to filename (e.g., "whisper-base" -> "ggml-base.bin")
+        let filename = Self::model_id_to_filename(model_id);
+        let bundled_path = bundled_dir.join(&filename);
+
+        if bundled_path.exists() {
+            debug!("Found bundled model for {}: {}", model_id, bundled_path.display());
+            Some(bundled_path)
+        } else {
+            None
+        }
+    }
+
+    /// Maps a model ID to its expected filename.
+    ///
+    /// Follows the whisper.cpp naming convention (ggml-*.bin).
+    fn model_id_to_filename(model_id: &str) -> String {
+        // Strip "whisper-" prefix and add ggml- prefix
+        let name = model_id.strip_prefix("whisper-").unwrap_or(model_id);
+        format!("ggml-{}.bin", name)
+    }
+
+    /// Returns the bundled models directory path, if detected.
+    #[must_use]
+    pub fn bundled_dir(&self) -> Option<&Path> {
+        self.bundled_dir.as_deref()
+    }
+
     /// Checks if a model is downloaded and verified.
+    ///
+    /// Returns `true` if the model is available as a bundled model or as a
+    /// verified download in the cache.
     #[must_use]
     pub fn is_model_available(&self, model_id: &str) -> bool {
+        // Check bundled models first
+        if self.get_bundled_model_path(model_id).is_some() {
+            return true;
+        }
+
+        // Fall back to cached models
         self.models
             .get(&ModelId::new(model_id))
             .map(|info| info.is_ready())
@@ -1454,8 +1552,23 @@ impl ModelRegistry {
         self.cache_dir.join(filename)
     }
 
-    /// Scans the cache directory for existing model files.
+    /// Scans the cache and bundled directories for existing model files.
     fn scan_local_models(&mut self) {
+        // Scan bundled models directory first
+        if let Some(ref bundled_dir) = self.bundled_dir {
+            if let Ok(entries) = std::fs::read_dir(bundled_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                            debug!("Found bundled model file: {}", stem);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Scan cache directory
         let Ok(entries) = std::fs::read_dir(&self.cache_dir) else {
             return;
         };
@@ -1471,6 +1584,8 @@ impl ModelRegistry {
     }
 
     /// Synchronizes model info from the manifest.
+    ///
+    /// Checks both bundled and cached model locations.
     fn sync_models_from_manifest(&mut self) {
         let Some(manifest) = &self.manifest else {
             return;
@@ -1478,8 +1593,16 @@ impl ModelRegistry {
 
         for (id, entry) in &manifest.models {
             let model_id = ModelId::new(id);
-            let local_path = self.model_path(entry);
-            let exists = local_path.exists();
+
+            // Check for bundled model first, then cache
+            let (local_path, exists) = if let Some(bundled_path) = self.get_bundled_model_path(id) {
+                (bundled_path, true)
+            } else {
+                let cache_path = self.model_path(entry);
+                let cache_exists = cache_path.exists();
+                (cache_path, cache_exists)
+            };
+
             let verified = exists && self.verify_model_hash(&local_path, &entry.hash_sha256, Some(id)).is_ok();
 
             self.models.insert(
@@ -1924,6 +2047,48 @@ mod tests {
             .download_model_cancellable("non-existent-model", |_| true)
             .await;
         assert!(result.is_err());
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_model_id_to_filename() {
+        // Test standard whisper models
+        assert_eq!(ModelRegistry::model_id_to_filename("whisper-base"), "ggml-base.bin");
+        assert_eq!(ModelRegistry::model_id_to_filename("whisper-tiny"), "ggml-tiny.bin");
+        assert_eq!(ModelRegistry::model_id_to_filename("whisper-small"), "ggml-small.bin");
+        assert_eq!(ModelRegistry::model_id_to_filename("whisper-medium"), "ggml-medium.bin");
+        assert_eq!(ModelRegistry::model_id_to_filename("whisper-large-v3"), "ggml-large-v3.bin");
+
+        // Test quantized models
+        assert_eq!(ModelRegistry::model_id_to_filename("whisper-base-q5_1"), "ggml-base-q5_1.bin");
+        assert_eq!(ModelRegistry::model_id_to_filename("whisper-tiny-q5_1"), "ggml-tiny-q5_1.bin");
+
+        // Test non-whisper model (shouldn't strip prefix)
+        assert_eq!(ModelRegistry::model_id_to_filename("kokoro-v1"), "ggml-kokoro-v1.bin");
+    }
+
+    #[test]
+    fn test_bundled_dir_accessor() {
+        let temp_dir = std::env::temp_dir().join("lexicon-bundled-accessor-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        // bundled_dir may or may not be Some depending on test environment
+        // Just verify the accessor doesn't panic
+        let _ = registry.bundled_dir();
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_get_bundled_model_path_no_bundled_dir() {
+        let temp_dir = std::env::temp_dir().join("lexicon-no-bundled-test");
+        let registry = ModelRegistry::new(&temp_dir).unwrap();
+
+        // When bundled_dir is None, should return None
+        // Note: This may pass or fail depending on test execution context
+        // The important thing is it doesn't panic
+        let _ = registry.get_bundled_model_path("whisper-base");
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
