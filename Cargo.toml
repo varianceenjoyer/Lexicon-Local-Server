@@ -129,6 +129,7 @@ lexicon-server = { path = "crates/lexicon-server" }
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1", features = ["full", "test-util"] }
+hound = { workspace = true }
 
 [[test]]
 name = "e2e_tests"
