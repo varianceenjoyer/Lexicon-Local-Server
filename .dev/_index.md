@@ -1,6 +1,6 @@
 ---
 type: index
-updated: 2026-01-25
+updated: 2026-01-27
 ---
 
 # Lexicon Local Server — Development Hub
