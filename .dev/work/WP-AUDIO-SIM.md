@@ -376,7 +376,8 @@ pub struct TuiConfig {
 - [x] Test audio fixtures - using existing `tests/fixtures/audio/` files
 - [x] Add `test_load_fixture_wav()` - verifies woodchuck.wav loads
 - [x] Add `test_load_fixture_mp3()` - verifies dolly.mp3 loads
-- [ ] End-to-end integration test with simulated audio + transcription
+- [x] Add `test_streaming_sends_audio_chunks()` - verifies audio streaming works
+- [ ] End-to-end integration test with simulated audio + transcription (requires Whisper model)
 - [ ] Manual test on Android emulator (Cuttlefish)
 
 ---
@@ -388,4 +389,5 @@ pub struct TuiConfig {
 | 2026-01-27 | Initial work plan created |
 | 2026-01-27 | Core implementation complete - audio_sim module, CLI flags, TUI integration |
 | 2026-01-27 | Fixture tests added - WAV and MP3 loading verified |
+| 2026-01-27 | Streaming test added - audio channel transmission verified |
 
