@@ -588,9 +588,20 @@ pub enum LexiconFlutterError {
      - Streaming: StreamingTranscriber, StreamingSynthesizer, ModelDownloader creation
      - Types: AudioChunk, TtsAudioChunk, DownloadEvent variants, TranscriptionEvent variants
 
+6. **Dart Bindings Generated (2026-01-29)**
+   - Installed Dart SDK 3.10.8
+   - Generated via `flutter_rust_bridge_codegen generate`
+   - Output files in `dart/lib/src/generated/`:
+     - `api.dart` - Main API: Transcriber, Synthesizer, StreamingTranscriber, StreamingSynthesizer, ModelDownloader
+     - `types.dart` - Config/result types: TranscriptionConfig, TtsConfig, TranscriptionResult, etc.
+     - `error.dart` - LexiconFlutterError enum
+     - `frb_generated.dart`, `frb_generated.io.dart`, `frb_generated.web.dart` - FFI glue
+     - `api.freezed.dart`, `error.freezed.dart` - Freezed union types
+   - Rust FFI glue: `src/frb_generated.rs`
+   - Dart package with pubspec.yaml and dependencies
+
 ### 🔄 Remaining
 
-- [ ] Generate Dart bindings via `flutter_rust_bridge_codegen`
 - [ ] Build for mobile targets (iOS, Android)
 - [ ] Integration test with Flutter app
 - [ ] CI pipeline for Dart codegen
@@ -600,7 +611,7 @@ pub enum LexiconFlutterError {
 **Functional:**
 - [x] `lexicon-flutter` crate compiles (desktop targets)
 - [ ] `lexicon-flutter` crate compiles for all mobile targets
-- [ ] Dart bindings generated via `flutter_rust_bridge_codegen`
+- [x] Dart bindings generated via `flutter_rust_bridge_codegen`
 - [x] Batch transcription works: audio → segments (API defined)
 - [x] Streaming transcription works: `StreamingTranscriber.process_chunk()`
 - [x] Batch TTS works: text → audio bytes (API defined)
@@ -610,10 +621,10 @@ pub enum LexiconFlutterError {
 
 **Quality:**
 - [x] API surface mirrors `lexicon-ffi` for consistency
-- [ ] Dart types are idiomatic (pending codegen)
-- [ ] Documentation in Dart doc comments
+- [x] Dart types are idiomatic (Uint8List, BigInt, freezed unions)
+- [x] Documentation in Dart doc comments (generated from Rust)
 - [ ] Example code in README
 
 ---
 
-*Implementation started 2026-01-29. Batch APIs, streaming APIs, and codegen config complete.*
+*Implementation started 2026-01-29. Rust APIs and Dart codegen complete. Remaining: mobile builds, integration test, CI.*
