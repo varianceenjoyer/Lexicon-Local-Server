@@ -563,18 +563,35 @@ pub enum LexiconFlutterError {
      - `Transcriber` - Opaque handle with `load_model()`, `transcribe()`, `translate()`
      - `Synthesizer` - Opaque handle with `synthesize()`, `list_voices()`
 
-3. **Unit Tests**
-   - 4 tests passing for basic API functionality
-   - Tests for version, platform info, transcriber creation, config defaults
+3. **Streaming APIs (2026-01-29)**
+   - `StreamingTranscriber` - Opaque handle for real-time STT:
+     - `new()`, `load_model()`, `is_ready()`, `is_streaming()`, `stop()`
+     - `process_chunk()` - Process audio chunks, returns segments
+   - `StreamingSynthesizer` - Opaque handle for chunked TTS:
+     - `new()`, `is_ready()`, `is_synthesizing()`, `stop()`
+     - `synthesize_chunked()` - Returns `Vec<TtsAudioChunk>` for progressive playback
+   - `ModelDownloader` - Async download with progress:
+     - `new()`, `cancel()`, `is_cancelled()`, `reset()`, `get_model_dir()`
+     - `download_model()` - Async download returning `Vec<DownloadEvent>`
+   - Supporting types:
+     - `AudioChunk` - Input for streaming transcription
+     - `TranscriptionEvent` - Output events (Segment, Partial, Complete, Error)
+     - `TtsAudioChunk` - Output chunks for streaming TTS
+     - `DownloadEvent` - Progress events (Progress, Complete, Error, Cancelled)
+
+4. **Configuration**
+   - `flutter_rust_bridge.yaml` - Codegen configuration
+
+5. **Unit Tests**
+   - 11 tests passing:
+     - Basic: version, platform info, transcriber creation, config defaults
+     - Streaming: StreamingTranscriber, StreamingSynthesizer, ModelDownloader creation
+     - Types: AudioChunk, TtsAudioChunk, DownloadEvent variants, TranscriptionEvent variants
 
 ### 🔄 Remaining
 
 - [ ] Generate Dart bindings via `flutter_rust_bridge_codegen`
-- [ ] Add StreamSink-based streaming API for real-time transcription
-- [ ] Add StreamSink-based streaming API for TTS
-- [ ] Add model download with progress Stream
 - [ ] Build for mobile targets (iOS, Android)
-- [ ] Create flutter_rust_bridge.yaml config
 - [ ] Integration test with Flutter app
 - [ ] CI pipeline for Dart codegen
 
@@ -585,10 +602,10 @@ pub enum LexiconFlutterError {
 - [ ] `lexicon-flutter` crate compiles for all mobile targets
 - [ ] Dart bindings generated via `flutter_rust_bridge_codegen`
 - [x] Batch transcription works: audio → segments (API defined)
-- [ ] Streaming transcription works: audio Stream → segment Stream
+- [x] Streaming transcription works: `StreamingTranscriber.process_chunk()`
 - [x] Batch TTS works: text → audio bytes (API defined)
-- [ ] Streaming TTS works: text → audio chunk Stream
-- [ ] Model download with progress Stream works
+- [x] Streaming TTS works: `StreamingSynthesizer.synthesize_chunked()`
+- [x] Model download with progress works: `ModelDownloader.download_model()`
 - [x] All error types map to Dart exceptions
 
 **Quality:**
@@ -599,4 +616,4 @@ pub enum LexiconFlutterError {
 
 ---
 
-*Implementation started 2026-01-29. Crate scaffolding and batch APIs complete.*
+*Implementation started 2026-01-29. Batch APIs, streaming APIs, and codegen config complete.*

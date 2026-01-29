@@ -144,3 +144,13 @@ pub struct PlatformInfo {
     pub available_memory_mb: u64,
     pub has_gpu: bool,
 }
+
+// ============================================================================
+// Streaming Types (re-exported from api.rs for convenience)
+// ============================================================================
+
+// Note: The following streaming types are defined in api.rs:
+// - AudioChunk: Input for streaming transcription
+// - TranscriptionEvent: Output events from streaming transcription
+// - TtsAudioChunk: Output chunks from streaming TTS
+// - DownloadEvent: Progress events from model download

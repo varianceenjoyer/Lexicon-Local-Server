@@ -1,0 +1,23 @@
+# flutter_rust_bridge v2 configuration
+# https://cjycode.com/flutter_rust_bridge/manual/miscellaneous/yaml
+
+rust_input: crate::api
+rust_root: ./
+rust_output: ./src/frb_generated.rs
+
+# Dart output - will be generated into a Flutter project
+# For now, output to a local dart directory that can be copied
+dart_output: ./dart/lib/src/generated
+
+# Enable full Dart null safety
+dart3: true
+
+# Generate Dart enums for Rust enums
+dart_enums_style: true
+
+# API module name
+default_dart_library_loader: Lexicon
+
+# Optional: exclude internal items
+# rust_exclude_items:
+#   - some_internal_function
