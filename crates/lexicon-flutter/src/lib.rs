@@ -28,6 +28,8 @@
 //! - **stt** (default): Speech-to-text via Whisper
 //! - **tts** (default): Text-to-speech via Kokoro/platform TTS
 
+mod frb_generated;
+
 pub mod api;
 pub mod error;
 pub mod types;
