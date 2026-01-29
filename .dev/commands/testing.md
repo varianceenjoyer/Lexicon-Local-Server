@@ -4,27 +4,9 @@
 
 cd ~/projects/Lexicon-Local-Server/target/debug && ./lexicon transcribe ~/projects/Lexicon-Local-Server/tests/fixtures/audio/woodchuck.wav
 
-## Android Emulator (Cuttlefish)
+## Android Testing (Android Studio)
 
-### Connect to Shell
-
-docker-compose -f ~/projects/Lexicon-Local-Server/scripts/cuttlefish/docker/docker-compose.yml exec cuttlefish docker-entrypoint.sh adb shell
-
-### Deploy Script (Recommended)
-
-```bash
-# Build and push all dependencies
-./scripts/android/deploy-cuttlefish.sh
-
-# Build, push, and run TUI test
-./scripts/android/deploy-cuttlefish.sh --run
-
-# Push only (skip rebuild)
-./scripts/android/deploy-cuttlefish.sh --push-only
-
-# Use tiny model (faster on emulator)
-./scripts/android/deploy-cuttlefish.sh --tiny --run
-```
+Use Android Studio for Android development and testing.
 
 ### Manual Steps
 
@@ -88,38 +70,21 @@ These must be set inside the adb shell:
 ### Known Issues
 
 1. **Mouse tracking bug**: Without `--no-mouse`, mouse escape sequences flood the terminal after exit
-2. **pthread crash (x86_64 only)**: Whisper initialization crashes with `invalid pthread_t passed to pthread_join` on Cuttlefish x86_64 emulator. This is a compatibility issue between ggml/whisper.cpp threading and Cuttlefish's bionic libc emulation. **This does NOT affect real ARM64 devices or ARM64 emulators on ARM hosts.**
-3. **Performance**: Whisper is very slow on emulator (CPU-only, emulated x86_64)
-
-### Threading Patch (TESTING ONLY)
-
-A single-thread patch is available for Cuttlefish testing:
-
-```bash
-# Build with single-thread patch
-./scripts/android/build-android-patched.sh --release
-
-# Restore original source after testing
-./scripts/android/build-android-patched.sh --restore
-```
-
-**Note:** This patch has not been verified to fix the pthread crash. The issue appears to occur during whisper initialization before the patched code path is reached. Further investigation needed.
+2. **Performance**: Whisper is slow on emulator (CPU-only)
 
 ---
 
 ## ARM64 Emulation (QEMU on x86_64)
 
-This section covers testing ARM64 Android builds using QEMU TCG emulation on an x86_64 host. This is slower than x86_64 Cuttlefish but tests the actual ARM64 binary.
+This section covers testing ARM64 Android builds using QEMU TCG emulation on an x86_64 host.
+
+> **Note:** For Android development and testing, use Android Studio instead. This QEMU approach is for advanced use cases only.
 
 > **Documentation:** See [.dev/docs/android-emulation/09-arm64-qemu-emulation.md](../docs/android-emulation/09-arm64-qemu-emulation.md) for full setup instructions.
 
 ### Start ARM64 Emulator
 
 ```bash
-# Start QEMU ARM64 emulator (background)
-./scripts/cuttlefish/run-arm64-qemu.sh --daemon
-
-# Or manually:
 qemu-system-aarch64 \
   -machine virt,gic-version=2 \
   -cpu max \
@@ -138,10 +103,6 @@ qemu-system-aarch64 \
 ### Wait for Boot
 
 ```bash
-# Automated wait (polls every 30s, timeout 30min)
-./scripts/cuttlefish/wait-for-arm64.sh
-
-# Or manual check:
 adb connect localhost:5555
 adb devices
 ```
@@ -223,21 +184,16 @@ kill -9 <PID>
 pkill -f qemu-system-aarch64
 ```
 
-### ARM64 vs x86_64 Quick Reference
+### ARM64 Build Quick Reference
 
-| Item | x86_64 Cuttlefish | ARM64 QEMU |
-|------|-------------------|------------|
-| **Binary path** | `target/x86_64-linux-android/release/lexicon` | `target/aarch64-linux-android/release/lexicon` |
-| **libc++ path** | `dist/android/x86_64/libc++_shared.so` | `dist/android/arm64/libc++_shared.so` |
-| **Build command** | `build-android-tui.sh x86_64 --release` | `build-android-tui.sh arm64 --release` |
-| **ADB port** | `localhost:6520` | `localhost:5555` |
-| **Boot time** | 30-60s | 5-30 min |
-| **Performance** | Faster (KVM) | Slower (TCG) |
-| **pthread issue** | Yes (crashes) | Unknown (needs testing) |
+| Item | Value |
+|------|-------|
+| **Binary path** | `target/aarch64-linux-android/release/lexicon` |
+| **libc++ path** | `dist/android/arm64/libc++_shared.so` |
+| **Build command** | `build-android-tui.sh arm64 --release` |
 
-### ARM64 Known Issues
+### ARM64 QEMU Known Issues
 
 1. **Very slow boot**: TCG emulation is 10-100x slower than native. Be patient.
 2. **High CPU usage**: 100% CPU is normal during emulation - all ARM instructions are translated in software.
 3. **Graphics unavailable**: Use `-nographic` and access via ADB only.
-4. **pthread behavior**: ARM64 may handle threading differently than x86_64 Cuttlefish - this needs testing.

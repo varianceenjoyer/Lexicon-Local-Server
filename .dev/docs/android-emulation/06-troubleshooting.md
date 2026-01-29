@@ -1,10 +1,8 @@
 # Troubleshooting and Maintenance
 
-> **Work Plan:** WP-CUTTLEFISH-06
+> **Status:** ARCHIVED REFERENCE
 >
-> **Status:** VERIFIED
->
-> **Purpose:** Document common issues and maintenance procedures.
+> **Note:** This documentation is for Cuttlefish, which has been replaced by Android Studio. Kept for historical reference. See [../../archive/docs/cuttlefish/](../../archive/docs/cuttlefish/_index.md) for more archived documentation.
 >
 > **Last Verified:** 2026-01-25 on Ubuntu 25.10 (kernel 6.17.0-8-generic)
 
@@ -272,17 +270,9 @@ cvd start --daemon --enable_minimal_mode=true
 
 3. Download a newer cuttlefish release or build from source with matching kernel headers.
 
-**Alternative: Docker-based Cuttlefish**
+**Alternative: Android Studio**
 
-Use Docker-based Cuttlefish with Ubuntu 22.04. See [07-docker-cuttlefish.md](07-docker-cuttlefish.md) for complete setup instructions.
-
-```bash
-cd scripts/cuttlefish/docker
-./setup.sh
-./run.sh start
-```
-
-This runs Cuttlefish inside an Ubuntu 22.04 container with compatible kernel interfaces while using KVM passthrough for hardware acceleration.
+Use Android Studio for Android development and testing. Cuttlefish has been archived.
 
 ---
 

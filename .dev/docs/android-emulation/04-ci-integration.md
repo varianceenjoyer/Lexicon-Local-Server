@@ -1,16 +1,14 @@
 # CI/CD Integration
 
-> **Work Plan:** WP-CUTTLEFISH-04
+> **Status:** ARCHIVED REFERENCE
 >
-> **Status:** TODO
->
-> **Purpose:** Document integrating Cuttlefish with CI/CD pipelines.
+> **Note:** This documentation is for Cuttlefish CI/CD integration, which has been replaced by Android Studio. Kept for historical reference. See [../../archive/docs/cuttlefish/](../../archive/docs/cuttlefish/_index.md) for more archived documentation.
 
 ---
 
 ## Prerequisites
 
-Complete [03-running-cuttlefish.md](03-running-cuttlefish.md) before proceeding.
+> **Note:** This documentation references archived Cuttlefish setup. See [../../archive/docs/cuttlefish/](../../archive/docs/cuttlefish/_index.md).
 
 ---
 

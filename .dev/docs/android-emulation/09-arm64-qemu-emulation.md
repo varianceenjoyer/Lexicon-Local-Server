@@ -55,9 +55,6 @@ cd ~/cuttlefish-arm64
 # Download from Android CI (replace BUILD_ID with current build)
 # Visit: https://ci.android.com/builds/branches/aosp-android-latest-release/grid
 # Target: aosp_cf_arm64_only_phone-userdebug
-
-# Or use the project script:
-./scripts/cuttlefish/download-arm64.sh
 ```
 
 **Required files:**
@@ -99,10 +96,7 @@ qemu-img create -f qcow2 ~/cuttlefish-arm64-runtime/userdata.qcow2 4G
 ### Quick Start
 
 ```bash
-# Use the project script
-./scripts/cuttlefish/run-arm64-qemu.sh --daemon
-
-# Or run directly:
+# Run directly with QEMU:
 qemu-system-aarch64 \
   -machine virt,gic-version=2 \
   -cpu max \
@@ -122,9 +116,6 @@ qemu-system-aarch64 \
 
 ```bash
 # Poll until device is ready (can take 5-30 minutes)
-./scripts/cuttlefish/wait-for-arm64.sh
-
-# Or manually check:
 adb connect localhost:5555
 adb devices
 ```
@@ -287,9 +278,8 @@ kill -9 <PID>
 | `~/cuttlefish-arm64/` | ARM64 Android images |
 | `~/cuttlefish/` | x86_64 host tools (bootloader) |
 | `~/cuttlefish-arm64-runtime/` | Runtime state (userdata, logs) |
-| `scripts/cuttlefish/run-arm64-qemu.sh` | Launch script |
-| `scripts/cuttlefish/wait-for-arm64.sh` | Boot wait script |
-| `scripts/cuttlefish/download-arm64.sh` | Image download script |
+
+> **Note:** Helper scripts previously in `scripts/cuttlefish/` have been removed. Use Android Studio for Android development.
 
 ---
 
@@ -324,5 +314,6 @@ kill -9 <PID>
 ## Next Steps
 
 - For deploying and testing Lexicon, see [testing.md](../../commands/testing.md)
-- For x86_64 Cuttlefish, see [03-running-cuttlefish.md](03-running-cuttlefish.md)
 - For troubleshooting, see [06-troubleshooting.md](06-troubleshooting.md)
+
+> **Note:** Cuttlefish documentation has been archived. See [../../archive/docs/cuttlefish/](../../archive/docs/cuttlefish/_index.md) for historical reference.

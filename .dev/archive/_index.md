@@ -1,6 +1,6 @@
 ---
 type: index
-updated: 2026-01-25
+updated: 2026-01-29
 ---
 
 # Archive Index
@@ -15,7 +15,9 @@ updated: 2026-01-25
 archive/
 ├── work/       # Completed work packages
 ├── handoffs/   # Completed handoffs
-└── status/     # Historical status reports
+├── status/     # Historical status reports
+└── docs/       # Superseded documentation
+    └── cuttlefish/  # Archived Cuttlefish emulation docs
 ```
 
 ---
@@ -41,6 +43,14 @@ archive/
 | Date | Phase | Key Events |
 |------|-------|------------|
 | *None archived yet* | | |
+
+---
+
+## Archived Documentation
+
+| Directory | Description | Archived | Reason |
+|-----------|-------------|----------|--------|
+| [docs/cuttlefish/](docs/cuttlefish/_index.md) | Cuttlefish Android emulation | 2026-01-29 | Replaced by Android Studio |
 
 ---
 
