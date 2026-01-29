@@ -244,6 +244,83 @@ lexicon export 42 --format txt
 lexicon export 42 --format json --output session_42.json
 ```
 
+### `lexicon tui`
+
+Launch the diagnostic TUI for real-time transcription with visual audio level meter.
+
+```
+USAGE:
+    lexicon tui [OPTIONS]
+
+OPTIONS:
+        --device <DEVICE>           Pre-select audio device by name
+        --no-mouse                  Disable mouse support
+        --model <MODEL>             Path to Whisper model file
+        --language <LANGUAGE>       Language code (e.g., "en", "auto") [default: en]
+        --translate                 Translate non-English speech to English
+        --simulated-audio <PATH>    Path to audio file for simulated input
+        --simulated-loop            Loop simulated audio playback continuously
+```
+
+**Examples:**
+
+```bash
+# Launch TUI with default settings
+lexicon tui
+
+# Pre-select a specific microphone
+lexicon tui --device "Blue Yeti"
+
+# Use a specific model
+lexicon tui --model ~/.local/share/lexicon/models/whisper-small.bin
+
+# Test with simulated audio (useful for headless environments)
+lexicon tui --simulated-audio test_audio.wav --simulated-loop
+```
+
+**TUI Keyboard Shortcuts:**
+
+| Key | Action |
+|-----|--------|
+| Ctrl+T | Toggle recording |
+| Ctrl+S | Save transcription to database |
+| Ctrl+L | List saved transcriptions |
+| Tab | Switch between panels |
+| q / Ctrl+C | Quit |
+
+### `lexicon config`
+
+Manage configuration and system profiling.
+
+```
+SUBCOMMANDS:
+    show       Show current configuration
+    set        Set a configuration value
+    reset      Reset configuration to defaults
+    profile    Profile system and show hardware information
+    recommend  Show recommended model based on system profile
+    path       Show configuration file path
+```
+
+**Examples:**
+
+```bash
+# Show current configuration
+lexicon config show
+
+# Profile your system
+lexicon config profile
+
+# Get model recommendation based on your hardware
+lexicon config recommend
+
+# Show configuration file path
+lexicon config path
+
+# Set default model
+lexicon config set stt.default_model whisper-base-q5_1
+```
+
 ---
 
 ## HTTP Server

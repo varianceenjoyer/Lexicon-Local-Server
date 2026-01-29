@@ -33,10 +33,13 @@ lexicon serve
 |---------|-------------|
 | `lexicon transcribe <file>` | Transcribe audio to text |
 | `lexicon serve` | Start HTTP/WebSocket server |
+| `lexicon tui` | Interactive diagnostic TUI for real-time transcription |
 | `lexicon models list` | List available models |
 | `lexicon models download <id>` | Download a model |
 | `lexicon sessions list` | List transcription sessions |
 | `lexicon export <id>` | Export session to file |
+| `lexicon config show` | Show current configuration |
+| `lexicon config profile` | Profile system and show hardware info |
 
 ## API Endpoints
 
