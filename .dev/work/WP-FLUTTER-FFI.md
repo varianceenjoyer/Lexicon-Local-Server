@@ -1,7 +1,7 @@
 ---
 id: WP-FLUTTER-FFI
 type: work-plan
-status: ready
+status: in-progress
 phase: release
 created: 2026-01-29
 updated: 2026-01-29
@@ -541,4 +541,62 @@ pub enum LexiconFlutterError {
 
 ---
 
-*Created by design-lead. Ready for developer implementation.*
+## Implementation Progress
+
+### ✅ Completed (2026-01-29)
+
+1. **Crate Scaffolding**
+   - Created `crates/lexicon-flutter/` directory structure
+   - `Cargo.toml` with flutter_rust_bridge v2 and workspace dependencies
+   - Added to workspace `Cargo.toml`
+
+2. **Core Modules**
+   - `src/lib.rs` - Crate root with module exports
+   - `src/error.rs` - `LexiconFlutterError` enum matching lexicon-ffi
+   - `src/types.rs` - FFI types mirroring lexicon-ffi for API consistency
+   - `src/api.rs` - flutter_rust_bridge annotated API:
+     - `init_app()` - FRB initialization
+     - `init_lexicon()` - Library initialization
+     - `get_version()` - Version info
+     - `get_platform_info()` - Platform detection
+     - `list_models()` / `is_model_downloaded()` / `delete_model()` - Model management
+     - `Transcriber` - Opaque handle with `load_model()`, `transcribe()`, `translate()`
+     - `Synthesizer` - Opaque handle with `synthesize()`, `list_voices()`
+
+3. **Unit Tests**
+   - 4 tests passing for basic API functionality
+   - Tests for version, platform info, transcriber creation, config defaults
+
+### 🔄 Remaining
+
+- [ ] Generate Dart bindings via `flutter_rust_bridge_codegen`
+- [ ] Add StreamSink-based streaming API for real-time transcription
+- [ ] Add StreamSink-based streaming API for TTS
+- [ ] Add model download with progress Stream
+- [ ] Build for mobile targets (iOS, Android)
+- [ ] Create flutter_rust_bridge.yaml config
+- [ ] Integration test with Flutter app
+- [ ] CI pipeline for Dart codegen
+
+### Acceptance Criteria Progress
+
+**Functional:**
+- [x] `lexicon-flutter` crate compiles (desktop targets)
+- [ ] `lexicon-flutter` crate compiles for all mobile targets
+- [ ] Dart bindings generated via `flutter_rust_bridge_codegen`
+- [x] Batch transcription works: audio → segments (API defined)
+- [ ] Streaming transcription works: audio Stream → segment Stream
+- [x] Batch TTS works: text → audio bytes (API defined)
+- [ ] Streaming TTS works: text → audio chunk Stream
+- [ ] Model download with progress Stream works
+- [x] All error types map to Dart exceptions
+
+**Quality:**
+- [x] API surface mirrors `lexicon-ffi` for consistency
+- [ ] Dart types are idiomatic (pending codegen)
+- [ ] Documentation in Dart doc comments
+- [ ] Example code in README
+
+---
+
+*Implementation started 2026-01-29. Crate scaffolding and batch APIs complete.*

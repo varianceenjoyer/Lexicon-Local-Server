@@ -27,15 +27,11 @@ Work packages are self-contained units of implementation work with:
 | [WP-IOS](WP-IOS.md) | iOS Platform Integration | HIGH | WP-FFI, macOS required | XCFramework + Swift |
 | [WP-ANDROID](WP-ANDROID.md) | Android Platform Integration | HIGH | Device testing | STT+TTS working on emulator |
 
-### Ready for Implementation
+### In Progress (Code)
 
-| ID | Name | Priority | Notes |
-|----|------|----------|-------|
-| [WP-FLUTTER-FFI](WP-FLUTTER-FFI.md) | Flutter/Dart FFI Bindings | HIGH | flutter_rust_bridge for cross-platform Flutter support |
-
-### Ready for Implementation
-
-(None - all high priority items in progress or complete)
+| ID | Name | Owner | Started | Notes |
+|----|------|-------|---------|-------|
+| [WP-FLUTTER-FFI](WP-FLUTTER-FFI.md) | Flutter/Dart FFI Bindings | - | 2026-01-29 | Crate scaffolding complete, streaming APIs pending |
 
 ### In Progress (Awaiting Hardware)
 

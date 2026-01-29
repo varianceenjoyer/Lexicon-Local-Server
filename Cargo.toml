@@ -5,6 +5,7 @@ members = [
     "crates/lexicon-cli",
     "crates/lexicon-server",
     "crates/lexicon-ffi",
+    "crates/lexicon-flutter",
 ]
 
 [workspace.package]
@@ -99,6 +100,9 @@ lexicon-core = { path = "crates/lexicon-core", default-features = false }
 
 # FFI (UniFFI for Swift/Kotlin bindings)
 uniffi = "0.31"
+
+# FFI (flutter_rust_bridge for Dart/Flutter bindings)
+flutter_rust_bridge = "2"
 
 [workspace.lints.rust]
 unsafe_code = "deny"
