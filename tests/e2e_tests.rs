@@ -1,4 +1,4 @@
-//! End-to-end integration tests for Lexicon Local Server.
+//! End-to-end integration tests for Lexicon-Local-Server.
 //!
 //! These tests verify the complete system behavior across all components.
 //! They require the full workspace to be built and may take longer to run.

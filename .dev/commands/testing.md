@@ -32,31 +32,6 @@ For bundled model detection to work, models should be in a `models/` directory n
 adb shell "mkdir -p /data/local/tmp/models && cp /data/local/tmp/ggml-base.bin /data/local/tmp/models/"
 ```
 
-#### RUN WITHOUT MOUSE SUPPORT
-
-**Important:** Always use `--no-mouse` to avoid terminal corruption bug on Cuttlefish.
-
-```bash
-adb shell "export HOME=/data/local/tmp && \
-  export LEXICON_DATA_DIR=/data/local/tmp/lexicon-data && \
-  mkdir -p /data/local/tmp/lexicon-data && \
-  LD_LIBRARY_PATH=/data/local/tmp \
-  /data/local/tmp/lexicon tui \
-    --no-mouse \
-    --model base \
-    --simulated-audio /data/local/tmp/woodchuck.wav"
-```
-
-#### TRANSCRIBE TEST (bypasses TUI)
-
-```bash
-adb shell "export HOME=/data/local/tmp && \
-  export LEXICON_DATA_DIR=/data/local/tmp/lexicon-data && \
-  mkdir -p /data/local/tmp/lexicon-data && \
-  LD_LIBRARY_PATH=/data/local/tmp \
-  /data/local/tmp/lexicon transcribe /data/local/tmp/woodchuck.wav --model base"
-```
-
 ### Environment Variables
 
 These must be set inside the adb shell:
@@ -74,31 +49,6 @@ These must be set inside the adb shell:
 
 ---
 
-## ARM64 Emulation (QEMU on x86_64)
-
-This section covers testing ARM64 Android builds using QEMU TCG emulation on an x86_64 host.
-
-> **Note:** For Android development and testing, use Android Studio instead. This QEMU approach is for advanced use cases only.
-
-> **Documentation:** See [.dev/docs/android-emulation/09-arm64-qemu-emulation.md](../docs/android-emulation/09-arm64-qemu-emulation.md) for full setup instructions.
-
-### Start ARM64 Emulator
-
-```bash
-qemu-system-aarch64 \
-  -machine virt,gic-version=2 \
-  -cpu max \
-  -accel tcg,thread=multi \
-  -m 4096 \
-  -smp 4 \
-  -bios ~/cuttlefish/etc/bootloader_aarch64/bootloader.qemu \
-  -nographic \
-  -drive file=~/cuttlefish-arm64/super.img,format=raw,if=virtio \
-  -drive file=~/cuttlefish-arm64/boot.img,format=raw,if=virtio \
-  -netdev user,id=net0,hostfwd=tcp::5555-:5555 \
-  -device virtio-net-pci,netdev=net0 \
-  &
-```
 
 ### Wait for Boot
 
@@ -122,66 +72,7 @@ file target/aarch64-linux-android/release/lexicon
 
 ### Push ARM64 Build + Dependencies
 
-```bash
-# Connect to device
-adb connect localhost:5555
 
-# Push ARM64 binary
-adb push target/aarch64-linux-android/release/lexicon /data/local/tmp/lexicon
-
-# Push ARM64 libc++ (if built)
-adb push dist/android/arm64/libc++_shared.so /data/local/tmp/
-
-# Push model
-adb push models/ggml-base.bin /data/local/tmp/
-
-# Push test audio
-adb push tests/fixtures/audio/woodchuck.wav /data/local/tmp/
-
-# Make executable
-adb shell chmod +x /data/local/tmp/lexicon
-```
-
-### Setup Models Directory (ARM64)
-
-```bash
-adb shell "mkdir -p /data/local/tmp/models && cp /data/local/tmp/ggml-base.bin /data/local/tmp/models/"
-```
-
-### Run TUI Test (ARM64)
-
-```bash
-adb shell "export HOME=/data/local/tmp && \
-  export LEXICON_DATA_DIR=/data/local/tmp/lexicon-data && \
-  mkdir -p /data/local/tmp/lexicon-data && \
-  LD_LIBRARY_PATH=/data/local/tmp \
-  /data/local/tmp/lexicon tui \
-    --no-mouse \
-    --model base \
-    --simulated-audio /data/local/tmp/woodchuck.wav"
-```
-
-### Transcribe Test (ARM64)
-
-```bash
-adb shell "export HOME=/data/local/tmp && \
-  export LEXICON_DATA_DIR=/data/local/tmp/lexicon-data && \
-  mkdir -p /data/local/tmp/lexicon-data && \
-  LD_LIBRARY_PATH=/data/local/tmp \
-  /data/local/tmp/lexicon transcribe /data/local/tmp/woodchuck.wav --model base"
-```
-
-### Stop ARM64 Emulator
-
-```bash
-# Find PID
-ps aux | grep qemu-system-aarch64
-
-# Kill by PID
-kill -9 <PID>
-
-# Or kill all QEMU
-pkill -f qemu-system-aarch64
 ```
 
 ### ARM64 Build Quick Reference

@@ -1,4 +1,4 @@
-# Lexicon Local Server - Build Script (Windows)
+# Lexicon-Local-Server - Build Script (Windows)
 #
 # This script automatically installs all required dependencies and builds the project.
 #
@@ -521,7 +521,7 @@ function Show-Summary {
 
 # Main
 Write-Host ""
-Write-Host "Lexicon Local Server - Windows Build Script" -ForegroundColor Cyan
+Write-Host "Lexicon-Local-Server - Windows Build Script" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 
 if ($Clean) {

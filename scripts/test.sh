@@ -1,5 +1,5 @@
 #!/bin/bash
-# Lexicon Local Server - Test Script (Linux/macOS)
+# Lexicon-Local-Server - Test Script (Linux/macOS)
 #
 # Usage:
 #   ./scripts/test.sh          # Run all tests

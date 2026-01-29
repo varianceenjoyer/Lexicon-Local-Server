@@ -1,4 +1,4 @@
-//! Memory Stress Test for Lexicon Local Server
+//! Memory Stress Test for Lexicon-Local-Server
 //!
 //! This test verifies that repeated create/destroy cycles don't leak memory.
 //! It's designed to be run under valgrind or similar memory analysis tools.

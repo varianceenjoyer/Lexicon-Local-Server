@@ -1,5 +1,5 @@
 #!/bin/bash
-# Lexicon Local Server - Build Script (Linux/macOS)
+# Lexicon-Local-Server - Build Script (Linux/macOS)
 #
 # Usage:
 #   ./scripts/build.sh          # Debug build

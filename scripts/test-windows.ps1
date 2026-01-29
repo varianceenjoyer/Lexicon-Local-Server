@@ -1,4 +1,4 @@
-# Lexicon Local Server - Test Script (Windows)
+# Lexicon-Local-Server - Test Script (Windows)
 #
 # Usage:
 #   .\scripts\test-windows.ps1          # Run all tests

@@ -1,4 +1,4 @@
-//! Audio fixture generator for Lexicon Local Server tests.
+//! Audio fixture generator for Lexicon-Local-Server tests.
 //!
 //! Run with: cargo run --bin generate-fixtures
 //!
