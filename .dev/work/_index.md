@@ -29,6 +29,12 @@ Work packages are self-contained units of implementation work with:
 
 ### Ready for Implementation
 
+| ID | Name | Priority | Notes |
+|----|------|----------|-------|
+| [WP-FLUTTER-FFI](WP-FLUTTER-FFI.md) | Flutter/Dart FFI Bindings | HIGH | flutter_rust_bridge for cross-platform Flutter support |
+
+### Ready for Implementation
+
 (None - all high priority items in progress or complete)
 
 ### In Progress (Awaiting Hardware)
@@ -82,6 +88,7 @@ Enhanced features and security:
 Mobile platform deployment:
 - **WP-IOS** - iOS XCFramework + Swift package
 - **WP-ANDROID** - Android AAR + Kotlin bindings
+- **WP-FLUTTER-FFI** - Flutter/Dart bindings via flutter_rust_bridge
 - **WP-DIARIZATION** - Neural speaker diarization
 
 ---
@@ -121,6 +128,7 @@ Mobile platform deployment:
 - [WP-AUDIO-SIM](WP-AUDIO-SIM.md) - Simulated audio device (complete)
 
 ### Work Packages (Release)
+- [WP-FLUTTER-FFI](WP-FLUTTER-FFI.md) - Flutter/Dart FFI bindings (flutter_rust_bridge)
 - [WP-DIARIZATION](WP-DIARIZATION.md) - Speaker diarization
 - [WP-IOS](WP-IOS.md) - iOS integration
 - [WP-ANDROID](WP-ANDROID.md) - Android integration
@@ -196,7 +204,8 @@ Beta Phase Dependencies:
 
 Release Phase Dependencies:
   WP-FFI (complete) ─────────┬──▶ WP-IOS ─────────┐
-                             └──▶ WP-ANDROID ─────┼──▶ Release
+                             ├──▶ WP-ANDROID ─────┤
+                             └──▶ WP-FLUTTER-FFI ─┼──▶ Release
   WP-DIARIZATION ────────────────────────────────┘
 ```
 

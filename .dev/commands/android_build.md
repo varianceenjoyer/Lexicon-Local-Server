@@ -10,7 +10,7 @@
 rustup target add x86_64-linux-android
 ./scripts/android/build-android.sh x86_64 --release
 
-### Build for ARM64/aarch64
+### Build for aarch64/ARM64
 
 rustup target add aarch64-linux-android
 ./scripts/android/build-android.sh x86_64 --release
@@ -44,22 +44,22 @@ cp "N:/repos/Lexicon-Suite/Lexicon-Local-Server/android/lexicon-android/build/ou
 mkdir -p android/lexicon-android/src/main/jniLibs/x86_64
 
 cp target/x86_64-linux-android/release/liblexicon_ffi.so \
-   "N:/repos/Lexicon-Suite/Lexicon-Mobile/app/libs"
+   "N:/repos/Lexicon-Suite/Lexicon-Mobile/app/libs/x86_64/"
 
-### ARM64 FFI Copy
+### aarch64/ARM64 FFI Copy
 
 cp target/aarch64-linux-android/release/liblexicon_ffi.so \
-   "N:/repos/Lexicon-Suite/Lexicon-Mobile/app/libs"
+   "N:/repos/Lexicon-Suite/Lexicon-Mobile/app/libs/aarch64/"
 
 ### x86 FFI Copy
 
 cp target/i686-linux-android/release/liblexicon_ffi.so \
-   "N:/repos/Lexicon-Suite/Lexicon-Mobile/app/libs"
+   "N:/repos/Lexicon-Suite/Lexicon-Mobile/app/libs/x86/"
 
 ### arm32 FFI Copy
 
 cp target/armv7-linux-androideabi/release/liblexicon_ffi.so \
-   "N:/repos/Lexicon-Suite/Lexicon-Mobile/app/libs"
+   "N:/repos/Lexicon-Suite/Lexicon-Mobile/app/libs/arm32/"
 
 ## 5. Copy Test Audio
 
