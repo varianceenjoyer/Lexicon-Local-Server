@@ -600,9 +600,16 @@ pub enum LexiconFlutterError {
    - Rust FFI glue: `src/frb_generated.rs`
    - Dart package with pubspec.yaml and dependencies
 
+7. **Android Builds (2026-01-29)**
+   - `scripts/android/build-flutter-android.sh` - Build script for Android targets
+   - **aarch64-linux-android** (ARM64): STT+TTS, 45MB .so
+   - **x86_64-linux-android** (emulator): STT only, 4.1MB .so
+     - TTS unavailable: ONNX Runtime lacks x86_64-android prebuilt
+   - Requires Android NDK r26+ with `ANDROID_NDK_HOME` set
+
 ### 🔄 Remaining
 
-- [ ] Build for mobile targets (iOS, Android)
+- [ ] Build for iOS (requires macOS)
 - [ ] Integration test with Flutter app
 - [ ] CI pipeline for Dart codegen
 
@@ -610,7 +617,8 @@ pub enum LexiconFlutterError {
 
 **Functional:**
 - [x] `lexicon-flutter` crate compiles (desktop targets)
-- [ ] `lexicon-flutter` crate compiles for all mobile targets
+- [x] `lexicon-flutter` crate compiles for Android targets (ARM64 full, x86_64 STT-only)
+- [ ] `lexicon-flutter` crate compiles for iOS (requires macOS)
 - [x] Dart bindings generated via `flutter_rust_bridge_codegen`
 - [x] Batch transcription works: audio → segments (API defined)
 - [x] Streaming transcription works: `StreamingTranscriber.process_chunk()`
