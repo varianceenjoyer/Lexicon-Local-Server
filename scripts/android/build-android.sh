@@ -12,7 +12,7 @@
 set -e
 
 # Configuration
-export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-/home/dev/android-ndk-r26d}"
+export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-N:/.DEV/tools/Android/ndk/29.0.14206865}"
 export ANDROID_API_LEVEL="${ANDROID_API_LEVEL:-26}"  # Android 8.0+
 
 # Map friendly names to Rust targets

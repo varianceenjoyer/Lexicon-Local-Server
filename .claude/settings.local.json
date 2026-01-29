@@ -26,7 +26,11 @@
       "Bash(powershell.exe -Command \"cargo test -p lexicon-cli --test cli_tests test_model_path_construction test_data_dir_construction\")",
       "Bash(cmd.exe /c \"cargo test -p lexicon-cli --test cli_tests 2>&1\")",
       "Bash(powershell -Command:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(./gradlew assembleRelease:*)",
+      "Bash(unzip:*)",
+      "Bash(./gradlew:*)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" ./gradlew:*)"
     ]
   }
 }
