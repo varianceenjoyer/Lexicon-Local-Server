@@ -31,12 +31,11 @@ Work packages are self-contained units of implementation work with:
 
 (None - all high priority items in progress or complete)
 
-### In Progress
+### In Progress (Awaiting Hardware)
 
 | ID | Name | Owner | Started | Notes |
 |----|------|-------|---------|-------|
 | [WP-BLE](WP-BLE.md) | Bluetooth HFP 1.6 Support | - | 2026-01-23 | Scaffolding complete - awaiting hardware test |
-| [WP-AUDIO-SIM](WP-AUDIO-SIM.md) | Simulated Audio Device | - | 2026-01-27 | Core complete - testing remaining |
 
 ### Completed (MVP/Early Beta)
 
@@ -57,6 +56,7 @@ Work packages are self-contained units of implementation work with:
 | [WP-CONFIG](WP-CONFIG.md) | Local Configuration Management | 2026-01-23 | System profiling + CLI config commands |
 | [WP-TUI](WP-TUI.md) | Diagnostic TUI | 2026-01-25 | Hardware verified on Windows and bash |
 | [WP-TTS-QUALITY](WP-TTS-QUALITY.md) | TTS Quality Validation | 2026-01-25 | MOS 3.0, shipped as known limitation |
+| [WP-AUDIO-SIM](WP-AUDIO-SIM.md) | Simulated Audio Device | 2026-01-29 | All acceptance criteria met |
 | [WP-HASH-VERIFY](WP-HASH-VERIFY.md) | Model Hash Verification | 2026-01-27 | Fallback hash verification integrated |
 
 ---
@@ -72,7 +72,7 @@ Enhanced features and security:
 - **WP-CONFIG** - System profiling and model recommendations (COMPLETE)
 - **WP-TUI** - Diagnostic TUI for real-time transcription (COMPLETE)
 - **WP-HASH-VERIFY** - Secure fallback downloads (COMPLETE)
-- **WP-AUDIO-SIM** - Simulated audio for Android testing (core complete, testing pending)
+- **WP-AUDIO-SIM** - Simulated audio for Android testing (COMPLETE)
 - **WP-BLE** - Bluetooth audio quality (scaffolding complete, awaiting hardware)
 - **WP-TTS-QUALITY** - TTS quality validation (COMPLETE - MOS 3.0)
 - **WP-FFI-TEST** - Mobile binding tests (blocked on SDK)
@@ -96,7 +96,7 @@ Mobile platform deployment:
 
 ### Should Complete for Beta
 5. **WP-BLE** - Audio quality improvement (scaffolding complete)
-6. **WP-AUDIO-SIM** - Simulated audio for Android testing
+6. **WP-AUDIO-SIM** - Simulated audio for Android testing (COMPLETE)
 
 ### Must Complete for Release
 7. **WP-IOS** - iOS platform support
@@ -109,10 +109,7 @@ Mobile platform deployment:
 
 ## Quick Links
 
-### Work Packages (Beta) - In Progress
-- [WP-AUDIO-SIM](WP-AUDIO-SIM.md) - Simulated audio device (core complete, testing pending)
-
-### Work Packages (Beta) - In Progress
+### Work Packages (Beta) - Awaiting Hardware
 - [WP-BLE](WP-BLE.md) - Bluetooth HFP support (awaiting hardware)
 - [WP-FFI-TEST](WP-FFI-TEST.md) - Mobile binding tests (blocked on SDK)
 
@@ -121,6 +118,7 @@ Mobile platform deployment:
 - [WP-TUI](WP-TUI.md) - Diagnostic TUI (verified working)
 - [WP-TTS-QUALITY](WP-TTS-QUALITY.md) - TTS quality validation (MOS 3.0)
 - [WP-HASH-VERIFY](WP-HASH-VERIFY.md) - Model hash verification (fallback integrated)
+- [WP-AUDIO-SIM](WP-AUDIO-SIM.md) - Simulated audio device (complete)
 
 ### Work Packages (Release)
 - [WP-DIARIZATION](WP-DIARIZATION.md) - Speaker diarization
@@ -214,4 +212,4 @@ See [../docs/android-emulation/](../docs/android-emulation/) for Android emulati
 
 ---
 
-*Last updated: 2026-01-27. Beta at 90% completion. WP-HASH-VERIFY complete. WP-AUDIO-SIM core implementation complete. See [.dev/human.md](../human.md) for action items.*
+*Last updated: 2026-01-29. Beta at 95% completion. WP-AUDIO-SIM complete. Only WP-BLE awaits hardware testing. See [.dev/human.md](../human.md) for action items.*

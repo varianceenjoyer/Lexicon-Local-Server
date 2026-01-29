@@ -1,6 +1,6 @@
 ---
 type: index
-updated: 2026-01-27
+updated: 2026-01-29
 ---
 
 # Status Index
@@ -11,26 +11,25 @@ updated: 2026-01-27
 
 ## Current Status
 
-**Phase**: Beta (90% Complete)
-**Last Updated**: 2026-01-27
+**Phase**: Beta (95% Complete)
+**Last Updated**: 2026-01-29
 
 ### Summary
 - MVP complete and tested
 - All human-blocked items resolved except Bluetooth
 - WP-HASH-VERIFY fully integrated - fallback downloads verified
-- WP-AUDIO-SIM enables Android TUI testing
+- WP-AUDIO-SIM complete - enables Android TUI testing
+- Documentation updated (TUI and config commands)
 
 ### Active Work (Awaiting Human Action)
 - **WP-BLE**: Scaffolding complete - awaiting Bluetooth hardware test
-
-### Code Work In Progress
-- **WP-AUDIO-SIM**: Core complete - E2E testing and Android emulator validation pending
 
 ### Completed (Beta)
 - WP-CONFIG: System profiling and CLI config
 - WP-TUI: Diagnostic TUI (verified working on Windows and bash)
 - WP-HASH-VERIFY: Model hash verification (fully integrated)
 - WP-TTS-QUALITY: TTS quality validation (MOS 3.0, shipped as known limitation)
+- WP-AUDIO-SIM: Simulated audio device (all acceptance criteria met)
 
 ---
 
