@@ -10,7 +10,9 @@ Lexicon provides Flutter bindings via `flutter_rust_bridge`. This enables cross-
 
 1. Build the library:
    ```bash
-   ./scripts/build-flutter-android.sh
+   cd ../Lexicon-Local-Server
+   ./scripts/android/build-flutter-android.sh
+   cd ../Lexicon-Mobile
    ```
 
 2. The build produces:

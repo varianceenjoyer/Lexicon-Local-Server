@@ -10,7 +10,9 @@ Lexicon provides native Kotlin bindings via UniFFI. The bindings are auto-genera
 
 1. Build the library for Android targets:
    ```bash
+   cd ../Lexicon-Local-Server
    ./scripts/build-android.sh
+   cd ../Lexicon-Mobile
    ```
 
 2. The build produces:

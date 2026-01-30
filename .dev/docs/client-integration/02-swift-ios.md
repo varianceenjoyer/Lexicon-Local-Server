@@ -12,7 +12,9 @@ Add the XCFramework to your project:
 
 1. Build the library for iOS targets:
    ```bash
+   cd ../Lexicon-Local-Server
    ./scripts/build-ios.sh
+   cd ../Lexicon-Mobile
    ```
 
 2. The build produces:
