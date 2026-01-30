@@ -12,8 +12,14 @@
 set -e
 
 # Configuration
-export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-/mnt/n/.DEV/tools/Android/ndk/29.0.14206865}"
+# Note: When building in WSL, use a Linux NDK (not the Windows one mounted via /mnt/)
+# Install Linux NDK: wget https://dl.google.com/android/repository/android-ndk-r29-linux.zip
+export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$HOME/android-ndk-r29}"
 export ANDROID_API_LEVEL="${ANDROID_API_LEVEL:-26}"  # Android 8.0+
+
+# CMake's Android module looks for these env vars
+export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
+export ANDROID_NDK="$ANDROID_NDK_HOME"
 
 # Map friendly names to Rust targets
 declare -A TARGETS=(
