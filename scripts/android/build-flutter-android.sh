@@ -1,73 +1,133 @@
 #!/bin/bash
 # Build lexicon-flutter for Android targets
-# Requires: Android NDK r26+ installed
+# Requires: Android NDK r29+ installed, cargo-ndk
 
 set -e
 
+# Memory management for WSL2/Linux
+# Rust compilation is memory-intensive; limit parallel jobs to prevent OOM
+# Adjust CARGO_BUILD_JOBS based on available RAM (each job can use 1-2GB+)
+# WSL2 users: memory may not release after build - run 'wsl --shutdown' from PowerShell
+# or set memory limits in %USERPROFILE%\.wslconfig
+export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-4}"
+
 # Configuration
-ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$HOME/Android/Sdk/ndk/android-ndk-r26d}"
-ANDROID_API="${ANDROID_API:-26}"
-TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+# Note: When building in WSL, use a Linux NDK (not the Windows one mounted via /mnt/)
+# Install Linux NDK: wget https://dl.google.com/android/repository/android-ndk-r29-linux.zip
+export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$HOME/android-ndk-r29}"
+export ANDROID_API_LEVEL="${ANDROID_API_LEVEL:-26}"
+
+# CMake's Android module looks for these env vars
+export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
+export ANDROID_NDK="$ANDROID_NDK_HOME"
+
+# Clear conflicting env vars
+unset CFLAGS
+unset CXXFLAGS
+unset CC
+unset CXX
+
+# Skip bindgen regeneration (use pre-generated bindings)
+export WHISPER_DONT_GENERATE_BINDINGS=1
+export WHISPER_BUILD_TESTS="OFF"
+export WHISPER_BUILD_EXAMPLES="OFF"
 
 if [ ! -d "$ANDROID_NDK_HOME" ]; then
     echo "Error: Android NDK not found at $ANDROID_NDK_HOME"
     echo "Set ANDROID_NDK_HOME environment variable"
+    echo ""
+    echo "For WSL, download the Linux NDK (not Windows):"
+    echo "  wget https://dl.google.com/android/repository/android-ndk-r29-linux.zip"
+    echo "  unzip android-ndk-r29-linux.zip -d ~/"
+    exit 1
+fi
+
+# Check for cargo-ndk
+if ! command -v cargo-ndk &> /dev/null; then
+    echo "Error: cargo-ndk not found"
+    echo "Install with: cargo install cargo-ndk"
     exit 1
 fi
 
 echo "Using Android NDK: $ANDROID_NDK_HOME"
-echo "API Level: $ANDROID_API"
+echo "API Level: $ANDROID_API_LEVEL"
 
-# Build function
+# Map friendly names to Android ABIs
+declare -A ABIS=(
+    ["aarch64-linux-android"]="arm64-v8a"
+    ["arm64"]="arm64-v8a"
+    ["x86_64-linux-android"]="x86_64"
+    ["x86_64"]="x86_64"
+    ["armv7-linux-androideabi"]="armeabi-v7a"
+    ["arm32"]="armeabi-v7a"
+)
+
+# ONNX Runtime for TTS
+ONNX_ANDROID_DIR="${ONNXRUNTIME_ANDROID_DIR:-$HOME/.onnxruntime-android}"
+
+# Source ONNX Runtime env if available
+if [ -f "$ONNX_ANDROID_DIR/env.sh" ]; then
+    source "$ONNX_ANDROID_DIR/env.sh"
+fi
+
+# Build function using cargo-ndk
 build_target() {
-    local TARGET=$1
-    local CC_VAR=$2
-    local CC_BIN=$3
-    local FEATURES=${4:-"default"}
+    local ANDROID_ABI=$1
 
     echo ""
-    echo "=== Building for $TARGET (features: $FEATURES) ==="
+    echo "=== Building for $ANDROID_ABI ==="
 
-    export CC_${CC_VAR}="$TOOLCHAIN/${CC_BIN}${ANDROID_API}-clang"
-    export CXX_${CC_VAR}="$TOOLCHAIN/${CC_BIN}${ANDROID_API}-clang++"
-    export AR_${CC_VAR}="$TOOLCHAIN/llvm-ar"
-    export ANDROID_NDK_HOME
-    export CMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake"
-
-    if [ "$FEATURES" = "default" ]; then
-        cargo build -p lexicon-flutter --target "$TARGET" --release
+    # Set up ONNX Runtime paths for TTS using setup function if available
+    if command -v setup_ort_for_android &> /dev/null; then
+        # Map ABI to target name for setup function
+        local ORT_TARGET=$(case $ANDROID_ABI in
+            arm64-v8a) echo "arm64" ;;
+            x86_64) echo "x86_64" ;;
+            armeabi-v7a) echo "arm32" ;;
+            x86) echo "x86" ;;
+        esac)
+        setup_ort_for_android "$ORT_TARGET"
+        export ORT_PREFER_DYNAMIC_LINK=1
+    elif [ -d "$ONNX_ANDROID_DIR/jni/$ANDROID_ABI" ]; then
+        # Fallback: set up ONNX Runtime paths directly
+        export ORT_LIB_LOCATION="$ONNX_ANDROID_DIR/jni/$ANDROID_ABI"
+        export ORT_INCLUDE_DIR="$ONNX_ANDROID_DIR/headers"
+        export ORT_PREFER_DYNAMIC_LINK=1
+        echo "ONNX Runtime: $ORT_LIB_LOCATION"
     else
-        cargo build -p lexicon-flutter --target "$TARGET" --release --no-default-features --features "$FEATURES"
+        echo "Warning: ONNX Runtime not found for $ANDROID_ABI"
+        echo "Run: scripts/android/setup-onnx-android.sh"
+        echo "Building without TTS support..."
     fi
 
-    echo "Output: target/$TARGET/release/liblexicon_flutter.so"
+    cargo ndk -t "$ANDROID_ABI" build -p lexicon-flutter --release
+
+    echo "Build for $ANDROID_ABI complete"
 }
 
 # Default: build ARM64 with all features
-TARGET="${1:-aarch64-linux-android}"
+TARGET="${1:-arm64}"
 
 case "$TARGET" in
     aarch64-linux-android|arm64)
-        build_target "aarch64-linux-android" "aarch64_linux_android" "aarch64-linux-android" "default"
+        build_target "arm64-v8a"
         ;;
     x86_64-linux-android|x86_64)
-        # x86_64 only supports STT (ONNX Runtime not available for this target)
-        build_target "x86_64-linux-android" "x86_64_linux_android" "x86_64-linux-android" "stt"
-        echo "Note: TTS disabled for x86_64 (ONNX Runtime not available)"
+        build_target "x86_64"
         ;;
     armv7-linux-androideabi|arm32)
-        build_target "armv7-linux-androideabi" "armv7_linux_androideabi" "armv7a-linux-androideabi" "stt"
+        build_target "armeabi-v7a"
         ;;
     all)
-        build_target "aarch64-linux-android" "aarch64_linux_android" "aarch64-linux-android" "default"
-        build_target "x86_64-linux-android" "x86_64_linux_android" "x86_64-linux-android" "stt"
+        build_target "arm64-v8a"
+        build_target "x86_64"
         ;;
     *)
         echo "Usage: $0 [target]"
         echo "Targets:"
         echo "  aarch64-linux-android (arm64) - ARM64 with STT+TTS [default]"
-        echo "  x86_64-linux-android (x86_64) - x86_64 with STT only"
-        echo "  armv7-linux-androideabi (arm32) - ARM32 with STT only"
+        echo "  x86_64-linux-android (x86_64) - x86_64 with STT+TTS"
+        echo "  armv7-linux-androideabi (arm32) - ARM32 with STT+TTS"
         echo "  all - Build all targets"
         exit 1
         ;;

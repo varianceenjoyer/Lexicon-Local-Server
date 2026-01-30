@@ -119,6 +119,12 @@ export WHISPER_BUILD_EXAMPLES="OFF"
 
 # ONNX Runtime for TTS (if building with --tts)
 ONNX_ANDROID_DIR="${ONNXRUNTIME_ANDROID_DIR:-$HOME/.onnxruntime-android}"
+
+# Source ONNX Runtime env if available
+if [ -f "$ONNX_ANDROID_DIR/env.sh" ]; then
+    source "$ONNX_ANDROID_DIR/env.sh"
+fi
+
 if [[ "$FEATURES" == *"tts"* ]]; then
     # Map target to ONNX Runtime directory
     ORT_ARCH_DIR=$(case $TARGET_NAME in
@@ -128,10 +134,13 @@ if [[ "$FEATURES" == *"tts"* ]]; then
         x86) echo "x86" ;;
     esac)
 
-    if [ -d "$ONNX_ANDROID_DIR/jni/$ORT_ARCH_DIR" ]; then
+    # Use setup function if available, otherwise set vars directly
+    if command -v setup_ort_for_android &> /dev/null; then
+        setup_ort_for_android "$TARGET_NAME"
+        export ORT_PREFER_DYNAMIC_LINK=1
+    elif [ -d "$ONNX_ANDROID_DIR/jni/$ORT_ARCH_DIR" ]; then
         export ORT_LIB_LOCATION="$ONNX_ANDROID_DIR/jni/$ORT_ARCH_DIR"
         export ORT_INCLUDE_DIR="$ONNX_ANDROID_DIR/headers"
-        # ort-sys requires dynamic linking for Android pre-built binaries
         export ORT_PREFER_DYNAMIC_LINK=1
         echo "ONNX Runtime: $ORT_LIB_LOCATION"
     else
