@@ -12,7 +12,7 @@ crate-type = ["cdylib", "staticlib"]
 
 [features]
 default = ["stt", "tts"]
-stt = ["lexicon-core/stt"]
+stt = ["lexicon-core/stt", "lexicon-core/audio"]
 tts = ["lexicon-core/tts"]
 
 [dependencies]

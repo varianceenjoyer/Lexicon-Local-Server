@@ -258,6 +258,45 @@ impl Transcriber {
         None
     }
 
+    /// Warms up the model by running a short inference on silence.
+    ///
+    /// **Latency Optimization (WP-LATENCY-STT)**: This primes the model's
+    /// internal caches and eliminates the "first inference" latency penalty
+    /// that can add 100-500ms to the first transcription.
+    ///
+    /// Call this method after loading a model and before real transcription
+    /// for optimal latency on the first request.
+    ///
+    /// Returns the warm-up time in milliseconds for diagnostics.
+    pub fn warm_up(&self) -> Result<i64, LexiconFlutterError> {
+        #[cfg(feature = "stt")]
+        {
+            let start = Instant::now();
+
+            let inner = self.inner.lock().map_err(|_| {
+                LexiconFlutterError::TranscriptionFailed("Lock poisoned".to_string())
+            })?;
+
+            let transcriber = inner.as_ref().ok_or_else(|| {
+                LexiconFlutterError::TranscriptionFailed("No model loaded".to_string())
+            })?;
+
+            transcriber
+                .warm_up()
+                .map_err(|e| LexiconFlutterError::TranscriptionFailed(e.to_string()))?;
+
+            let elapsed_ms = start.elapsed().as_millis() as i64;
+            tracing::info!(elapsed_ms = elapsed_ms, "Model warm-up complete");
+
+            Ok(elapsed_ms)
+        }
+
+        #[cfg(not(feature = "stt"))]
+        Err(LexiconFlutterError::TranscriptionFailed(
+            "STT feature not enabled".to_string(),
+        ))
+    }
+
     /// Transcribe audio data (batch mode).
     ///
     /// Audio should be raw PCM f32 samples at 16kHz mono, packed as bytes.
@@ -598,10 +637,49 @@ impl StreamingTranscriber {
         }
     }
 
+    /// Warms up the model by running a short inference on silence.
+    ///
+    /// **Latency Optimization (WP-LATENCY-STT)**: This primes the model's
+    /// internal caches and eliminates the "first inference" latency penalty.
+    ///
+    /// Returns the warm-up time in milliseconds for diagnostics.
+    pub fn warm_up(&self) -> Result<i64, LexiconFlutterError> {
+        #[cfg(feature = "stt")]
+        {
+            let start = Instant::now();
+
+            let inner = self.inner.lock().map_err(|_| {
+                LexiconFlutterError::TranscriptionFailed("Lock poisoned".to_string())
+            })?;
+
+            let transcriber = inner.as_ref().ok_or_else(|| {
+                LexiconFlutterError::TranscriptionFailed("No model loaded".to_string())
+            })?;
+
+            transcriber
+                .warm_up()
+                .map_err(|e| LexiconFlutterError::TranscriptionFailed(e.to_string()))?;
+
+            let elapsed_ms = start.elapsed().as_millis() as i64;
+            tracing::info!(elapsed_ms = elapsed_ms, "Streaming model warm-up complete");
+
+            Ok(elapsed_ms)
+        }
+
+        #[cfg(not(feature = "stt"))]
+        Err(LexiconFlutterError::TranscriptionFailed(
+            "STT feature not enabled".to_string(),
+        ))
+    }
+
     /// Process a single audio chunk and return segments.
     ///
     /// This is the core streaming method. Call it repeatedly with audio chunks
     /// to get real-time transcription results.
+    ///
+    /// **Latency Optimization (WP-LATENCY-STT)**: Uses VAD-based early exit
+    /// to skip silent/noise chunks before expensive Whisper inference.
+    /// Silent chunks return empty segments instantly.
     pub fn process_chunk(
         &self,
         chunk: AudioChunk,
@@ -609,6 +687,7 @@ impl StreamingTranscriber {
     ) -> Result<Vec<TranscriptionSegment>, LexiconFlutterError> {
         #[cfg(feature = "stt")]
         {
+            use lexicon_core::audio::{should_process, ProcessingDecision};
             use lexicon_core::stt::Transcriber as _;
 
             // Convert bytes to f32 samples
@@ -625,6 +704,16 @@ impl StreamingTranscriber {
                 .collect();
 
             if samples.is_empty() {
+                return Ok(Vec::new());
+            }
+
+            // VAD early exit: skip silent/noise chunks to save compute
+            if should_process(&samples) == ProcessingDecision::Skip {
+                tracing::debug!(
+                    timestamp_ms = chunk.timestamp_ms,
+                    samples = samples.len(),
+                    "Skipping chunk (silence/noise detected)"
+                );
                 return Ok(Vec::new());
             }
 
@@ -1140,5 +1229,69 @@ mod tests {
 
         let error = TranscriptionEvent::Error("Test error".to_string());
         assert!(matches!(error, TranscriptionEvent::Error(_)));
+    }
+
+    // --- Tests for WP-LATENCY-STT optimizations ---
+
+    #[test]
+    fn test_transcriber_warm_up_requires_model() {
+        let transcriber = Transcriber::new().unwrap();
+        // warm_up should fail without a loaded model
+        let result = transcriber.warm_up();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_streaming_transcriber_warm_up_requires_model() {
+        let transcriber = StreamingTranscriber::new().unwrap();
+        // warm_up should fail without a loaded model
+        let result = transcriber.warm_up();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_process_chunk_skips_silence() {
+        let transcriber = StreamingTranscriber::new().unwrap();
+
+        // Create a silent chunk (all zeros)
+        let silence_samples = vec![0.0f32; 1600]; // 100ms at 16kHz
+        let silence_bytes: Vec<u8> = silence_samples
+            .iter()
+            .flat_map(|&s| s.to_le_bytes())
+            .collect();
+
+        let chunk = AudioChunk {
+            data: silence_bytes,
+            timestamp_ms: 0,
+            is_final: false,
+        };
+
+        // VAD early exit should return empty segments for silence
+        // even without a model loaded (because it skips before model check)
+        let result = transcriber.process_chunk(chunk, TranscriptionConfig::default());
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_process_chunk_requires_model_for_speech() {
+        let transcriber = StreamingTranscriber::new().unwrap();
+
+        // Create a chunk with high energy (simulated speech)
+        let speech_samples = vec![0.1f32; 1600]; // 100ms at 16kHz with energy
+        let speech_bytes: Vec<u8> = speech_samples
+            .iter()
+            .flat_map(|&s| s.to_le_bytes())
+            .collect();
+
+        let chunk = AudioChunk {
+            data: speech_bytes,
+            timestamp_ms: 0,
+            is_final: false,
+        };
+
+        // Non-silent chunk should fail without a model loaded
+        let result = transcriber.process_chunk(chunk, TranscriptionConfig::default());
+        assert!(result.is_err());
     }
 }
