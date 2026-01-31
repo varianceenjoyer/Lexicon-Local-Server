@@ -46,7 +46,10 @@ mod convert;
 
 pub use capture::CpalAudioSource;
 pub use resampler::Resampler;
-pub use vad::VoiceActivityDetector;
+pub use vad::{
+    compute_rms, compute_zero_crossing_rate, should_process, ProcessingDecision,
+    VoiceActivityDetector,
+};
 
 #[cfg(feature = "audio-convert")]
 pub use convert::{AudioConverter, AudioMetadata, ConversionError};

@@ -142,3 +142,17 @@ path = "tests/e2e_tests.rs"
 [[bin]]
 name = "generate-fixtures"
 path = "tests/fixtures/generate_audio.rs"
+
+# Release profile optimizations for STT latency (WP-LATENCY-STT)
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# Bench profile inherits from release with debug symbols for profiling
+[profile.bench]
+inherits = "release"
+debug = true
+strip = false

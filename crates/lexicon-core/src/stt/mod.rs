@@ -50,7 +50,7 @@ mod whisper;
 
 pub use diarization::{assign_speakers, DiarizationConfig, DEFAULT_MAX_SPEAKERS};
 pub use types::{Segment, TranscriptionConfig, TranscriptionResult};
-pub use whisper::WhisperTranscriber;
+pub use whisper::{optimal_thread_count, WhisperTranscriber};
 
 /// Installs logging hooks to redirect whisper.cpp and GGML output.
 ///

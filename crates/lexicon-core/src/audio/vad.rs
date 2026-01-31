@@ -2,10 +2,122 @@
 //!
 //! This module wraps the webrtc-vad crate to provide speech detection
 //! for audio chunks.
+//!
+//! # Latency Optimizations (WP-LATENCY-STT)
+//!
+//! This module includes enhanced VAD with early exit to skip silent/noise
+//! chunks before they hit the expensive Whisper inference path.
 
 use webrtc_vad::{SampleRate, Vad, VadMode};
 
 use crate::error::{AudioError, LexiconError, Result};
+
+/// Energy threshold for silence detection (RMS below this = silence).
+const SILENCE_THRESHOLD: f32 = 0.005;
+
+/// Energy threshold for speech detection (RMS above this = likely speech).
+const SPEECH_THRESHOLD: f32 = 0.02;
+
+/// Zero-crossing rate threshold for noise detection.
+/// High ZCR with low energy typically indicates noise, not speech.
+const NOISE_ZCR_THRESHOLD: f32 = 0.3;
+
+/// Decision for whether to process an audio chunk.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessingDecision {
+    /// Process this chunk through STT inference.
+    Process,
+    /// Skip this chunk (silence or noise) to save compute.
+    Skip,
+}
+
+/// Computes the RMS (root mean square) energy of audio samples.
+///
+/// RMS provides a measure of the "loudness" or energy of the signal.
+/// Values typically range from 0.0 (silence) to ~1.0 (full scale).
+#[inline]
+#[must_use]
+pub fn compute_rms(samples: &[f32]) -> f32 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+
+    let sum_squares: f32 = samples.iter().map(|&s| s * s).sum();
+    (sum_squares / samples.len() as f32).sqrt()
+}
+
+/// Computes the zero-crossing rate of audio samples.
+///
+/// ZCR measures how often the signal changes sign. Speech typically has
+/// a moderate ZCR, while noise (especially white noise) has a high ZCR.
+/// Values range from 0.0 to 1.0 (every sample is a crossing).
+#[inline]
+#[must_use]
+pub fn compute_zero_crossing_rate(samples: &[f32]) -> f32 {
+    if samples.len() < 2 {
+        return 0.0;
+    }
+
+    let crossings = samples
+        .windows(2)
+        .filter(|w| (w[0] >= 0.0) != (w[1] >= 0.0))
+        .count();
+
+    crossings as f32 / (samples.len() - 1) as f32
+}
+
+/// Determines whether an audio chunk should be processed through STT.
+///
+/// This function performs fast signal analysis to detect silence and noise,
+/// allowing early exit from the STT pipeline for non-speech audio.
+///
+/// # Decision Logic
+///
+/// 1. **Silence**: RMS below `SILENCE_THRESHOLD` → Skip
+/// 2. **Noise**: Low energy + high ZCR → Skip
+/// 3. **Speech**: Otherwise → Process
+///
+/// # Arguments
+///
+/// * `samples` - Audio samples at 16kHz, normalized to [-1.0, 1.0]
+///
+/// # Returns
+///
+/// `ProcessingDecision::Process` if the chunk should go through STT,
+/// `ProcessingDecision::Skip` if it can be safely skipped.
+///
+/// # Example
+///
+/// ```
+/// use lexicon_core::audio::{should_process, ProcessingDecision};
+///
+/// let silence = vec![0.0f32; 1600];
+/// assert_eq!(should_process(&silence), ProcessingDecision::Skip);
+///
+/// let speech = vec![0.1f32; 1600]; // Simulated speech energy
+/// assert_eq!(should_process(&speech), ProcessingDecision::Process);
+/// ```
+#[must_use]
+pub fn should_process(samples: &[f32]) -> ProcessingDecision {
+    if samples.is_empty() {
+        return ProcessingDecision::Skip;
+    }
+
+    let energy = compute_rms(samples);
+    let zcr = compute_zero_crossing_rate(samples);
+
+    // Pure silence - definitely skip
+    if energy < SILENCE_THRESHOLD {
+        return ProcessingDecision::Skip;
+    }
+
+    // Low energy with high zero-crossing rate = noise, not speech
+    if energy < SPEECH_THRESHOLD && zcr > NOISE_ZCR_THRESHOLD {
+        return ProcessingDecision::Skip;
+    }
+
+    ProcessingDecision::Process
+}
 
 /// Voice Activity Detector using WebRTC VAD algorithm.
 ///
@@ -240,5 +352,106 @@ mod tests {
 
         // With any positive threshold, silence fails
         assert!(!vad.has_speech(&silence, 0.1));
+    }
+
+    // --- Tests for WP-LATENCY-STT enhanced VAD ---
+
+    #[test]
+    fn test_compute_rms_silence() {
+        let silence = vec![0.0f32; 1600];
+        let rms = super::compute_rms(&silence);
+        assert_eq!(rms, 0.0);
+    }
+
+    #[test]
+    fn test_compute_rms_signal() {
+        // Constant signal of 0.5 has RMS = 0.5
+        let signal = vec![0.5f32; 1600];
+        let rms = super::compute_rms(&signal);
+        assert!((rms - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_compute_rms_empty() {
+        let empty: Vec<f32> = vec![];
+        let rms = super::compute_rms(&empty);
+        assert_eq!(rms, 0.0);
+    }
+
+    #[test]
+    fn test_compute_zcr_silence() {
+        let silence = vec![0.0f32; 1600];
+        let zcr = super::compute_zero_crossing_rate(&silence);
+        // All zeros - no crossings
+        assert_eq!(zcr, 0.0);
+    }
+
+    #[test]
+    fn test_compute_zcr_alternating() {
+        // Alternating +/- creates max crossings
+        let alternating: Vec<f32> = (0..100).map(|i| if i % 2 == 0 { 0.5 } else { -0.5 }).collect();
+        let zcr = super::compute_zero_crossing_rate(&alternating);
+        // Every sample crosses, so ZCR ≈ 1.0
+        assert!((zcr - 1.0).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_compute_zcr_empty() {
+        let empty: Vec<f32> = vec![];
+        let zcr = super::compute_zero_crossing_rate(&empty);
+        assert_eq!(zcr, 0.0);
+    }
+
+    #[test]
+    fn test_compute_zcr_single_sample() {
+        let single = vec![0.5f32];
+        let zcr = super::compute_zero_crossing_rate(&single);
+        assert_eq!(zcr, 0.0);
+    }
+
+    #[test]
+    fn test_should_process_silence() {
+        use super::{should_process, ProcessingDecision};
+
+        let silence = vec![0.0f32; 1600];
+        assert_eq!(should_process(&silence), ProcessingDecision::Skip);
+    }
+
+    #[test]
+    fn test_should_process_empty() {
+        use super::{should_process, ProcessingDecision};
+
+        let empty: Vec<f32> = vec![];
+        assert_eq!(should_process(&empty), ProcessingDecision::Skip);
+    }
+
+    #[test]
+    fn test_should_process_speech() {
+        use super::{should_process, ProcessingDecision};
+
+        // Simulated speech: moderate energy, moderate ZCR
+        let speech = vec![0.1f32; 1600];
+        assert_eq!(should_process(&speech), ProcessingDecision::Process);
+    }
+
+    #[test]
+    fn test_should_process_loud_signal() {
+        use super::{should_process, ProcessingDecision};
+
+        // High energy signal should always process
+        let loud = vec![0.5f32; 1600];
+        assert_eq!(should_process(&loud), ProcessingDecision::Process);
+    }
+
+    #[test]
+    fn test_should_process_low_energy_high_zcr_noise() {
+        use super::{should_process, ProcessingDecision};
+
+        // Low energy + high ZCR = noise pattern
+        // Create alternating low-amplitude signal
+        let noise: Vec<f32> = (0..1600)
+            .map(|i| if i % 2 == 0 { 0.01 } else { -0.01 })
+            .collect();
+        assert_eq!(should_process(&noise), ProcessingDecision::Skip);
     }
 }
