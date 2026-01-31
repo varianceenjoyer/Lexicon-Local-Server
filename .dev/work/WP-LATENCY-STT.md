@@ -390,3 +390,28 @@ If Whisper optimization is insufficient:
 - 19 VAD tests (all passing)
 - 2 optimal_thread_count tests (all passing)
 - Total: 330 tests passing
+
+### 2026-02-01: Flutter API Integration
+
+**Integrated latency optimizations into lexicon-flutter crate:**
+
+1. **VAD early exit in StreamingTranscriber.process_chunk()**
+   - Checks `should_process()` before calling Whisper inference
+   - Silent/noise chunks return empty segments instantly
+   - Saves compute on mobile devices with intermittent speech
+
+2. **warm_up() method for Transcriber and StreamingTranscriber**
+   - Exposes model warm-up functionality to Dart/Flutter
+   - Returns warm-up time in milliseconds for diagnostics
+   - Can be called after load_model() to prime caches
+
+3. **Added audio feature dependency for VAD**
+   - lexicon-flutter now includes lexicon-core/audio feature
+
+**Files Modified:**
+- `crates/lexicon-flutter/Cargo.toml` - Added audio feature
+- `crates/lexicon-flutter/src/api.rs` - VAD early exit, warm_up methods
+
+**Tests Added:**
+- 4 new tests for latency optimization features
+- Total: 15 tests in lexicon-flutter (all passing)
