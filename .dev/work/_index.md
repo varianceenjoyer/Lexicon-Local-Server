@@ -1,6 +1,6 @@
 # Work Packages Index
 
-> **Status**: Active | **Last Updated**: 2026-01-27
+> **Status**: Active | **Last Updated**: 2026-01-31
 >
 > This index tracks all actionable work packages for Lexicon Local Server.
 
@@ -26,6 +26,12 @@ Work packages are self-contained units of implementation work with:
 | [WP-DIARIZATION](WP-DIARIZATION.md) | Speaker Diarization (Neural) | MEDIUM | Release phase | ECAPA-TDNN integration |
 | [WP-IOS](WP-IOS.md) | iOS Platform Integration | HIGH | WP-FFI, macOS required | XCFramework + Swift |
 | [WP-ANDROID](WP-ANDROID.md) | Android Platform Integration | HIGH | Device testing | STT+TTS working on emulator |
+
+### Ready for Implementation
+
+| ID | Name | Priority | Phase | Dependencies | Blocks |
+|----|------|----------|-------|--------------|--------|
+| [WP-LATENCY-STT](WP-LATENCY-STT.md) | STT Latency Optimization | CRITICAL | beta | WP-STT, WP-FFI | - |
 
 ### In Progress (Code)
 
@@ -71,6 +77,7 @@ Core transcription capability on desktop:
 
 ### Beta Phase (Current)
 Enhanced features and security:
+- **WP-LATENCY-STT** - STT latency optimization (<500ms per chunk) (READY)
 - **WP-CONFIG** - System profiling and model recommendations (COMPLETE)
 - **WP-TUI** - Diagnostic TUI for real-time transcription (COMPLETE)
 - **WP-HASH-VERIFY** - Secure fallback downloads (COMPLETE)
