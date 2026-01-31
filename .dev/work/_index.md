@@ -1,6 +1,6 @@
 # Work Packages Index
 
-> **Status**: Active | **Last Updated**: 2026-01-31
+> **Status**: Active | **Last Updated**: 2026-02-01
 >
 > This index tracks all actionable work packages for Lexicon Local Server.
 
@@ -31,12 +31,13 @@ Work packages are self-contained units of implementation work with:
 
 | ID | Name | Priority | Phase | Dependencies | Blocks |
 |----|------|----------|-------|--------------|--------|
-| [WP-LATENCY-STT](WP-LATENCY-STT.md) | STT Latency Optimization | CRITICAL | beta | WP-STT, WP-FFI | - |
+| - | - | - | - | - | - |
 
 ### In Progress (Code)
 
 | ID | Name | Owner | Started | Notes |
 |----|------|-------|---------|-------|
+| [WP-LATENCY-STT](WP-LATENCY-STT.md) | STT Latency Optimization | - | 2026-02-01 | Phase 1&2 complete, Phase 3&4 pending |
 | [WP-FLUTTER-FFI](WP-FLUTTER-FFI.md) | Flutter/Dart FFI Bindings | - | 2026-01-29 | Crate scaffolding complete, streaming APIs pending |
 
 ### In Progress (Awaiting Hardware)
