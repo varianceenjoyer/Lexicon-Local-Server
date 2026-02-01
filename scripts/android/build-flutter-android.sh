@@ -32,6 +32,20 @@ export WHISPER_DONT_GENERATE_BINDINGS=1
 export WHISPER_BUILD_TESTS="OFF"
 export WHISPER_BUILD_EXAMPLES="OFF"
 
+# WP-LATENCY-STT: Whisper.cpp optimization flags
+# These are critical for achieving acceptable STT latency on mobile
+export WHISPER_NO_AVX="OFF"
+export WHISPER_NO_AVX2="OFF"
+export WHISPER_NO_FMA="OFF"
+export WHISPER_NO_F16C="OFF"
+# Enable NEON on ARM64 (handled by GGML)
+export GGML_NEON="ON"
+# Enable FP16 vectorization for ARM
+export GGML_FP16_VA="ON"
+# Use native CPU features where possible
+export CMAKE_C_FLAGS="-O3 -DNDEBUG"
+export CMAKE_CXX_FLAGS="-O3 -DNDEBUG"
+
 if [ ! -d "$ANDROID_NDK_HOME" ]; then
     echo "Error: Android NDK not found at $ANDROID_NDK_HOME"
     echo "Set ANDROID_NDK_HOME environment variable"

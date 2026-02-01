@@ -309,6 +309,22 @@ cargo flamegraph --bin lexicon -- transcribe test.wav
 | FFI round-trip overhead | ? | <5ms |
 | Memory per transcription | ? | <50MB |
 
+## Platform-Specific Expectations
+
+Understanding latency expectations by platform is critical for proper testing:
+
+| Platform | Model | Expected Latency | Notes |
+|----------|-------|------------------|-------|
+| ARM64 Physical (Pixel 6) | tiny-q5_1 | 500-1000ms | Target for optimization |
+| ARM64 Physical (Pixel 6) | base-q5_1 | 1000-2000ms | Acceptable for longer speech |
+| x86_64 Emulator (QEMU) | tiny-q5_1 | **10-15 seconds** | Expected - QEMU overhead 2-5x |
+| x86_64 Emulator (QEMU) | base-q5_1 | **20-30 seconds** | Expected - too slow for real-time |
+| Desktop Linux x86_64 | tiny | 100-300ms | Reference baseline |
+| Desktop Linux x86_64 | base | 200-500ms | Reference baseline |
+
+**Critical**: Do NOT use emulator latency as the benchmark for mobile performance.
+The emulator adds 10-20x overhead due to QEMU CPU translation.
+
 ## Build Verification Checklist
 
 - [ ] `RUSTFLAGS="-C target-cpu=native"` for host builds

@@ -10,21 +10,21 @@
 #   3. Run: rustup target add aarch64-linux-android
 #   4. Use scripts/android/build-android-tui.ps1
 
-[target.aarch64-linux-android]
 # ARM64 - most modern Android devices
-# Linker set via CC_aarch64_linux_android environment variable at build time
+# WP-LATENCY-STT: Enable NEON SIMD for hardware-accelerated vector operations
+[target.aarch64-linux-android]
+rustflags = ["-C", "target-feature=+neon"]
 
-[target.x86_64-linux-android]
 # x86_64 - Cuttlefish emulator and some Chromebooks
-# Linker set via CC_x86_64_linux_android environment variable at build time
+# WP-LATENCY-STT: Ensure x86-64 baseline optimization
+[target.x86_64-linux-android]
+rustflags = ["-C", "target-cpu=x86-64"]
 
-[target.armv7-linux-androideabi]
 # ARM32 - older Android devices
-# Linker set via CC_armv7_linux_androideabi environment variable at build time
+[target.armv7-linux-androideabi]
 
-[target.i686-linux-android]
 # x86 - older emulators
-# Linker set via CC_i686_linux_android environment variable at build time
+[target.i686-linux-android]
 
 # Environment variables for native builds
 [env]
@@ -36,7 +36,7 @@
 # Uncomment to set default target for Android development:
 # target = "aarch64-linux-android"
 
-# Profile optimizations
+# Profile optimizations (WP-LATENCY-STT)
 [profile.release]
 lto = true
 codegen-units = 1
@@ -46,8 +46,9 @@ strip = true
 [profile.release.package."*"]
 opt-level = 3
 
-# Android-specific release profile
+# Android-specific release profile (WP-LATENCY-STT)
+# Use opt-level = 3 for maximum speed (not "s" for size)
+# The latency impact of size optimization is significant for STT inference
 [profile.release-android]
 inherits = "release"
-# Android apps typically use smaller binaries
-opt-level = "s"
+opt-level = 3
