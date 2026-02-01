@@ -327,11 +327,38 @@ The emulator adds 10-20x overhead due to QEMU CPU translation.
 
 ## Build Verification Checklist
 
-- [ ] `RUSTFLAGS="-C target-cpu=native"` for host builds
-- [ ] `RUSTFLAGS="-C target-feature=+neon"` for aarch64
+- [x] `__ARM_NEON` defined (baseline for ARM64, always enabled)
+- [ ] `__ARM_FEATURE_DOTPROD` enabled via `-march=armv8.2-a+dotprod` (added 2026-01-31)
 - [ ] LTO enabled in release profile
-- [ ] whisper.cpp compiled with `-O3 -march=native`
-- [ ] No debug symbols in release build
+- [x] whisper.cpp compiled with `-O3` (verified in CMakeCache)
+- [x] No debug symbols in release build (verified with `file` command)
+
+### ARM64 Optimization Investigation (2026-01-31)
+
+**Finding**: NEON is enabled by default (confirmed via `__ARM_NEON 1`), but DOTPROD was missing.
+
+**Compiler Flags Analysis**:
+```bash
+# Base ARM64 compile (before fix):
+# - __ARM_NEON = 1 (enabled)
+# - __ARM_FEATURE_FMA = 1 (enabled)
+# - __ARM_FEATURE_DOTPROD = NOT DEFINED (missing!)
+
+# With -march=armv8.2-a+dotprod:
+# - __ARM_FEATURE_DOTPROD = 1 (now enabled)
+```
+
+**Impact**: DOTPROD enables optimized `vdotq_s32` instructions for quantized matrix operations in ggml.
+Many Q4/Q8 quantized operations in whisper.cpp use DOTPROD-gated code paths:
+- `ggml-cpu-aarch64.cpp`: Uses `__ARM_FEATURE_DOTPROD` for optimized quantized kernels
+- `llamafile/sgemm.cpp`: Uses DOTPROD for faster matrix multiply
+
+**Fix Applied**: Added `-march=armv8.2-a+dotprod` to `build_mobile_apk.sh` for ARM64 builds.
+
+**Compatibility Note**: ARMv8.2-A with DOTPROD is supported on:
+- Cortex-A75/A55 (2017+)
+- Cortex-A76/A77/A78 and newer
+- Most devices running Android 8+ with arm64
 
 ## Alternative Approaches (Future)
 
