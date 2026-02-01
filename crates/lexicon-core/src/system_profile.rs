@@ -115,6 +115,57 @@ impl SystemTier {
             *self
         }
     }
+
+    /// Returns the fastest model for this tier, prioritizing latency over quality.
+    ///
+    /// **WP-LATENCY-STT**: For real-time applications, use this instead of
+    /// `recommended_model()` to get the lowest-latency option that will still
+    /// provide usable transcription quality.
+    ///
+    /// | Tier | Latency Model | Expected Latency (100ms audio) |
+    /// |------|---------------|-------------------------------|
+    /// | Minimal | whisper-tiny-en | ~200-400ms (ARM64) |
+    /// | Low | whisper-tiny-en | ~200-400ms (ARM64) |
+    /// | Medium | whisper-tiny-en | ~150-300ms (ARM64) |
+    /// | High | whisper-base-en | ~300-600ms (ARM64) |
+    /// | Ultra | whisper-base-en | ~200-400ms (ARM64) |
+    #[must_use]
+    pub fn latency_optimized_model(&self) -> &'static str {
+        match self {
+            // Minimal/Low: only tiny is viable
+            SystemTier::Minimal | SystemTier::Low => "whisper-tiny-en",
+            // Medium: still use tiny for best latency
+            SystemTier::Medium => "whisper-tiny-en",
+            // High/Ultra: base provides better quality with acceptable latency
+            SystemTier::High | SystemTier::Ultra => "whisper-base-en",
+        }
+    }
+
+    /// Returns the expected inference latency in milliseconds for 100ms of audio.
+    ///
+    /// These are approximate values for physical ARM64 devices with NEON.
+    /// Emulator latency will be 10-20x higher due to QEMU overhead.
+    #[must_use]
+    pub fn expected_latency_ms(&self, model: &str) -> Option<u32> {
+        // Expected latency on ARM64 with NEON (e.g., Pixel 6)
+        let base_latency = match model {
+            "whisper-tiny-en" | "whisper-tiny" | "ggml-tiny" | "ggml-tiny.en" => Some(300),
+            "whisper-base-en" | "whisper-base" | "ggml-base" | "ggml-base.en" => Some(600),
+            "whisper-small-en" | "whisper-small" | "ggml-small" | "ggml-small.en" => Some(1500),
+            "whisper-medium-en" | "whisper-medium" | "ggml-medium" | "ggml-medium.en" => Some(4000),
+            "whisper-large-v3" | "whisper-large" | "ggml-large" => Some(8000),
+            _ => None,
+        };
+
+        // Adjust based on tier (faster devices have lower latency)
+        base_latency.map(|latency| match self {
+            SystemTier::Ultra => latency * 6 / 10,   // 60% of base
+            SystemTier::High => latency * 8 / 10,    // 80% of base
+            SystemTier::Medium => latency,           // 100% of base
+            SystemTier::Low => latency * 12 / 10,    // 120% of base
+            SystemTier::Minimal => latency * 15 / 10, // 150% of base
+        })
+    }
 }
 
 impl std::fmt::Display for SystemTier {
