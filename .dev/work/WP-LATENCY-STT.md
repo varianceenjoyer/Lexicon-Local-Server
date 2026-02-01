@@ -407,6 +407,29 @@ If Whisper optimization is insufficient:
 - 2 optimal_thread_count tests (all passing)
 - Total: 330 tests passing
 
+### 2026-02-01: Android Build Optimizations
+
+**Build configuration improvements:**
+1. **NEON SIMD for ARM64** (`.cargo/config.toml`):
+   - Added `rustflags = ["-C", "target-feature=+neon"]` for aarch64-linux-android
+   - Enables hardware-accelerated vector operations critical for Whisper
+
+2. **opt-level = 3 for Android** (`.cargo/config.toml`):
+   - Changed from "s" (size) to "3" (speed) for release-android profile
+   - Size optimization caused significant latency penalty
+
+3. **whisper.cpp CMake flags** (`build-flutter-android.sh`):
+   - Added GGML_NEON=ON, GGML_FP16_VA=ON
+   - Added CMAKE_C_FLAGS/CMAKE_CXX_FLAGS with -O3 -DNDEBUG
+
+4. **Latency-optimized model selection** (`system_profile.rs`):
+   - Added `latency_optimized_model()` for real-time use cases
+   - Added `expected_latency_ms()` for latency estimation
+
+**Platform-specific expectations documented:**
+- ARM64 physical device (Pixel 6): 500-1000ms for tiny model
+- x86_64 emulator: 10-15 seconds (expected due to QEMU overhead)
+
 ### 2026-02-01: Flutter API Integration
 
 **Integrated latency optimizations into lexicon-flutter crate:**
