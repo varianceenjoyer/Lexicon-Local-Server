@@ -397,6 +397,230 @@ impl Transcriber {
 }
 
 // ============================================================================
+// Sherpa Transcriber (Low-Latency STT)
+// ============================================================================
+
+/// Sherpa-based transcriber for low-latency speech-to-text.
+///
+/// Uses sherpa-onnx with Zipformer architecture for faster inference.
+/// Recommended for real-time transcription where latency is critical.
+///
+/// # Latency Comparison
+///
+/// On ARM64 physical device:
+/// - Whisper (tiny-q5_1): ~3250ms per 3s audio
+/// - Sherpa (Zipformer-20M): ~300-500ms per 3s audio (expected)
+///
+/// # Model Format
+///
+/// Unlike WhisperTranscriber which uses a single .bin file, SherpaTranscriber
+/// requires a model directory containing:
+/// - `encoder-*.onnx` - Audio encoder
+/// - `decoder-*.onnx` - Token decoder
+/// - `joiner-*.onnx` - Encoder-decoder connector
+/// - `tokens.txt` - Vocabulary
+///
+/// Use `scripts/download-sherpa-model.sh` to download models.
+#[frb(opaque)]
+pub struct SherpaTranscriber {
+    #[cfg(feature = "stt-sherpa")]
+    inner: Mutex<Option<lexicon_core::stt::SherpaTranscriber>>,
+    #[cfg(not(feature = "stt-sherpa"))]
+    _marker: std::marker::PhantomData<()>,
+}
+
+impl SherpaTranscriber {
+    /// Create a new Sherpa transcriber.
+    pub fn new() -> Result<SherpaTranscriber, LexiconFlutterError> {
+        Ok(Self {
+            #[cfg(feature = "stt-sherpa")]
+            inner: Mutex::new(None),
+            #[cfg(not(feature = "stt-sherpa"))]
+            _marker: std::marker::PhantomData,
+        })
+    }
+
+    /// Load a Sherpa model from a directory.
+    ///
+    /// The directory should contain encoder, decoder, joiner, and tokens files.
+    pub fn load_model(&self, model_dir: String) -> Result<(), LexiconFlutterError> {
+        #[cfg(feature = "stt-sherpa")]
+        {
+            use lexicon_core::stt::Transcriber as _;
+
+            let path = PathBuf::from(&model_dir);
+            if !path.exists() {
+                return Err(LexiconFlutterError::ModelNotFound(model_dir));
+            }
+
+            let mut transcriber = lexicon_core::stt::SherpaTranscriber::new()
+                .map_err(|e| LexiconFlutterError::ModelLoadFailed(e.to_string()))?;
+
+            transcriber
+                .load_model(&path)
+                .map_err(|e| LexiconFlutterError::ModelLoadFailed(e.to_string()))?;
+
+            let mut inner = self.inner.lock().map_err(|_| {
+                LexiconFlutterError::TranscriptionFailed("Lock poisoned".to_string())
+            })?;
+            *inner = Some(transcriber);
+
+            tracing::info!("Sherpa model loaded: {}", model_dir);
+            Ok(())
+        }
+
+        #[cfg(not(feature = "stt-sherpa"))]
+        {
+            let _ = model_dir;
+            Err(LexiconFlutterError::TranscriptionFailed(
+                "stt-sherpa feature not enabled".to_string(),
+            ))
+        }
+    }
+
+    /// Unload the current model.
+    #[frb(sync)]
+    pub fn unload_model(&self) {
+        #[cfg(feature = "stt-sherpa")]
+        {
+            if let Ok(mut inner) = self.inner.lock() {
+                use lexicon_core::stt::Transcriber as _;
+                if let Some(ref mut t) = *inner {
+                    t.unload_model();
+                }
+                *inner = None;
+                tracing::info!("Sherpa model unloaded");
+            }
+        }
+    }
+
+    /// Check if a model is loaded.
+    #[frb(sync)]
+    pub fn is_model_loaded(&self) -> bool {
+        #[cfg(feature = "stt-sherpa")]
+        {
+            self.inner.lock().map(|i| i.is_some()).unwrap_or(false)
+        }
+
+        #[cfg(not(feature = "stt-sherpa"))]
+        false
+    }
+
+    /// Warm up the model for optimal first-inference latency.
+    pub fn warm_up(&self) -> Result<i64, LexiconFlutterError> {
+        #[cfg(feature = "stt-sherpa")]
+        {
+            let start = Instant::now();
+
+            let inner = self.inner.lock().map_err(|_| {
+                LexiconFlutterError::TranscriptionFailed("Lock poisoned".to_string())
+            })?;
+
+            let transcriber = inner.as_ref().ok_or_else(|| {
+                LexiconFlutterError::TranscriptionFailed("No model loaded".to_string())
+            })?;
+
+            transcriber
+                .warm_up()
+                .map_err(|e| LexiconFlutterError::TranscriptionFailed(e.to_string()))?;
+
+            let elapsed_ms = start.elapsed().as_millis() as i64;
+            tracing::info!(elapsed_ms = elapsed_ms, "Sherpa model warm-up complete");
+
+            Ok(elapsed_ms)
+        }
+
+        #[cfg(not(feature = "stt-sherpa"))]
+        Err(LexiconFlutterError::TranscriptionFailed(
+            "stt-sherpa feature not enabled".to_string(),
+        ))
+    }
+
+    /// Transcribe audio data (batch mode).
+    ///
+    /// Audio should be raw PCM f32 samples at 16kHz mono, packed as bytes.
+    pub fn transcribe(
+        &self,
+        audio_data: Vec<u8>,
+        config: TranscriptionConfig,
+    ) -> Result<TranscriptionResult, LexiconFlutterError> {
+        #[cfg(feature = "stt-sherpa")]
+        {
+            use lexicon_core::stt::Transcriber as _;
+
+            // Convert bytes to f32 samples
+            let samples: Vec<f32> = audio_data
+                .chunks(4)
+                .filter_map(|chunk| {
+                    if chunk.len() == 4 {
+                        Some(f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            if samples.is_empty() {
+                return Err(LexiconFlutterError::InvalidInput(
+                    "Empty audio data".to_string(),
+                ));
+            }
+
+            // Build config
+            let mut tx_config = lexicon_core::stt::TranscriptionConfig::new();
+            if let Some(lang) = config.language {
+                tx_config = tx_config.with_language(lang);
+            }
+            if config.num_threads > 0 {
+                tx_config = tx_config.with_threads(config.num_threads);
+            }
+
+            // Transcribe
+            let inner = self.inner.lock().map_err(|_| {
+                LexiconFlutterError::TranscriptionFailed("Lock poisoned".to_string())
+            })?;
+
+            let transcriber = inner.as_ref().ok_or_else(|| {
+                LexiconFlutterError::TranscriptionFailed("No model loaded".to_string())
+            })?;
+
+            let result = transcriber
+                .transcribe(&samples, &tx_config)
+                .map_err(|e| LexiconFlutterError::TranscriptionFailed(e.to_string()))?;
+
+            // Convert to FFI result
+            let segments: Vec<TranscriptionSegment> = result
+                .segments
+                .iter()
+                .map(|s| TranscriptionSegment {
+                    start_ms: s.start_ms,
+                    end_ms: s.end_ms,
+                    text: s.text.clone(),
+                    confidence: s.confidence,
+                    language: s.language.clone(),
+                    speaker_id: s.speaker_id,
+                })
+                .collect();
+
+            Ok(TranscriptionResult {
+                segments,
+                detected_language: result.detected_language,
+                audio_duration_ms: result.audio_duration_ms,
+                processing_time_ms: result.processing_time_ms,
+            })
+        }
+
+        #[cfg(not(feature = "stt-sherpa"))]
+        {
+            let _ = (audio_data, config);
+            Err(LexiconFlutterError::TranscriptionFailed(
+                "stt-sherpa feature not enabled".to_string(),
+            ))
+        }
+    }
+}
+
+// ============================================================================
 // Synthesizer
 // ============================================================================
 
