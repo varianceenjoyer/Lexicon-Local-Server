@@ -67,6 +67,11 @@ ringbuf = "0.4"
 # Note: OpenMP was tested but provided no benefit on Android ARM64 (~3320ms vs 3250ms baseline)
 whisper-rs = "0.14"
 
+# Speech-to-Text (sherpa-onnx) - streaming-native architecture for low latency
+# Note: sherpa-rs provides Rust bindings to sherpa-onnx
+# See WP-SHERPA-STT for integration details
+sherpa-rs = { version = "0.6", features = ["download-binaries"] }
+
 # Text-to-Speech
 ort = { version = "2.0.0-rc.11", default-features = false, features = ["std", "ndarray", "download-binaries", "tls-rustls"] }
 ndarray = "0.17"

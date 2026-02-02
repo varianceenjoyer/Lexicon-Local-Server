@@ -39,6 +39,7 @@ Work packages are self-contained units of implementation work with:
 |----|------|-------|---------|-------|
 | [WP-LATENCY-STT](WP-LATENCY-STT.md) | STT Latency Optimization | - | 2026-02-01 | Phase 1&2 complete, Phase 3&4 pending |
 | [WP-FLUTTER-FFI](WP-FLUTTER-FFI.md) | Flutter/Dart FFI Bindings | - | 2026-01-29 | Crate scaffolding complete, streaming APIs pending |
+| [WP-SHERPA-STT](WP-SHERPA-STT.md) | Streaming STT (sherpa-onnx) | - | 2026-02-02 | Phase 1&2 complete, SherpaTranscriber implemented |
 
 ### In Progress (Awaiting Hardware)
 

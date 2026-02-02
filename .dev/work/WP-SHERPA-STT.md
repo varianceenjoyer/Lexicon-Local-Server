@@ -1,7 +1,7 @@
 ---
 id: WP-SHERPA-STT
 type: work-plan
-status: ready
+status: in-progress
 phase: beta
 created: 2026-02-02
 updated: 2026-02-02
@@ -326,3 +326,53 @@ wget -O "$DEST/tokens.txt" "$MODEL_URL/tokens.txt"
 - [sherpa-rs Rust bindings](https://github.com/thewh1teagle/sherpa-rs)
 - [Streaming Zipformer paper](https://arxiv.org/abs/2206.15535)
 - [WP-LATENCY-STT findings](./WP-LATENCY-STT.md)
+
+---
+
+## Implementation Log
+
+### 2026-02-02: Phase 1 & 2 Complete
+
+**Phase 1 - Dependency Integration:**
+- Added `sherpa-rs = { version = "0.6", features = ["download-binaries"] }` to workspace Cargo.toml
+- Added `stt-sherpa` feature flag to `crates/lexicon-core/Cargo.toml`
+- Added `stt-all` feature for using both engines together
+- Verified build succeeds with `cargo check --features stt-sherpa`
+
+**Phase 2 - Core Implementation:**
+- Created `crates/lexicon-core/src/stt/sherpa.rs` with `SherpaTranscriber` struct
+- Implemented `Transcriber` trait for batch transcription
+- Uses `RefCell` for interior mutability (ZipFormer::decode requires `&mut self`)
+- Added `SherpaConfig` struct for engine-specific configuration
+- Auto-detects thread count with mobile-optimized defaults
+- Model file discovery supports common naming patterns (encoder-*, decoder-*, joiner-*, tokens.txt)
+
+**Files Modified:**
+- `Cargo.toml` - Added sherpa-rs workspace dependency
+- `crates/lexicon-core/Cargo.toml` - Added stt-sherpa and stt-all features
+- `crates/lexicon-core/src/stt/mod.rs` - Conditional exports for sherpa module
+- `crates/lexicon-core/src/stt/sherpa.rs` - New SherpaTranscriber implementation
+
+**Tests Added:**
+- 7 unit tests for SherpaTranscriber (all passing)
+- Total: 337 tests passing across lexicon-core
+
+**Acceptance Criteria Progress:**
+- [x] `cargo build --features stt-sherpa` succeeds
+- [x] `SherpaTranscriber` implements `Transcriber` trait
+- [x] `cargo build --features stt` (whisper-only) still works
+- [x] Can switch between engines via feature flag
+- [ ] Unit tests with real model (requires model download)
+- [ ] Android ARM64 build (requires cross-compilation setup)
+- [ ] Benchmark on physical device
+
+**Key Design Decisions:**
+1. **Offline recognition only**: sherpa-rs currently only exposes `ZipFormer` for offline (batch) recognition, not `OnlineRecognizer` for true streaming. This still provides faster inference than Whisper due to Zipformer's architecture.
+2. **Interior mutability**: Used `RefCell` because `ZipFormer::decode` requires `&mut self` but `Transcriber::transcribe` uses `&self`. Thread-safety note: wrap in Mutex for multi-threaded use.
+3. **Model discovery**: Auto-discovers encoder/decoder/joiner/tokens files in model directory using common naming patterns.
+
+**Next Steps (Phase 3-5):**
+- [ ] Download streaming Zipformer model (~60MB)
+- [ ] Test on Android ARM64 physical device
+- [ ] Benchmark against Whisper baseline
+- [ ] Add FFI layer integration for Flutter

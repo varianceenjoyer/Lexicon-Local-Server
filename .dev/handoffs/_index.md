@@ -9,6 +9,12 @@ updated: 2026-01-27
 
 ---
 
+## Active Handoffs (In Progress)
+
+| ID | Work Package | Priority | Status | Created |
+|----|--------------|----------|--------|---------|
+| [HO-SHERPA-001](HO-SHERPA-001.md) | WP-SHERPA-STT | HIGH | Phase 1&2 complete - sherpa-rs integrated | 2026-02-02 |
+
 ## Active Handoffs (Awaiting Human/Hardware)
 
 | ID | Work Package | Priority | Status | Created |

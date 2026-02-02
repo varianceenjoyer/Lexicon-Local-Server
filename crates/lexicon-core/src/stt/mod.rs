@@ -45,11 +45,17 @@
 //! GPU support is enabled at compile time via whisper-rs features.
 
 mod diarization;
+#[cfg(feature = "stt-sherpa")]
+mod sherpa;
 mod types;
+#[cfg(feature = "stt")]
 mod whisper;
 
 pub use diarization::{assign_speakers, DiarizationConfig, DEFAULT_MAX_SPEAKERS};
+#[cfg(feature = "stt-sherpa")]
+pub use sherpa::{SherpaConfig, SherpaTranscriber};
 pub use types::{Segment, TranscriptionConfig, TranscriptionResult};
+#[cfg(feature = "stt")]
 pub use whisper::{optimal_thread_count, WhisperTranscriber};
 
 /// Installs logging hooks to redirect whisper.cpp and GGML output.
@@ -60,6 +66,7 @@ pub use whisper::{optimal_thread_count, WhisperTranscriber};
 /// the display.
 ///
 /// Safe to call multiple times; only has effect on first call.
+#[cfg(feature = "stt")]
 pub fn install_whisper_logging_hooks() {
     whisper_rs::install_logging_hooks();
 }
