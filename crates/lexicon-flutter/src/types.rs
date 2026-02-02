@@ -53,7 +53,8 @@ pub struct TranscriptionConfig {
 impl Default for TranscriptionConfig {
     fn default() -> Self {
         Self {
-            language: None,
+            // WP-LATENCY-STT: Force English to skip language auto-detection (~5-10% improvement)
+            language: Some("en".to_string()),
             translate: false,
             num_threads: 4,
             initial_prompt: None,
