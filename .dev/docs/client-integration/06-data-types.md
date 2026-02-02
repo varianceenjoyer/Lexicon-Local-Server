@@ -171,13 +171,31 @@ Information about an available model.
 
 **Available Models:**
 
-| ID | Name | Type | Size |
-|----|------|------|------|
-| `whisper-tiny` | Whisper Tiny | stt | 75 MB |
-| `whisper-base` | Whisper Base | stt | 142 MB |
-| `whisper-small` | Whisper Small | stt | 466 MB |
-| `whisper-medium` | Whisper Medium | stt | 1.5 GB |
-| `whisper-large` | Whisper Large | stt | 2.9 GB |
+*Whisper Models (batch processing, multi-language, translation):*
+
+| ID | Name | Type | Size | Latency* |
+|----|------|------|------|----------|
+| `whisper-tiny` | Whisper Tiny | stt | 75 MB | ~3000ms |
+| `whisper-base` | Whisper Base | stt | 142 MB | ~3200ms |
+| `whisper-small` | Whisper Small | stt | 466 MB | ~4000ms |
+| `whisper-medium` | Whisper Medium | stt | 1.5 GB | ~6000ms |
+| `whisper-large` | Whisper Large | stt | 2.9 GB | ~10000ms |
+
+*sherpa-onnx Models (low-latency, English):*
+
+| ID | Name | Type | Size | Latency* |
+|----|------|------|------|----------|
+| `sherpa-zipformer-en-20M` | Zipformer English 20M | stt | 60 MB | ~50ms |
+| `sherpa-zipformer-gigaspeech` | Zipformer Gigaspeech | stt | 320 MB | ~50ms |
+
+*Latency per 1 second of audio on ARM64 mobile device.
+
+**Model Format Differences:**
+
+| Engine | Format | Example |
+|--------|--------|---------|
+| Whisper | Single `.bin` file | `whisper-base.bin` |
+| sherpa-onnx | Directory with ONNX files | `zipformer-en/` containing `encoder-*.onnx`, `decoder-*.onnx`, `joiner-*.onnx`, `tokens.txt` |
 
 ### DownloadProgress
 

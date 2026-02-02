@@ -3,7 +3,7 @@
 ## Architecture
 
 Lexicon Local Server is a Rust core library providing:
-- **Speech-to-Text (STT)** - Whisper-based transcription
+- **Speech-to-Text (STT)** - Whisper or sherpa-onnx transcription
 - **Text-to-Speech (TTS)** - Kokoro + platform native synthesis
 - **Translation** - Audio-to-English translation via Whisper
 
@@ -19,12 +19,39 @@ The library exposes a C ABI, enabling integration via:
 │                    lexicon-ffi / lexicon-flutter                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                        lexicon-core (Rust)                       │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────┐ │
-│  │   STT    │  │   TTS    │  │  Models  │  │     Storage      │ │
-│  │(whisper) │  │ (kokoro) │  │ Registry │  │    (SQLite)      │ │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────────────┘ │
+│  ┌──────────────────────┐  ┌──────────┐  ┌──────────────────┐   │
+│  │         STT          │  │   TTS    │  │     Storage      │   │
+│  │ whisper | sherpa-onnx│  │ (kokoro) │  │    (SQLite)      │   │
+│  └──────────────────────┘  └──────────┘  └──────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+## STT Engine Comparison
+
+Lexicon supports two STT engines with different performance characteristics:
+
+| Feature | Whisper | sherpa-onnx (Zipformer) |
+|---------|---------|-------------------------|
+| Architecture | Encoder-decoder (batch) | Transducer (streaming-capable) |
+| Latency | ~3250ms per 3s audio | ~50-300ms per 3s audio |
+| Model Size | 75MB - 2.9GB | ~60-320MB |
+| Languages | 99+ languages | English (more available) |
+| Translation | Yes (to English) | No |
+| Best For | Accuracy, translation | Low-latency, real-time |
+
+### When to Use Each Engine
+
+**Use Whisper (`Transcriber`) when:**
+- You need translation to English
+- You're transcribing non-English languages
+- Accuracy is more important than latency
+- Processing pre-recorded audio (not real-time)
+
+**Use sherpa-onnx (`SherpaTranscriber`) when:**
+- Low latency is critical (<500ms)
+- Building real-time/live transcription
+- English-only is acceptable
+- Running on mobile devices where battery matters
 
 For desktop platforms, an optional HTTP server mode is available:
 
@@ -128,25 +155,47 @@ See [08-audio-formats.md](08-audio-formats.md) for conversion utilities.
 All platforms follow the same initialization pattern:
 
 1. **Set data directory** - Where Lexicon stores configuration and cache
-2. **Set model directory** - Where Whisper models are stored
-3. **Download model** (if needed) - Fetch from Hugging Face
+2. **Set model directory** - Where models are stored
+3. **Download model** (if needed) - Fetch from HuggingFace/GitHub
 4. **Load model** - Load into memory for inference
 5. **Process audio** - Transcribe/synthesize
 
 ```
 init_lexicon(data_dir)
     │
-    ├── Create Transcriber/Synthesizer
+    ├── Create Transcriber (choose one)
     │       │
-    │       ├── load_model(path)
-    │       │       │
-    │       │       └── Ready for inference
+    │       ├── Transcriber (Whisper)
+    │       │       ├── load_model("whisper-base.bin")
+    │       │       └── transcribe(audio)
     │       │
-    │       └── transcribe(audio) / synthesize(text)
+    │       └── SherpaTranscriber (low-latency)
+    │               ├── load_model("models/sherpa/")  ← directory, not file
+    │               └── transcribe(audio)
+    │
+    ├── Create Synthesizer
+    │       │
+    │       └── synthesize(text)
     │
     └── Create ModelDownloader (optional)
             │
             └── download_model(id, callback)
+```
+
+### Model Format Differences
+
+| Engine | Model Format | Example Path |
+|--------|--------------|--------------|
+| Whisper | Single `.bin` file | `models/whisper-base.bin` |
+| sherpa-onnx | Directory with multiple files | `models/sherpa/zipformer-en/` |
+
+**sherpa-onnx model directory structure:**
+```
+models/sherpa/zipformer-en/
+├── encoder-epoch-99-avg-1.int8.onnx  (54MB)
+├── decoder-epoch-99-avg-1.onnx       (5MB)
+├── joiner-epoch-99-avg-1.onnx        (1MB)
+└── tokens.txt
 ```
 
 ## Thread Safety
@@ -162,6 +211,8 @@ All objects can be safely shared across threads (wrapped in Arc/similar as neede
 
 ### Model Sizes (Approximate)
 
+**Whisper Models:**
+
 | Model | Size on Disk | RAM Usage |
 |-------|--------------|-----------|
 | whisper-tiny | 75 MB | ~200 MB |
@@ -170,8 +221,22 @@ All objects can be safely shared across threads (wrapped in Arc/similar as neede
 | whisper-medium | 1.5 GB | ~2.5 GB |
 | whisper-large | 2.9 GB | ~4.5 GB |
 
+**sherpa-onnx Models:**
+
+| Model | Size on Disk | RAM Usage | RTF* |
+|-------|--------------|-----------|------|
+| zipformer-en-20M (int8) | ~60 MB | ~150 MB | 0.05 |
+| zipformer-gigaspeech (int8) | ~320 MB | ~400 MB | 0.05 |
+
+*RTF = Real-Time Factor. RTF of 0.05 means 1 second of audio processes in 50ms.
+
 ### Mobile Recommendations
 
+**For latency-sensitive apps (real-time):**
+- Use sherpa-onnx Zipformer models
+- ~60MB model with ~150MB RAM, 50ms latency per second of audio
+
+**For accuracy/translation:**
 - **Low-end devices (2-4GB RAM):** whisper-tiny or whisper-base
 - **Mid-range devices (4-6GB RAM):** whisper-base or whisper-small
 - **High-end devices (6GB+ RAM):** whisper-small or whisper-medium

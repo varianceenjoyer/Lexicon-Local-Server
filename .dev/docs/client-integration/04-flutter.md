@@ -113,9 +113,9 @@ bool downloaded = isModelDownloaded(
 await deleteModel(modelDir: modelDir, modelId: 'whisper-base');
 ```
 
-### Transcriber
+### Transcriber (Whisper)
 
-Speech-to-text transcription with opaque Rust object.
+Speech-to-text transcription using Whisper. Best for accuracy and translation.
 
 ```dart
 class TranscriptionService {
@@ -185,6 +185,121 @@ for (final segment in result.segments) {
   print('[${segment.startMs}-${segment.endMs}] ${segment.text}');
   if (segment.confidence != null) {
     print('  Confidence: ${segment.confidence}');
+  }
+}
+```
+
+### SherpaTranscriber (Low-Latency)
+
+Speech-to-text using sherpa-onnx Zipformer. **68x faster than Whisper** - best for real-time transcription.
+
+**Key Differences from Whisper:**
+- Model is a **directory** (not a single file)
+- No translation support (English transcription only with default model)
+- Much lower latency (~50ms vs ~3000ms for 1s audio)
+
+```dart
+class LowLatencyTranscriptionService {
+  late SherpaTranscriber _transcriber;
+  bool _isLoaded = false;
+
+  /// Initialize with sherpa model directory.
+  /// Model directory should contain: encoder-*.onnx, decoder-*.onnx,
+  /// joiner-*.onnx, tokens.txt
+  Future<void> initialize(String modelDir) async {
+    _transcriber = await SherpaTranscriber.newInstance();
+    await _transcriber.loadModel(modelDir: modelDir);
+
+    // Warm up to eliminate first-inference latency penalty
+    await _transcriber.warmUp();
+    _isLoaded = true;
+  }
+
+  bool get isReady => _isLoaded && _transcriber.isModelLoaded();
+
+  Future<TranscriptionResult> transcribe(Uint8List audioData, {
+    int numThreads = 4,
+  }) async {
+    final config = TranscriptionConfig(
+      numThreads: numThreads,
+      temperature: 0.0,
+    );
+
+    return await _transcriber.transcribe(
+      audioData: audioData,
+      config: config,
+    );
+  }
+
+  void unload() {
+    _transcriber.unloadModel();
+    _isLoaded = false;
+  }
+}
+
+// Usage - note the directory path (not a file)
+final service = LowLatencyTranscriptionService();
+await service.initialize('${modelDir}/sherpa/zipformer-gigaspeech');
+
+final result = await service.transcribe(audioData);
+print('Duration: ${result.audioDurationMs} ms');
+print('Processing: ${result.processingTimeMs} ms');  // ~50ms for 1s audio!
+
+// Real-time factor (RTF) - lower is better
+final rtf = result.processingTimeMs / result.audioDurationMs;
+print('RTF: ${rtf.toStringAsFixed(3)}');  // ~0.05
+```
+
+### Choosing Between Transcribers
+
+```dart
+enum TranscriberType { whisper, sherpa }
+
+class SmartTranscriptionService {
+  Transcriber? _whisper;
+  SherpaTranscriber? _sherpa;
+  TranscriberType _activeType = TranscriberType.sherpa;
+
+  Future<void> initialize({
+    required String whisperModelPath,
+    required String sherpaModelDir,
+    TranscriberType preferredType = TranscriberType.sherpa,
+  }) async {
+    _activeType = preferredType;
+
+    if (preferredType == TranscriberType.sherpa) {
+      _sherpa = await SherpaTranscriber.newInstance();
+      await _sherpa!.loadModel(modelDir: sherpaModelDir);
+      await _sherpa!.warmUp();
+    } else {
+      _whisper = await Transcriber.newInstance();
+      await _whisper!.loadModel(modelPath: whisperModelPath);
+    }
+  }
+
+  /// Use sherpa for speed, whisper for translation
+  Future<TranscriptionResult> transcribe(
+    Uint8List audioData, {
+    bool needsTranslation = false,
+  }) async {
+    final config = TranscriptionConfig(
+      translate: needsTranslation,
+      numThreads: 4,
+    );
+
+    // Translation requires Whisper
+    if (needsTranslation && _whisper != null) {
+      return await _whisper!.translate(audioData: audioData, config: config);
+    }
+
+    // Default to active transcriber
+    if (_activeType == TranscriberType.sherpa && _sherpa != null) {
+      return await _sherpa!.transcribe(audioData: audioData, config: config);
+    } else if (_whisper != null) {
+      return await _whisper!.transcribe(audioData: audioData, config: config);
+    }
+
+    throw Exception('No transcriber initialized');
   }
 }
 ```
@@ -733,9 +848,38 @@ class _TranscriptionScreenState extends State<TranscriptionScreen> with WidgetsB
 ### Model Selection
 
 ```dart
-String selectAppropriateModel() {
+/// Select model based on device capabilities and latency requirements
+({String modelId, bool useSherpa}) selectAppropriateModel({
+  bool requireLowLatency = false,
+  bool requireTranslation = false,
+}) {
   final platform = getPlatformInfo();
 
+  // Translation requires Whisper
+  if (requireTranslation) {
+    return (modelId: _selectWhisperModel(platform), useSherpa: false);
+  }
+
+  // Low latency = sherpa-onnx
+  if (requireLowLatency) {
+    return (modelId: 'sherpa-zipformer-gigaspeech', useSherpa: true);
+  }
+
+  // Default: sherpa for mobile (low latency), whisper for desktop (accuracy)
+  switch (platform.modelTier) {
+    case 'MobileLow':
+    case 'MobileMid':
+      return (modelId: 'sherpa-zipformer-gigaspeech', useSherpa: true);
+    case 'Desktop':
+      return (modelId: 'whisper-small', useSherpa: false);
+    case 'Server':
+      return (modelId: 'whisper-medium', useSherpa: false);
+    default:
+      return (modelId: 'sherpa-zipformer-gigaspeech', useSherpa: true);
+  }
+}
+
+String _selectWhisperModel(PlatformInfo platform) {
   switch (platform.modelTier) {
     case 'MobileLow':
       return 'whisper-tiny';
@@ -749,6 +893,89 @@ String selectAppropriateModel() {
       return 'whisper-base';
   }
 }
+```
+
+### Downloading sherpa-onnx Models
+
+sherpa-onnx models are distributed as tar.bz2 archives from GitHub releases:
+
+```dart
+import 'package:archive/archive.dart';
+import 'package:http/http.dart' as http;
+
+class SherpaModelDownloader {
+  static const _baseUrl =
+    'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models';
+
+  /// Download and extract sherpa model
+  Future<String> downloadModel(
+    String modelName,
+    String destDir,
+    void Function(double progress)? onProgress,
+  ) async {
+    final archiveUrl = '$_baseUrl/$modelName.tar.bz2';
+    final archivePath = '$destDir/$modelName.tar.bz2';
+    final extractedDir = '$destDir/$modelName';
+
+    // Check if already extracted
+    if (await Directory(extractedDir).exists()) {
+      return extractedDir;
+    }
+
+    // Download archive
+    final response = await http.Client().send(
+      http.Request('GET', Uri.parse(archiveUrl)),
+    );
+
+    final totalBytes = response.contentLength ?? 0;
+    var downloadedBytes = 0;
+
+    final file = File(archivePath);
+    final sink = file.openWrite();
+
+    await for (final chunk in response.stream) {
+      sink.add(chunk);
+      downloadedBytes += chunk.length;
+      if (onProgress != null && totalBytes > 0) {
+        onProgress(downloadedBytes / totalBytes);
+      }
+    }
+    await sink.close();
+
+    // Extract tar.bz2
+    final bytes = await file.readAsBytes();
+    final bz2 = BZip2Decoder().decodeBytes(bytes);
+    final tar = TarDecoder().decodeBytes(bz2);
+
+    for (final file in tar) {
+      final outPath = '$destDir/${file.name}';
+      if (file.isFile) {
+        File(outPath)
+          ..createSync(recursive: true)
+          ..writeAsBytesSync(file.content as List<int>);
+      } else {
+        Directory(outPath).createSync(recursive: true);
+      }
+    }
+
+    // Clean up archive
+    await File(archivePath).delete();
+
+    return extractedDir;
+  }
+}
+
+// Usage
+final downloader = SherpaModelDownloader();
+final modelDir = await downloader.downloadModel(
+  'sherpa-onnx-zipformer-gigaspeech-2023-12-12',
+  '${appDir.path}/models/sherpa',
+  (progress) => print('Download: ${(progress * 100).toStringAsFixed(0)}%'),
+);
+
+// Now use with SherpaTranscriber
+final transcriber = await SherpaTranscriber.newInstance();
+await transcriber.loadModel(modelDir: modelDir);
 ```
 
 ## Troubleshooting
@@ -766,11 +993,12 @@ String selectAppropriateModel() {
 - Ensure model was fully downloaded
 
 **High memory usage:**
-- Use smaller model (tiny/base)
+- Use smaller model (tiny/base for Whisper, zipformer-en-20M for sherpa)
 - Unload model when not in use
 - Process shorter audio chunks
 
 **Slow transcription:**
+- **Switch to SherpaTranscriber** - 68x faster than Whisper
 - Reduce `numThreads` on older devices
 - Use smaller model
 - Consider processing in isolate
@@ -780,3 +1008,26 @@ String selectAppropriateModel() {
 - Ensure mono channel
 - Check f32 PCM format (Float32List)
 - Verify little-endian byte order
+
+### SherpaTranscriber-Specific Issues
+
+**"stt-sherpa feature not enabled":**
+- Library was built without sherpa support
+- Rebuild with `--features stt-sherpa` flag
+
+**Model load fails with directory path:**
+- Verify all required files exist in directory:
+  - `encoder-*.onnx` (required)
+  - `decoder-*.onnx` (required)
+  - `joiner-*.onnx` (required)
+  - `tokens.txt` (required)
+- Check file permissions
+
+**Different accuracy than Whisper:**
+- Expected: sherpa optimizes for speed over accuracy
+- For better accuracy, use larger sherpa model (gigaspeech) or Whisper
+- sherpa models are English-only by default
+
+**First transcription is slow:**
+- Call `warmUp()` after `loadModel()` to prime caches
+- This eliminates 100-500ms first-inference penalty

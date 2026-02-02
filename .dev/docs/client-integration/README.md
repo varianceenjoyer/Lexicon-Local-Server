@@ -59,13 +59,16 @@ import 'package:lexicon/lexicon.dart';
 // Initialize (sync call)
 initLexicon(dataDir: appDir);
 
-// Create transcriber (async - returns Result)
+// Option 1: Whisper (accuracy, translation)
 final transcriber = await Transcriber.newInstance();
-await transcriber.loadModel(modelPath: modelPath);
-
-// Transcribe
-final config = TranscriptionConfig(language: 'en');
+await transcriber.loadModel(modelPath: 'models/whisper-base.bin');
 final result = await transcriber.transcribe(audioData: audioData, config: config);
+
+// Option 2: sherpa-onnx (low-latency, 68x faster)
+final sherpa = await SherpaTranscriber.newInstance();
+await sherpa.loadModel(modelDir: 'models/sherpa/zipformer-gigaspeech');
+await sherpa.warmUp();  // Eliminate first-inference penalty
+final fastResult = await sherpa.transcribe(audioData: audioData, config: config);
 ```
 
 ### HTTP API (Desktop/Web)
@@ -79,6 +82,17 @@ curl -X POST http://localhost:3000/api/v1/transcribe \
   -H "Content-Type: application/json" \
   -d '{"audio": "<base64-encoded-pcm>", "language": "en"}'
 ```
+
+## STT Engine Options
+
+Lexicon provides two speech-to-text engines:
+
+| Engine | Class | Latency | Best For |
+|--------|-------|---------|----------|
+| Whisper | `Transcriber` | ~3000ms/s | Accuracy, translation, multi-language |
+| sherpa-onnx | `SherpaTranscriber` | ~50ms/s | Real-time, low-latency, mobile |
+
+See [01-overview.md](01-overview.md) for detailed comparison.
 
 ## Integration Approaches
 
