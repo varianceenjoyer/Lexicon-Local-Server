@@ -4,7 +4,7 @@ type: work-plan
 status: in-progress
 phase: beta
 created: 2026-01-31
-updated: 2026-02-01
+updated: 2026-02-02
 author: design-lead
 consumers: [developer]
 depends-on: [WP-STT, WP-FFI]
@@ -17,10 +17,13 @@ tags: [latency, performance, whisper, stt, optimization, streaming]
 
 ## Overview
 
-Optimize Whisper inference and the Rust STT pipeline to achieve sub-second transcription latency. Current measurements show 10+ seconds for sentence transcription on mobile (tiny-q5_1 model).
+Optimize Whisper inference and the Rust STT pipeline to achieve sub-second transcription latency.
 
-**Current State**: ~10+ seconds per sentence on emulated x86_64, similar on physical aarch64.
-**Target State**: <500ms per 100ms audio chunk processing time.
+**Initial State** (2026-01-31): ~10+ seconds on emulator, ~3800ms on physical ARM64
+**Current State** (2026-02-02): ~3250ms on physical ARM64 (Samsung RFCR8069FBK)
+**Target State**: <1800ms for Gen-5 smartphones
+
+**Progress**: 15% latency reduction achieved (3800ms → 3250ms) through config-level optimizations.
 
 ## Problem Analysis
 
@@ -300,14 +303,18 @@ cargo flamegraph --bin lexicon -- transcribe test.wav
 
 ## Metrics to Track
 
-| Metric | Current | Target |
-|--------|---------|--------|
-| Chunk processing time (100ms audio) | ~1000ms+ | <500ms |
-| Mel spectrogram computation | ? | <10ms |
-| Encoder pass | ? | <200ms |
-| Decoder per token | ? | <50ms |
-| FFI round-trip overhead | ? | <5ms |
-| Memory per transcription | ? | <50MB |
+| Metric | Baseline | Current (2026-02-02) | Target |
+|--------|----------|----------------------|--------|
+| FFI inference time (tiny-q5_1) | ~3800ms | ~3250ms | <1800ms |
+| VAD + Conv overhead | N/A | <0.2ms | <1ms |
+| Pipeline total | ~3800ms | ~3250ms | <2000ms |
+| Mel spectrogram computation | ? | ? | <10ms |
+| Encoder pass | ? | ? | <200ms |
+| Decoder per token | ? | ? | <50ms |
+| FFI round-trip overhead | ? | <0.2ms | <5ms |
+| Memory per transcription | ? | ? | <50MB |
+
+**Note**: Measurements taken on physical Samsung ARM64 device (RFCR8069FBK) with tiny-q5_1 model.
 
 ## Platform-Specific Expectations
 
@@ -481,3 +488,71 @@ If Whisper optimization is insufficient:
 **Tests Added:**
 - 4 new tests for latency optimization features
 - Total: 15 tests in lexicon-flutter (all passing)
+
+### 2026-02-02: Physical Device Benchmarks & whisper-rs Optimizations
+
+**Physical device testing on Samsung ARM64 (RFCR8069FBK):**
+
+Baseline measurements established on physical ARM64 device with tiny-q5_1 model:
+- **Initial baseline**: ~3800ms FFI time
+- **Target**: ~1800ms (Gen-5 smartphone theoretical)
+
+**whisper-rs/whisper-rs-sys optimizations implemented:**
+
+1. **Flash Attention** (`whisper.rs`):
+   - Added `params.flash_attn(self.use_gpu)` for GPU acceleration
+   - **CRITICAL**: Only enable on macOS/iOS (Metal) - causes 2x slowdown on Android ARM
+   - Used `#[cfg(any(target_os = "macos", target_os = "ios"))]` guard
+   - On Android: FFI time went from 3800ms → 6388ms with flash_attn, back to ~3200ms without
+
+2. **Single Segment Mode** (`whisper.rs`, `types.rs`):
+   - Added `params.set_single_segment(config.single_segment)`
+   - Default: `true` for lower latency
+   - Reduces segmentation overhead (~5-10% improvement)
+
+3. **Temperature Fallback Disabled** (`whisper.rs`):
+   - Added `params.set_temperature_inc(0.0)`
+   - Disables retry with higher temperature on failure
+   - Saves ~0-5% latency
+
+4. **No Timestamps Option** (`whisper.rs`, `types.rs`):
+   - Added `no_timestamps: bool` to TranscriptionConfig
+   - Added `params.set_no_timestamps(config.no_timestamps)`
+   - Saves ~2-3% when timestamps not needed
+
+5. **ARM64 Enhanced SIMD** (`.cargo/config.toml`):
+   - Changed from `+neon` to `+neon,+dotprod,+fp16`
+   - Enables additional ARM SIMD instructions for Rust code
+
+6. **Force English Language** (`lexicon-flutter/src/types.rs`):
+   - Changed default language from `None` to `Some("en")`
+   - Skips language auto-detection forward pass
+   - Saves ~5% latency
+
+**Benchmark Results:**
+
+| Build Configuration | FFI Time | Change |
+|---------------------|----------|--------|
+| Baseline (pre-optimization) | ~3800ms | - |
+| + flash_attn (BROKEN on Android) | 6388ms | +68% worse |
+| + all optimizations (flash_attn disabled) | 3200-3600ms | ~10% better |
+| + forced English | 3079-3401ms | ~15% better |
+
+**Final Result**: ~3250ms average (down from ~3800ms) = **~15% improvement**
+
+**Files Modified:**
+- `crates/lexicon-core/src/stt/whisper.rs` - flash_attn (guarded), single_segment, temperature_inc, no_timestamps
+- `crates/lexicon-core/src/stt/types.rs` - Added single_segment, no_timestamps fields
+- `crates/lexicon-flutter/src/types.rs` - Force English language default
+- `.cargo/config.toml` - Enhanced ARM64 SIMD flags
+
+**Key Learning:**
+Flash attention in whisper.cpp requires Metal (macOS/iOS) or CUDA (NVIDIA). On Android ARM,
+enabling flash_attn causes significant slowdown because the code path is not optimized for
+CPU-only execution. Always guard flash_attn with platform checks.
+
+**Remaining Gap:**
+Current: ~3250ms, Target: ~1800ms. Closing this gap requires:
+- Hardware NPU/GPU acceleration
+- Streaming chunked inference (process audio as it arrives)
+- Different model architecture or alternative STT engine
