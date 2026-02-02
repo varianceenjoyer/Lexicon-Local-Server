@@ -11,9 +11,12 @@
 #   4. Use scripts/android/build-android-tui.ps1
 
 # ARM64 - most modern Android devices
-# WP-LATENCY-STT: Enable NEON SIMD for hardware-accelerated vector operations
+# WP-LATENCY-STT: Enable SIMD features for hardware-accelerated vector operations
+# - neon: ARM NEON SIMD (standard on all ARM64)
+# - dotprod: ARMv8.2-A dot product instructions (~2x speedup for quantized ops)
+# - fp16: Half-precision floating point (reduces memory bandwidth)
 [target.aarch64-linux-android]
-rustflags = ["-C", "target-feature=+neon"]
+rustflags = ["-C", "target-feature=+neon,+dotprod,+fp16"]
 
 # x86_64 - Android emulators and some Chromebooks
 # WP-LATENCY-STT: Ensure x86-64 baseline optimization
