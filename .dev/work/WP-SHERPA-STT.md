@@ -377,8 +377,27 @@ wget -O "$DEST/tokens.txt" "$MODEL_URL/tokens.txt"
 - Methods exposed: `new()`, `load_model()`, `unload_model()`, `is_model_loaded()`, `warm_up()`, `transcribe()`
 - Created `scripts/download-sherpa-model.sh` for model download
 
-**Next Steps (Phase 4-5):**
-- [ ] Download streaming Zipformer model (~60MB) and test locally
+**Phase 4 - Integration Testing (2026-02-02):**
+- **IMPORTANT FINDING**: sherpa-rs `ZipFormer` only supports OFFLINE models, not streaming
+- Streaming models (with `chunk-16-left-128` in name) crash with foreign exception
+- Downloaded offline `sherpa-onnx-zipformer-gigaspeech-2023-12-12` model (321MB)
+- Integration test passes with 47ms processing time for 1s audio (RTF: 0.047)
+- **68x faster than Whisper** (~3250ms → 47ms for 1 second audio)
+
+**Benchmark Results (Desktop x86_64):**
+| Engine | Model | Audio Duration | Processing Time | RTF |
+|--------|-------|----------------|-----------------|-----|
+| Whisper | tiny-q5_1 | 1s | ~3250ms | 3.25 |
+| Sherpa | Gigaspeech-int8 | 1s | 47ms | 0.047 |
+
+**Key Limitation:**
+sherpa-rs currently only exposes `ZipFormer` for offline (batch) recognition.
+The C API has `OnlineRecognizer` for streaming but sherpa-rs doesn't expose it yet.
+For true streaming STT, we would need to either:
+1. Add OnlineRecognizer bindings to sherpa-rs (upstream contribution)
+2. Create custom C FFI bindings to sherpa-onnx
+
+**Next Steps:**
 - [ ] Test on Android ARM64 physical device
-- [ ] Benchmark against Whisper baseline
 - [ ] Regenerate Flutter Dart bindings with `flutter_rust_bridge_codegen`
+- [ ] Consider contributing OnlineRecognizer bindings to sherpa-rs
