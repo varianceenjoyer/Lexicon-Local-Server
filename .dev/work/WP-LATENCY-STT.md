@@ -8,7 +8,7 @@ updated: 2026-02-02
 author: design-lead
 consumers: [developer]
 depends-on: [WP-STT, WP-FFI]
-blocks: []
+blocks: [WP-SHERPA-STT]
 priority: critical
 tags: [latency, performance, whisper, stt, optimization, streaming]
 ---
@@ -57,7 +57,7 @@ The decoder is autoregressive - each token depends on previous tokens, preventin
 ### Out of Scope
 - Model architecture changes
 - Custom model training
-- Alternative STT engines (future work)
+- Alternative STT engines → See **[WP-SHERPA-STT](./WP-SHERPA-STT.md)** for streaming sherpa-onnx integration
 
 ## Optimization Strategies
 
@@ -367,12 +367,17 @@ Many Q4/Q8 quantized operations in whisper.cpp use DOTPROD-gated code paths:
 - Cortex-A76/A77/A78 and newer
 - Most devices running Android 8+ with arm64
 
-## Alternative Approaches (Future)
+## Alternative Approaches
 
-If Whisper optimization is insufficient:
+Whisper config-level optimizations are exhausted at ~3250ms. The path forward is:
 
-1. **Distilled Models**: Use whisper-tiny distilled variants
-2. **Alternative Engines**: Vosk, DeepSpeech (smaller, faster, less accurate)
+1. **🎯 sherpa-onnx (Recommended)**: See **[WP-SHERPA-STT](./WP-SHERPA-STT.md)**
+   - True streaming architecture (no 30s padding)
+   - Expected: ~300-500ms FFI latency (6-10x improvement)
+   - Streaming Zipformer models optimized for mobile
+   - `sherpa-rs` Rust crate for direct integration
+
+2. **Distilled Models**: Use whisper-tiny distilled variants (marginal gains)
 3. **Hybrid Approach**: Fast VAD + keyword spotting, Whisper for full transcription
 4. **Server Offload**: Send audio to server for heavy processing
 
@@ -556,3 +561,29 @@ Current: ~3250ms, Target: ~1800ms. Closing this gap requires:
 - Hardware NPU/GPU acceleration
 - Streaming chunked inference (process audio as it arrives)
 - Different model architecture or alternative STT engine
+
+### 2026-02-02: OpenMP Testing & sherpa-onnx Work Package
+
+**OpenMP Testing:**
+- Enabled `openmp` feature in whisper-rs for multi-threaded inference
+- Initial deployment failed: `dlopen failed: cannot locate symbol "__kmpc_global_thread_num"`
+- Fixed by changing to static linking: `-Wl,-Bstatic -lomp -Wl,-Bdynamic`
+- **Result**: No performance benefit (~3320ms vs ~3250ms baseline)
+- Reverted OpenMP changes, documented findings
+
+**Streaming Inference Research:**
+- Whisper is fundamentally batch-oriented (always processes 30s chunks)
+- Investigated streaming-native alternatives:
+  - Moonshine (5-15x faster than Whisper)
+  - sherpa-onnx Zipformer (~160ms latency on mobile)
+- Selected sherpa-onnx due to mature Rust bindings (`sherpa-rs`)
+
+**Work Package Created:**
+- Created **[WP-SHERPA-STT](./WP-SHERPA-STT.md)** for sherpa-onnx integration
+- Created handoff document **[HO-SHERPA-001](../handoffs/HO-SHERPA-001.md)**
+- Expected improvement: 6-10x latency reduction (300-500ms target)
+
+**Conclusion:**
+Config-level Whisper optimizations are exhausted at ~3250ms. The path to <1800ms
+target requires switching to a streaming-native STT engine. WP-SHERPA-STT is now
+the recommended path forward.
