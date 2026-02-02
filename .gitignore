@@ -45,6 +45,7 @@ ehthumbs.db
 
 # Models (downloaded separately, too large for git)
 models/sherpa/
+models/sherpa-offline/
 models/*.bin
 
 # Miscellaneous
