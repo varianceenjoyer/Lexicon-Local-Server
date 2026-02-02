@@ -33,7 +33,7 @@ pub mod storage;
 #[cfg(feature = "audio")]
 pub mod audio;
 
-#[cfg(feature = "stt")]
+#[cfg(any(feature = "stt", feature = "stt-sherpa"))]
 pub mod stt;
 
 #[cfg(feature = "tts")]
@@ -57,8 +57,17 @@ pub use storage::Database;
 #[cfg(feature = "audio")]
 pub use audio::{AudioChunk, AudioConfig, AudioSource, CpalAudioSource, Resampler, VoiceActivityDetector};
 
+// STT types - common types available with either whisper or sherpa
+#[cfg(any(feature = "stt", feature = "stt-sherpa"))]
+pub use stt::{Segment, Transcriber, TranscriptionConfig, TranscriptionResult};
+
+// Whisper-specific exports
 #[cfg(feature = "stt")]
-pub use stt::{Segment, Transcriber, TranscriptionConfig, TranscriptionResult, WhisperTranscriber};
+pub use stt::WhisperTranscriber;
+
+// Sherpa-specific exports
+#[cfg(feature = "stt-sherpa")]
+pub use stt::{SherpaConfig, SherpaTranscriber};
 
 #[cfg(feature = "tts")]
 pub use tts::{AudioBuffer, KokoroSynthesizer, PlatformSynthesizer, Synthesizer, TtsConfig, TtsEngine, TtsManager};

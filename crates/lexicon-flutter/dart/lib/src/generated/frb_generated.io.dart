@@ -26,6 +26,10 @@ abstract class LexiconFlutterApiImplPlatform
           ._rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerModelDownloaderPtr;
 
   CrossPlatformFinalizerArg
+      get rust_arc_decrement_strong_count_SherpaTranscriberPtr => wire
+          ._rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriberPtr;
+
+  CrossPlatformFinalizerArg
       get rust_arc_decrement_strong_count_StreamingSynthesizerPtr => wire
           ._rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizerPtr;
 
@@ -44,6 +48,11 @@ abstract class LexiconFlutterApiImplPlatform
   @protected
   ModelDownloader
       dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerModelDownloader(
+          dynamic raw);
+
+  @protected
+  SherpaTranscriber
+      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
           dynamic raw);
 
   @protected
@@ -72,6 +81,11 @@ abstract class LexiconFlutterApiImplPlatform
           dynamic raw);
 
   @protected
+  SherpaTranscriber
+      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          dynamic raw);
+
+  @protected
   StreamingSynthesizer
       dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizer(
           dynamic raw);
@@ -94,6 +108,11 @@ abstract class LexiconFlutterApiImplPlatform
   @protected
   ModelDownloader
       dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerModelDownloader(
+          dynamic raw);
+
+  @protected
+  SherpaTranscriber
+      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
           dynamic raw);
 
   @protected
@@ -239,6 +258,11 @@ abstract class LexiconFlutterApiImplPlatform
           SseDeserializer deserializer);
 
   @protected
+  SherpaTranscriber
+      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          SseDeserializer deserializer);
+
+  @protected
   StreamingSynthesizer
       sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizer(
           SseDeserializer deserializer);
@@ -264,6 +288,11 @@ abstract class LexiconFlutterApiImplPlatform
           SseDeserializer deserializer);
 
   @protected
+  SherpaTranscriber
+      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          SseDeserializer deserializer);
+
+  @protected
   StreamingSynthesizer
       sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizer(
           SseDeserializer deserializer);
@@ -286,6 +315,11 @@ abstract class LexiconFlutterApiImplPlatform
   @protected
   ModelDownloader
       sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerModelDownloader(
+          SseDeserializer deserializer);
+
+  @protected
+  SherpaTranscriber
+      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
           SseDeserializer deserializer);
 
   @protected
@@ -444,6 +478,11 @@ abstract class LexiconFlutterApiImplPlatform
 
   @protected
   void
+      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          SherpaTranscriber self, SseSerializer serializer);
+
+  @protected
+  void
       sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizer(
           StreamingSynthesizer self, SseSerializer serializer);
 
@@ -469,6 +508,11 @@ abstract class LexiconFlutterApiImplPlatform
 
   @protected
   void
+      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          SherpaTranscriber self, SseSerializer serializer);
+
+  @protected
+  void
       sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizer(
           StreamingSynthesizer self, SseSerializer serializer);
 
@@ -491,6 +535,11 @@ abstract class LexiconFlutterApiImplPlatform
   void
       sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerModelDownloader(
           ModelDownloader self, SseSerializer serializer);
+
+  @protected
+  void
+      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          SherpaTranscriber self, SseSerializer serializer);
 
   @protected
   void
@@ -692,6 +741,38 @@ class LexiconFlutterWire implements BaseWire {
           'frbgen_lexicon_flutter_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerModelDownloader');
   late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerModelDownloader =
       _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerModelDownloaderPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  void
+      rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+    ffi.Pointer<ffi.Void> ptr,
+  ) {
+    return _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+      ptr,
+    );
+  }
+
+  late final _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriberPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'frbgen_lexicon_flutter_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber');
+  late final _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber =
+      _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriberPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  void
+      rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+    ffi.Pointer<ffi.Void> ptr,
+  ) {
+    return _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+      ptr,
+    );
+  }
+
+  late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriberPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'frbgen_lexicon_flutter_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber');
+  late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber =
+      _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriberPtr
           .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
 
   void

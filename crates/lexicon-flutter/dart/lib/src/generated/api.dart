@@ -70,6 +70,34 @@ abstract class ModelDownloader implements RustOpaqueInterface {
   void reset();
 }
 
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<SherpaTranscriber>>
+abstract class SherpaTranscriber implements RustOpaqueInterface {
+  /// Check if a model is loaded.
+  bool isModelLoaded();
+
+  /// Load a Sherpa model from a directory.
+  ///
+  /// The directory should contain encoder, decoder, joiner, and tokens files.
+  Future<void> loadModel({required String modelDir});
+
+  // HINT: Make it `#[frb(sync)]` to let it become the default constructor of Dart class.
+  /// Create a new Sherpa transcriber.
+  static Future<SherpaTranscriber> newInstance() =>
+      LexiconFlutter.instance.api.crateApiSherpaTranscriberNew();
+
+  /// Transcribe audio data (batch mode).
+  ///
+  /// Audio should be raw PCM f32 samples at 16kHz mono, packed as bytes.
+  Future<TranscriptionResult> transcribe(
+      {required List<int> audioData, required TranscriptionConfig config});
+
+  /// Unload the current model.
+  void unloadModel();
+
+  /// Warm up the model for optimal first-inference latency.
+  Future<PlatformInt64> warmUp();
+}
+
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<StreamingSynthesizer>>
 abstract class StreamingSynthesizer implements RustOpaqueInterface {
   /// Check if ready.
@@ -114,11 +142,23 @@ abstract class StreamingTranscriber implements RustOpaqueInterface {
   ///
   /// This is the core streaming method. Call it repeatedly with audio chunks
   /// to get real-time transcription results.
+  ///
+  /// **Latency Optimization (WP-LATENCY-STT)**: Uses VAD-based early exit
+  /// to skip silent/noise chunks before expensive Whisper inference.
+  /// Silent chunks return empty segments instantly.
   Future<List<TranscriptionSegment>> processChunk(
       {required AudioChunk chunk, required TranscriptionConfig config});
 
   /// Stop the streaming session.
   void stop();
+
+  /// Warms up the model by running a short inference on silence.
+  ///
+  /// **Latency Optimization (WP-LATENCY-STT)**: This primes the model's
+  /// internal caches and eliminates the "first inference" latency penalty.
+  ///
+  /// Returns the warm-up time in milliseconds for diagnostics.
+  Future<PlatformInt64> warmUp();
 }
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Synthesizer>>
@@ -167,6 +207,18 @@ abstract class Transcriber implements RustOpaqueInterface {
 
   /// Unload the current model.
   void unloadModel();
+
+  /// Warms up the model by running a short inference on silence.
+  ///
+  /// **Latency Optimization (WP-LATENCY-STT)**: This primes the model's
+  /// internal caches and eliminates the "first inference" latency penalty
+  /// that can add 100-500ms to the first transcription.
+  ///
+  /// Call this method after loading a model and before real transcription
+  /// for optimal latency on the first request.
+  ///
+  /// Returns the warm-up time in milliseconds for diagnostics.
+  Future<PlatformInt64> warmUp();
 }
 
 /// Audio chunk for streaming transcription.

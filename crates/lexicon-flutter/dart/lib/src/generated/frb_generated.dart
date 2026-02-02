@@ -73,7 +73,7 @@ class LexiconFlutter extends BaseEntrypoint<LexiconFlutterApi,
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -1270744185;
+  int get rustContentHash => -909916132;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -97,6 +97,24 @@ abstract class LexiconFlutterApi extends BaseApi {
       {required String modelDir});
 
   void crateApiModelDownloaderReset({required ModelDownloader that});
+
+  bool crateApiSherpaTranscriberIsModelLoaded(
+      {required SherpaTranscriber that});
+
+  Future<void> crateApiSherpaTranscriberLoadModel(
+      {required SherpaTranscriber that, required String modelDir});
+
+  Future<SherpaTranscriber> crateApiSherpaTranscriberNew();
+
+  Future<TranscriptionResult> crateApiSherpaTranscriberTranscribe(
+      {required SherpaTranscriber that,
+      required List<int> audioData,
+      required TranscriptionConfig config});
+
+  void crateApiSherpaTranscriberUnloadModel({required SherpaTranscriber that});
+
+  Future<PlatformInt64> crateApiSherpaTranscriberWarmUp(
+      {required SherpaTranscriber that});
 
   bool crateApiStreamingSynthesizerIsReady(
       {required StreamingSynthesizer that});
@@ -132,6 +150,9 @@ abstract class LexiconFlutterApi extends BaseApi {
 
   void crateApiStreamingTranscriberStop({required StreamingTranscriber that});
 
+  Future<PlatformInt64> crateApiStreamingTranscriberWarmUp(
+      {required StreamingTranscriber that});
+
   bool crateApiSynthesizerIsReady({required Synthesizer that});
 
   List<String> crateApiSynthesizerListVoices({required Synthesizer that});
@@ -164,6 +185,8 @@ abstract class LexiconFlutterApi extends BaseApi {
 
   void crateApiTranscriberUnloadModel({required Transcriber that});
 
+  Future<PlatformInt64> crateApiTranscriberWarmUp({required Transcriber that});
+
   Future<void> crateApiDeleteModel(
       {required String modelDir, required String modelId});
 
@@ -188,6 +211,15 @@ abstract class LexiconFlutterApi extends BaseApi {
 
   CrossPlatformFinalizerArg
       get rust_arc_decrement_strong_count_ModelDownloaderPtr;
+
+  RustArcIncrementStrongCountFnType
+      get rust_arc_increment_strong_count_SherpaTranscriber;
+
+  RustArcDecrementStrongCountFnType
+      get rust_arc_decrement_strong_count_SherpaTranscriber;
+
+  CrossPlatformFinalizerArg
+      get rust_arc_decrement_strong_count_SherpaTranscriberPtr;
 
   RustArcIncrementStrongCountFnType
       get rust_arc_increment_strong_count_StreamingSynthesizer;
@@ -388,6 +420,168 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       );
 
   @override
+  bool crateApiSherpaTranscriberIsModelLoaded(
+      {required SherpaTranscriber that}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+            that, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_bool,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiSherpaTranscriberIsModelLoadedConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiSherpaTranscriberIsModelLoadedConstMeta =>
+      const TaskConstMeta(
+        debugName: "SherpaTranscriber_is_model_loaded",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<void> crateApiSherpaTranscriberLoadModel(
+      {required SherpaTranscriber that, required String modelDir}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+            that, serializer);
+        sse_encode_String(modelDir, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 8, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: sse_decode_lexicon_flutter_error,
+      ),
+      constMeta: kCrateApiSherpaTranscriberLoadModelConstMeta,
+      argValues: [that, modelDir],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiSherpaTranscriberLoadModelConstMeta =>
+      const TaskConstMeta(
+        debugName: "SherpaTranscriber_load_model",
+        argNames: ["that", "modelDir"],
+      );
+
+  @override
+  Future<SherpaTranscriber> crateApiSherpaTranscriberNew() {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 9, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData:
+            sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber,
+        decodeErrorData: sse_decode_lexicon_flutter_error,
+      ),
+      constMeta: kCrateApiSherpaTranscriberNewConstMeta,
+      argValues: [],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiSherpaTranscriberNewConstMeta =>
+      const TaskConstMeta(
+        debugName: "SherpaTranscriber_new",
+        argNames: [],
+      );
+
+  @override
+  Future<TranscriptionResult> crateApiSherpaTranscriberTranscribe(
+      {required SherpaTranscriber that,
+      required List<int> audioData,
+      required TranscriptionConfig config}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+            that, serializer);
+        sse_encode_list_prim_u_8_loose(audioData, serializer);
+        sse_encode_box_autoadd_transcription_config(config, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 10, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_transcription_result,
+        decodeErrorData: sse_decode_lexicon_flutter_error,
+      ),
+      constMeta: kCrateApiSherpaTranscriberTranscribeConstMeta,
+      argValues: [that, audioData, config],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiSherpaTranscriberTranscribeConstMeta =>
+      const TaskConstMeta(
+        debugName: "SherpaTranscriber_transcribe",
+        argNames: ["that", "audioData", "config"],
+      );
+
+  @override
+  void crateApiSherpaTranscriberUnloadModel({required SherpaTranscriber that}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+            that, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiSherpaTranscriberUnloadModelConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiSherpaTranscriberUnloadModelConstMeta =>
+      const TaskConstMeta(
+        debugName: "SherpaTranscriber_unload_model",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<PlatformInt64> crateApiSherpaTranscriberWarmUp(
+      {required SherpaTranscriber that}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+            that, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 12, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_i_64,
+        decodeErrorData: sse_decode_lexicon_flutter_error,
+      ),
+      constMeta: kCrateApiSherpaTranscriberWarmUpConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiSherpaTranscriberWarmUpConstMeta =>
+      const TaskConstMeta(
+        debugName: "SherpaTranscriber_warm_up",
+        argNames: ["that"],
+      );
+
+  @override
   bool crateApiStreamingSynthesizerIsReady(
       {required StreamingSynthesizer that}) {
     return handler.executeSync(SyncTask(
@@ -395,7 +589,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizer(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -421,7 +615,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizer(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -445,7 +639,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 9, port: port_);
+            funcId: 15, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -471,7 +665,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizer(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -504,7 +698,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         sse_encode_box_autoadd_tts_config(config, serializer);
         sse_encode_u_32(chunkMs, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 11, port: port_);
+            funcId: 17, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_tts_audio_chunk,
@@ -530,7 +724,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingTranscriber(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 18)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -556,7 +750,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingTranscriber(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -584,7 +778,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
             that, serializer);
         sse_encode_String(modelPath, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 14, port: port_);
+            funcId: 20, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -608,7 +802,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 15, port: port_);
+            funcId: 21, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -640,7 +834,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         sse_encode_box_autoadd_audio_chunk(chunk, serializer);
         sse_encode_box_autoadd_transcription_config(config, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 16, port: port_);
+            funcId: 22, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_transcription_segment,
@@ -665,7 +859,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingTranscriber(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 17)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 23)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -684,13 +878,40 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       );
 
   @override
+  Future<PlatformInt64> crateApiStreamingTranscriberWarmUp(
+      {required StreamingTranscriber that}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingTranscriber(
+            that, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 24, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_i_64,
+        decodeErrorData: sse_decode_lexicon_flutter_error,
+      ),
+      constMeta: kCrateApiStreamingTranscriberWarmUpConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiStreamingTranscriberWarmUpConstMeta =>
+      const TaskConstMeta(
+        debugName: "StreamingTranscriber_warm_up",
+        argNames: ["that"],
+      );
+
+  @override
   bool crateApiSynthesizerIsReady({required Synthesizer that}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSynthesizer(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 18)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 25)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -714,7 +935,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSynthesizer(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 26)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_String,
@@ -738,7 +959,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 20, port: port_);
+            funcId: 27, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -769,7 +990,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         sse_encode_String(text, serializer);
         sse_encode_box_autoadd_tts_config(config, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 21, port: port_);
+            funcId: 28, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_synthesis_result,
@@ -794,7 +1015,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTranscriber(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 29)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_opt_String,
@@ -819,7 +1040,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTranscriber(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 23)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 30)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -847,7 +1068,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
             that, serializer);
         sse_encode_String(modelPath, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 24, port: port_);
+            funcId: 31, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -871,7 +1092,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 25, port: port_);
+            funcId: 32, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -902,7 +1123,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         sse_encode_list_prim_u_8_loose(audioData, serializer);
         sse_encode_box_autoadd_transcription_config(config, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 26, port: port_);
+            funcId: 33, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_transcription_result,
@@ -933,7 +1154,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         sse_encode_list_prim_u_8_loose(audioData, serializer);
         sse_encode_box_autoadd_transcription_config(config, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 27, port: port_);
+            funcId: 34, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_transcription_result,
@@ -958,7 +1179,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTranscriber(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 28)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 35)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -977,6 +1198,31 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       );
 
   @override
+  Future<PlatformInt64> crateApiTranscriberWarmUp({required Transcriber that}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTranscriber(
+            that, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 36, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_i_64,
+        decodeErrorData: sse_decode_lexicon_flutter_error,
+      ),
+      constMeta: kCrateApiTranscriberWarmUpConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiTranscriberWarmUpConstMeta => const TaskConstMeta(
+        debugName: "Transcriber_warm_up",
+        argNames: ["that"],
+      );
+
+  @override
   Future<void> crateApiDeleteModel(
       {required String modelDir, required String modelId}) {
     return handler.executeNormal(NormalTask(
@@ -985,7 +1231,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         sse_encode_String(modelDir, serializer);
         sse_encode_String(modelId, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 29, port: port_);
+            funcId: 37, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1007,7 +1253,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 30)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 38)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_platform_info,
@@ -1029,7 +1275,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 31)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 39)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -1052,7 +1298,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 32, port: port_);
+            funcId: 40, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1075,7 +1321,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(dataDir, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 33)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 41)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1100,7 +1346,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(modelDir, serializer);
         sse_encode_String(modelId, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 34)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 42)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -1124,7 +1370,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(modelDir, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 35, port: port_);
+            funcId: 43, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_model_info,
@@ -1148,6 +1394,14 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
   RustArcDecrementStrongCountFnType
       get rust_arc_decrement_strong_count_ModelDownloader => wire
           .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerModelDownloader;
+
+  RustArcIncrementStrongCountFnType
+      get rust_arc_increment_strong_count_SherpaTranscriber => wire
+          .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber;
+
+  RustArcDecrementStrongCountFnType
+      get rust_arc_decrement_strong_count_SherpaTranscriber => wire
+          .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber;
 
   RustArcIncrementStrongCountFnType
       get rust_arc_increment_strong_count_StreamingSynthesizer => wire
@@ -1187,6 +1441,14 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
           dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return ModelDownloaderImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  SherpaTranscriber
+      dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return SherpaTranscriberImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -1230,6 +1492,14 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
   }
 
   @protected
+  SherpaTranscriber
+      dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return SherpaTranscriberImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   StreamingSynthesizer
       dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizer(
           dynamic raw) {
@@ -1267,6 +1537,14 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
           dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return ModelDownloaderImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  SherpaTranscriber
+      dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return SherpaTranscriberImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -1697,6 +1975,15 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
   }
 
   @protected
+  SherpaTranscriber
+      sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return SherpaTranscriberImpl.frbInternalSseDecode(
+        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
+  }
+
+  @protected
   StreamingSynthesizer
       sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizer(
           SseDeserializer deserializer) {
@@ -1742,6 +2029,15 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
   }
 
   @protected
+  SherpaTranscriber
+      sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return SherpaTranscriberImpl.frbInternalSseDecode(
+        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
+  }
+
+  @protected
   StreamingSynthesizer
       sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizer(
           SseDeserializer deserializer) {
@@ -1783,6 +2079,15 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
           SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return ModelDownloaderImpl.frbInternalSseDecode(
+        sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
+  }
+
+  @protected
+  SherpaTranscriber
+      sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return SherpaTranscriberImpl.frbInternalSseDecode(
         sse_decode_usize(deserializer), sse_decode_i_32(deserializer));
   }
 
@@ -2280,6 +2585,16 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
 
   @protected
   void
+      sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          SherpaTranscriber self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+        (self as SherpaTranscriberImpl).frbInternalSseEncode(move: true),
+        serializer);
+  }
+
+  @protected
+  void
       sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamingSynthesizer(
           StreamingSynthesizer self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -2323,6 +2638,16 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
         (self as ModelDownloaderImpl).frbInternalSseEncode(move: false),
+        serializer);
+  }
+
+  @protected
+  void
+      sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          SherpaTranscriber self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+        (self as SherpaTranscriberImpl).frbInternalSseEncode(move: false),
         serializer);
   }
 
@@ -2373,6 +2698,16 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
         (self as ModelDownloaderImpl).frbInternalSseEncode(move: null),
+        serializer);
+  }
+
+  @protected
+  void
+      sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
+          SherpaTranscriber self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+        (self as SherpaTranscriberImpl).frbInternalSseEncode(move: null),
         serializer);
   }
 
@@ -2840,6 +3175,61 @@ class ModelDownloaderImpl extends RustOpaque implements ModelDownloader {
 }
 
 @sealed
+class SherpaTranscriberImpl extends RustOpaque implements SherpaTranscriber {
+  // Not to be used by end users
+  SherpaTranscriberImpl.frbInternalDcoDecode(List<dynamic> wire)
+      : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  SherpaTranscriberImpl.frbInternalSseDecode(
+      BigInt ptr, int externalSizeOnNative)
+      : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount: LexiconFlutter
+        .instance.api.rust_arc_increment_strong_count_SherpaTranscriber,
+    rustArcDecrementStrongCount: LexiconFlutter
+        .instance.api.rust_arc_decrement_strong_count_SherpaTranscriber,
+    rustArcDecrementStrongCountPtr: LexiconFlutter
+        .instance.api.rust_arc_decrement_strong_count_SherpaTranscriberPtr,
+  );
+
+  /// Check if a model is loaded.
+  bool isModelLoaded() =>
+      LexiconFlutter.instance.api.crateApiSherpaTranscriberIsModelLoaded(
+        that: this,
+      );
+
+  /// Load a Sherpa model from a directory.
+  ///
+  /// The directory should contain encoder, decoder, joiner, and tokens files.
+  Future<void> loadModel({required String modelDir}) =>
+      LexiconFlutter.instance.api
+          .crateApiSherpaTranscriberLoadModel(that: this, modelDir: modelDir);
+
+  /// Transcribe audio data (batch mode).
+  ///
+  /// Audio should be raw PCM f32 samples at 16kHz mono, packed as bytes.
+  Future<TranscriptionResult> transcribe(
+          {required List<int> audioData,
+          required TranscriptionConfig config}) =>
+      LexiconFlutter.instance.api.crateApiSherpaTranscriberTranscribe(
+          that: this, audioData: audioData, config: config);
+
+  /// Unload the current model.
+  void unloadModel() =>
+      LexiconFlutter.instance.api.crateApiSherpaTranscriberUnloadModel(
+        that: this,
+      );
+
+  /// Warm up the model for optimal first-inference latency.
+  Future<PlatformInt64> warmUp() =>
+      LexiconFlutter.instance.api.crateApiSherpaTranscriberWarmUp(
+        that: this,
+      );
+}
+
+@sealed
 class StreamingSynthesizerImpl extends RustOpaque
     implements StreamingSynthesizer {
   // Not to be used by end users
@@ -2931,6 +3321,10 @@ class StreamingTranscriberImpl extends RustOpaque
   ///
   /// This is the core streaming method. Call it repeatedly with audio chunks
   /// to get real-time transcription results.
+  ///
+  /// **Latency Optimization (WP-LATENCY-STT)**: Uses VAD-based early exit
+  /// to skip silent/noise chunks before expensive Whisper inference.
+  /// Silent chunks return empty segments instantly.
   Future<List<TranscriptionSegment>> processChunk(
           {required AudioChunk chunk, required TranscriptionConfig config}) =>
       LexiconFlutter.instance.api.crateApiStreamingTranscriberProcessChunk(
@@ -2938,6 +3332,17 @@ class StreamingTranscriberImpl extends RustOpaque
 
   /// Stop the streaming session.
   void stop() => LexiconFlutter.instance.api.crateApiStreamingTranscriberStop(
+        that: this,
+      );
+
+  /// Warms up the model by running a short inference on silence.
+  ///
+  /// **Latency Optimization (WP-LATENCY-STT)**: This primes the model's
+  /// internal caches and eliminates the "first inference" latency penalty.
+  ///
+  /// Returns the warm-up time in milliseconds for diagnostics.
+  Future<PlatformInt64> warmUp() =>
+      LexiconFlutter.instance.api.crateApiStreamingTranscriberWarmUp(
         that: this,
       );
 }
@@ -3034,6 +3439,21 @@ class TranscriberImpl extends RustOpaque implements Transcriber {
   /// Unload the current model.
   void unloadModel() =>
       LexiconFlutter.instance.api.crateApiTranscriberUnloadModel(
+        that: this,
+      );
+
+  /// Warms up the model by running a short inference on silence.
+  ///
+  /// **Latency Optimization (WP-LATENCY-STT)**: This primes the model's
+  /// internal caches and eliminates the "first inference" latency penalty
+  /// that can add 100-500ms to the first transcription.
+  ///
+  /// Call this method after loading a model and before real transcription
+  /// for optimal latency on the first request.
+  ///
+  /// Returns the warm-up time in milliseconds for diagnostics.
+  Future<PlatformInt64> warmUp() =>
+      LexiconFlutter.instance.api.crateApiTranscriberWarmUp(
         that: this,
       );
 }
