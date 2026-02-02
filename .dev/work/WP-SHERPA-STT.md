@@ -371,8 +371,14 @@ wget -O "$DEST/tokens.txt" "$MODEL_URL/tokens.txt"
 2. **Interior mutability**: Used `RefCell` because `ZipFormer::decode` requires `&mut self` but `Transcriber::transcribe` uses `&self`. Thread-safety note: wrap in Mutex for multi-threaded use.
 3. **Model discovery**: Auto-discovers encoder/decoder/joiner/tokens files in model directory using common naming patterns.
 
-**Next Steps (Phase 3-5):**
-- [ ] Download streaming Zipformer model (~60MB)
+**Phase 3 - FFI Integration (2026-02-02):**
+- Added `stt-sherpa` and `stt-all` features to lexicon-flutter Cargo.toml
+- Created `SherpaTranscriber` FFI binding in `crates/lexicon-flutter/src/api.rs`
+- Methods exposed: `new()`, `load_model()`, `unload_model()`, `is_model_loaded()`, `warm_up()`, `transcribe()`
+- Created `scripts/download-sherpa-model.sh` for model download
+
+**Next Steps (Phase 4-5):**
+- [ ] Download streaming Zipformer model (~60MB) and test locally
 - [ ] Test on Android ARM64 physical device
 - [ ] Benchmark against Whisper baseline
-- [ ] Add FFI layer integration for Flutter
+- [ ] Regenerate Flutter Dart bindings with `flutter_rust_bridge_codegen`
