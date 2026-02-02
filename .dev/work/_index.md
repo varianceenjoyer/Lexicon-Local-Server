@@ -1,6 +1,6 @@
 # Work Packages Index
 
-> **Status**: Active | **Last Updated**: 2026-02-01
+> **Status**: Active | **Last Updated**: 2026-02-02
 >
 > This index tracks all actionable work packages for Lexicon Local Server.
 
@@ -226,4 +226,4 @@ See [../docs/android-emulation/](../docs/android-emulation/) for Android emulati
 
 ---
 
-*Last updated: 2026-01-29. Beta at 95% completion. WP-AUDIO-SIM complete. Only WP-BLE awaits hardware testing. See [.dev/human.md](../human.md) for action items.*
+*Last updated: 2026-02-02. Beta at 95% completion. WP-SHERPA-STT Phase 1&2 complete (sherpa-rs integrated). Only WP-BLE awaits hardware testing. See [.dev/human.md](../human.md) for action items.*
