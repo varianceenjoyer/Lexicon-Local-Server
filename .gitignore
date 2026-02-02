@@ -43,6 +43,10 @@ ehthumbs.db
 .env.local
 .env.*.local
 
+# Models (downloaded separately, too large for git)
+models/sherpa/
+models/*.bin
+
 # Miscellaneous
 *.class
 *.log
