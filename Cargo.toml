@@ -64,6 +64,7 @@ webrtc-vad = "0.4"
 ringbuf = "0.4"
 
 # Speech-to-Text (Whisper)
+# Note: OpenMP was tested but provided no benefit on Android ARM64 (~3320ms vs 3250ms baseline)
 whisper-rs = "0.14"
 
 # Text-to-Speech

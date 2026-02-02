@@ -17,6 +17,7 @@
 # - fp16: Half-precision floating point (reduces memory bandwidth)
 # - i8mm: ARMv8.6-A Int8 matrix multiply (10-30% speedup for quantized models)
 # Note: i8mm requires Cortex-A78/X1 or newer (2020+)
+# Note: OpenMP was tested but provided no benefit (~3320ms vs 3250ms baseline)
 [target.aarch64-linux-android]
 rustflags = ["-C", "target-feature=+neon,+dotprod,+fp16"]
 
