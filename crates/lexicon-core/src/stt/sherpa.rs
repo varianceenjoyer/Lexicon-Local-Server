@@ -171,26 +171,40 @@ impl SherpaTranscriber {
     }
 
     /// Finds a file matching a pattern in a directory.
+    ///
+    /// Prefers int8 quantized models for mobile efficiency.
     fn find_file(dir: &Path, prefixes: &[&str], suffix: &str) -> Result<String> {
+        let mut candidates = Vec::new();
+
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().to_string();
                 for prefix in prefixes {
                     if name.starts_with(prefix) && name.ends_with(suffix) {
-                        return Ok(entry.path().to_string_lossy().to_string());
+                        candidates.push(entry.path().to_string_lossy().to_string());
                     }
                 }
             }
         }
 
-        Err(LexiconError::Inference(InferenceError::ContextCreationFailed {
-            message: format!(
-                "Could not find file matching {:?}*{} in {}",
-                prefixes,
-                suffix,
-                dir.display()
-            ),
-        }))
+        if candidates.is_empty() {
+            return Err(LexiconError::Inference(InferenceError::ContextCreationFailed {
+                message: format!(
+                    "Could not find file matching {:?}*{} in {}",
+                    prefixes,
+                    suffix,
+                    dir.display()
+                ),
+            }));
+        }
+
+        // Prefer int8 quantized models for mobile efficiency
+        if let Some(int8_path) = candidates.iter().find(|p| p.contains("int8")) {
+            return Ok(int8_path.clone());
+        }
+
+        // Fall back to first match
+        Ok(candidates.into_iter().next().unwrap())
     }
 }
 
@@ -442,5 +456,57 @@ mod tests {
         let debug_str = format!("{:?}", transcriber);
         assert!(debug_str.contains("SherpaTranscriber"));
         assert!(debug_str.contains("model_loaded: false"));
+    }
+
+    /// Integration test that loads a real model if available.
+    /// Run with: cargo test --features stt-sherpa test_sherpa_with_real_model -- --ignored
+    ///
+    /// Note: sherpa-rs ZipFormer only supports OFFLINE models, not streaming.
+    /// Use the offline Gigaspeech model for testing:
+    /// ```bash
+    /// mkdir -p models/sherpa-offline && cd models/sherpa-offline
+    /// wget https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-gigaspeech-2023-12-12.tar.bz2
+    /// tar xjf sherpa-onnx-zipformer-gigaspeech-2023-12-12.tar.bz2
+    /// ```
+    #[test]
+    #[ignore = "requires offline model download (see doc comment)"]
+    fn test_sherpa_with_real_model() {
+        use super::Transcriber as _;
+
+        // Model path is relative to workspace root, not crate directory
+        let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent() // crates/
+            .and_then(|p| p.parent()) // workspace root
+            .expect("Could not find workspace root");
+
+        // Use offline model (sherpa-rs ZipFormer only supports offline models)
+        let model_dir = workspace_root.join("models/sherpa-offline/sherpa-onnx-zipformer-gigaspeech-2023-12-12");
+
+        if !model_dir.exists() {
+            eprintln!("Model not found at {:?}.", model_dir);
+            eprintln!("Download with:");
+            eprintln!("  wget https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-gigaspeech-2023-12-12.tar.bz2");
+            return;
+        }
+
+        // Load model
+        let mut transcriber = SherpaTranscriber::new().unwrap();
+        transcriber.load_model(&model_dir).expect("Failed to load model");
+        assert!(transcriber.is_model_loaded());
+
+        // Generate 1 second of silence at 16kHz
+        let samples = vec![0.0f32; 16000];
+        let config = TranscriptionConfig::new();
+
+        // Transcribe
+        let result = transcriber.transcribe(&samples, &config)
+            .expect("Transcription failed");
+
+        eprintln!("Transcription result: {:?}", result);
+        eprintln!("Processing time: {}ms", result.processing_time_ms);
+        eprintln!("RTF: {:.3}", result.real_time_factor());
+
+        // Silent audio should produce empty or minimal transcription
+        assert!(result.audio_duration_ms == 1000);
     }
 }
