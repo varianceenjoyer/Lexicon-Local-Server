@@ -242,6 +242,9 @@ impl Transcriber for SherpaTranscriber {
             (cpus - 1).max(1)
         };
 
+        // Use CPU provider on all platforms
+        // Note: NNAPI was tested but showed 70x slower inference than CPU on Snapdragon 888
+        // The DSP/NPU compilation overhead outweighs any potential acceleration benefits
         let config = ZipFormerConfig {
             encoder: encoder.into(),
             decoder: decoder.into(),

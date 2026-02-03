@@ -70,6 +70,7 @@ whisper-rs = "0.14"
 # Speech-to-Text (sherpa-onnx) - streaming-native architecture for low latency
 # Note: sherpa-rs provides Rust bindings to sherpa-onnx
 # See WP-SHERPA-STT for integration details
+# Note: NNAPI tested on Snapdragon 888 but 70x slower than CPU - using CPU inference
 sherpa-rs = { version = "0.6", features = ["download-binaries"] }
 
 # Text-to-Speech
