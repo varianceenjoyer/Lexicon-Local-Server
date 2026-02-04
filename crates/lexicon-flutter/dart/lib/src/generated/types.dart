@@ -6,6 +6,57 @@
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+/// Model cache statistics.
+class CacheStats {
+  /// Total bytes used by cached models.
+  final BigInt totalBytes;
+
+  /// Maximum allowed cache size in bytes.
+  final BigInt maxBytes;
+
+  /// Whether Sherpa STT model is cached.
+  final bool sherpaCached;
+
+  /// Whether TTS model is cached.
+  final bool ttsCached;
+
+  /// Memory used by cached Sherpa model (0 if not cached).
+  final BigInt sherpaBytes;
+
+  /// Memory used by cached TTS model (0 if not cached).
+  final BigInt ttsBytes;
+
+  const CacheStats({
+    required this.totalBytes,
+    required this.maxBytes,
+    required this.sherpaCached,
+    required this.ttsCached,
+    required this.sherpaBytes,
+    required this.ttsBytes,
+  });
+
+  @override
+  int get hashCode =>
+      totalBytes.hashCode ^
+      maxBytes.hashCode ^
+      sherpaCached.hashCode ^
+      ttsCached.hashCode ^
+      sherpaBytes.hashCode ^
+      ttsBytes.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CacheStats &&
+          runtimeType == other.runtimeType &&
+          totalBytes == other.totalBytes &&
+          maxBytes == other.maxBytes &&
+          sherpaCached == other.sherpaCached &&
+          ttsCached == other.ttsCached &&
+          sherpaBytes == other.sherpaBytes &&
+          ttsBytes == other.ttsBytes;
+}
+
 /// Download progress.
 class DownloadProgress {
   final String modelId;

@@ -29,134 +29,6 @@ use crate::types::*;
 static INITIALIZED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static DATA_DIR: RwLock<Option<PathBuf>> = RwLock::new(None);
 
-// ============================================================================
-// Model Cache
-// ============================================================================
-
-// Internal types - not exposed via FFI (module-private)
-#[frb(ignore)]
-mod cache_internal {
-    use super::*;
-
-    /// Cached model with metadata for memory management.
-    #[cfg(feature = "stt-sherpa")]
-    pub(super) struct CachedSherpaModel {
-        pub model: Arc<Mutex<lexicon_core::stt::SherpaTranscriber>>,
-        pub path: String,
-        pub size_bytes: usize,
-        pub last_used: RwLock<Instant>,
-    }
-
-    /// Cached TTS model with metadata.
-    #[cfg(feature = "tts")]
-    pub(super) struct CachedTtsModel {
-        pub model: Arc<Mutex<lexicon_core::tts::TtsManager>>,
-        pub path: String,
-        pub size_bytes: usize,
-        pub last_used: RwLock<Instant>,
-    }
-
-    /// Global model cache for session persistence.
-    pub(super) struct ModelCache {
-        #[cfg(feature = "stt-sherpa")]
-        pub sherpa_model: Option<CachedSherpaModel>,
-        #[cfg(feature = "tts")]
-        pub tts_model: Option<CachedTtsModel>,
-        /// Maximum cache size in bytes (default: 500MB).
-        pub max_memory_bytes: usize,
-    }
-
-    impl Default for ModelCache {
-        fn default() -> Self {
-            Self {
-                #[cfg(feature = "stt-sherpa")]
-                sherpa_model: None,
-                #[cfg(feature = "tts")]
-                tts_model: None,
-                max_memory_bytes: 500 * 1024 * 1024, // 500MB default
-            }
-        }
-    }
-
-    impl ModelCache {
-        pub fn total_size_bytes(&self) -> usize {
-            let mut total = 0;
-            #[cfg(feature = "stt-sherpa")]
-            if let Some(ref m) = self.sherpa_model {
-                total += m.size_bytes;
-            }
-            #[cfg(feature = "tts")]
-            if let Some(ref m) = self.tts_model {
-                total += m.size_bytes;
-            }
-            total
-        }
-
-        /// Evict least-recently-used model if over memory limit.
-        pub fn evict_if_needed(&mut self) {
-            if self.total_size_bytes() <= self.max_memory_bytes {
-                return;
-            }
-
-            #[cfg(all(feature = "stt-sherpa", feature = "tts"))]
-            {
-                let sherpa_time = self
-                    .sherpa_model
-                    .as_ref()
-                    .and_then(|m| m.last_used.read().ok().map(|g| *g));
-                let tts_time = self
-                    .tts_model
-                    .as_ref()
-                    .and_then(|m| m.last_used.read().ok().map(|g| *g));
-
-                match (sherpa_time, tts_time) {
-                    (Some(s), Some(t)) if s < t => {
-                        tracing::info!("Evicting Sherpa model from cache (LRU)");
-                        self.sherpa_model = None;
-                    }
-                    (Some(_), Some(_)) => {
-                        tracing::info!("Evicting TTS model from cache (LRU)");
-                        self.tts_model = None;
-                    }
-                    (Some(_), None) => {
-                        tracing::info!("Evicting Sherpa model from cache");
-                        self.sherpa_model = None;
-                    }
-                    (None, Some(_)) => {
-                        tracing::info!("Evicting TTS model from cache");
-                        self.tts_model = None;
-                    }
-                    _ => {}
-                }
-            }
-
-            #[cfg(all(feature = "stt-sherpa", not(feature = "tts")))]
-            {
-                self.sherpa_model = None;
-            }
-
-            #[cfg(all(feature = "tts", not(feature = "stt-sherpa")))]
-            {
-                self.tts_model = None;
-            }
-        }
-    }
-}
-
-#[cfg(feature = "stt-sherpa")]
-use cache_internal::CachedSherpaModel;
-use cache_internal::ModelCache;
-
-static MODEL_CACHE: RwLock<Option<ModelCache>> = RwLock::new(None);
-
-/// Get or initialize the model cache.
-fn get_cache() -> std::sync::RwLockWriteGuard<'static, Option<ModelCache>> {
-    let mut cache = MODEL_CACHE.write().unwrap();
-    if cache.is_none() {
-        *cache = Some(ModelCache::default());
-    }
-    cache
-}
 
 // ============================================================================
 // Initialization
@@ -230,176 +102,44 @@ pub fn get_platform_info() -> PlatformInfo {
 }
 
 // ============================================================================
-// Model Cache Management
+// Legacy Cache API (kept for FFI compatibility, now no-ops)
 // ============================================================================
 
-/// Preload Sherpa STT model into cache for faster first use.
-///
-/// Call this at app startup to eliminate model load delay on first transcription.
-/// Returns the load time in milliseconds, or 0 if already cached.
+/// Legacy: Preload was removed. Model loads directly in SherpaTranscriber.
 #[frb]
-pub fn preload_sherpa_model(model_path: String) -> Result<i64, LexiconFlutterError> {
-    #[cfg(feature = "stt-sherpa")]
-    {
-        use lexicon_core::stt::Transcriber as _;
-
-        let start = Instant::now();
-
-        let mut cache = get_cache();
-        let cache = cache.as_mut().unwrap();
-
-        // Check if already cached with same path
-        if let Some(ref cached) = cache.sherpa_model {
-            if cached.path == model_path {
-                tracing::info!("Sherpa model already cached: {}", model_path);
-                return Ok(0);
-            }
-        }
-
-        // Load model
-        let path = PathBuf::from(&model_path);
-        if !path.exists() {
-            return Err(LexiconFlutterError::ModelNotFound(model_path));
-        }
-
-        let mut transcriber = lexicon_core::stt::SherpaTranscriber::new()
-            .map_err(|e| LexiconFlutterError::ModelLoadFailed(e.to_string()))?;
-
-        transcriber
-            .load_model(&path)
-            .map_err(|e| LexiconFlutterError::ModelLoadFailed(e.to_string()))?;
-
-        // Warm up to prime internal caches
-        let _ = transcriber.warm_up();
-
-        // Estimate memory size (~150MB for typical Sherpa model)
-        let size_bytes = 150 * 1024 * 1024;
-
-        cache.sherpa_model = Some(CachedSherpaModel {
-            model: Arc::new(Mutex::new(transcriber)),
-            path: model_path.clone(),
-            size_bytes,
-            last_used: RwLock::new(Instant::now()),
-        });
-
-        // Evict if over limit
-        cache.evict_if_needed();
-
-        let elapsed_ms = start.elapsed().as_millis() as i64;
-        tracing::info!(
-            elapsed_ms = elapsed_ms,
-            path = %model_path,
-            "Sherpa model preloaded into cache"
-        );
-
-        Ok(elapsed_ms)
-    }
-
-    #[cfg(not(feature = "stt-sherpa"))]
-    {
-        let _ = model_path;
-        Err(LexiconFlutterError::ModelLoadFailed(
-            "stt-sherpa feature not enabled".to_string(),
-        ))
-    }
+pub fn preload_sherpa_model(_model_path: String) -> Result<i64, LexiconFlutterError> {
+    // No-op: Model caching removed. Just return 0 (instant).
+    Ok(0)
 }
 
-/// Set maximum cache memory in bytes.
-///
-/// Default is 500MB. When exceeded, least-recently-used model is evicted.
+/// Legacy: Cache removed.
 #[frb(sync)]
-pub fn set_cache_max_memory(max_bytes: u64) {
-    let mut cache = get_cache();
-    if let Some(ref mut c) = *cache {
-        c.max_memory_bytes = max_bytes as usize;
-        c.evict_if_needed();
-        tracing::info!(max_bytes = max_bytes, "Cache max memory updated");
-    }
+pub fn set_cache_max_memory(_max_bytes: u64) {
+    // No-op
 }
 
-/// Clear all cached models to free memory.
-///
-/// Call this when the OS signals low memory or when backgrounding the app.
+/// Legacy: Cache removed.
 #[frb(sync)]
 pub fn clear_model_cache() {
-    let mut cache = get_cache();
-    if let Some(ref mut c) = *cache {
-        #[cfg(feature = "stt-sherpa")]
-        {
-            c.sherpa_model = None;
-        }
-        #[cfg(feature = "tts")]
-        {
-            c.tts_model = None;
-        }
-        tracing::info!("Model cache cleared");
-    }
+    // No-op
 }
 
-/// Handle low memory warning from OS.
-///
-/// Clears the entire model cache to free RAM immediately.
-/// Call this from Flutter's `didHaveMemoryPressure` callback.
+/// Legacy: Cache removed.
 #[frb(sync)]
 pub fn on_low_memory() {
-    clear_model_cache();
-    tracing::warn!("Model cache cleared due to low memory warning");
+    // No-op
 }
 
-/// Get current cache statistics.
+/// Legacy: Returns empty stats.
 #[frb(sync)]
 pub fn get_cache_stats() -> CacheStats {
-    let guard = match MODEL_CACHE.read() {
-        Ok(g) => g,
-        Err(_) => return CacheStats::default(),
-    };
-
-    let cache = match guard.as_ref() {
-        Some(c) => c,
-        None => return CacheStats::default(),
-    };
-
-    let mut stats = CacheStats {
-        total_bytes: cache.total_size_bytes() as u64,
-        max_bytes: cache.max_memory_bytes as u64,
-        ..Default::default()
-    };
-
-    #[cfg(feature = "stt-sherpa")]
-    if let Some(ref m) = cache.sherpa_model {
-        stats.sherpa_cached = true;
-        stats.sherpa_bytes = m.size_bytes as u64;
-    }
-
-    #[cfg(feature = "tts")]
-    if let Some(ref m) = cache.tts_model {
-        stats.tts_cached = true;
-        stats.tts_bytes = m.size_bytes as u64;
-    }
-
-    stats
+    CacheStats::default()
 }
 
-/// Check if a specific model type is cached.
+/// Legacy: Always returns false.
 #[frb(sync)]
-pub fn is_model_cached(model_type: String) -> bool {
-    let guard = match MODEL_CACHE.read() {
-        Ok(g) => g,
-        Err(_) => return false,
-    };
-
-    let cache = match guard.as_ref() {
-        Some(c) => c,
-        None => return false,
-    };
-
-    match model_type.as_str() {
-        #[cfg(feature = "stt-sherpa")]
-        "sherpa" => cache.sherpa_model.is_some(),
-        #[cfg(feature = "tts")]
-        "tts" => cache.tts_model.is_some(),
-        _ => false,
-    }
+pub fn is_model_cached(_model_type: String) -> bool {
+    false
 }
 
 // ============================================================================
@@ -729,7 +469,7 @@ impl Transcriber {
 #[frb(opaque)]
 pub struct SherpaTranscriber {
     #[cfg(feature = "stt-sherpa")]
-    inner: Mutex<Option<Arc<Mutex<lexicon_core::stt::SherpaTranscriber>>>>,
+    inner: Mutex<Option<lexicon_core::stt::SherpaTranscriber>>,
     #[cfg(feature = "stt-sherpa")]
     model_path: Mutex<Option<String>>,
     #[cfg(not(feature = "stt-sherpa"))]
@@ -751,8 +491,8 @@ impl SherpaTranscriber {
 
     /// Load a Sherpa model from a directory.
     ///
-    /// If the model is already cached, returns immediately (0ms load time).
     /// The directory should contain encoder, decoder, joiner, and tokens files.
+    /// Prefers .ort files (optimized) over .onnx files for faster loading.
     pub fn load_model(&self, model_dir: String) -> Result<i64, LexiconFlutterError> {
         #[cfg(feature = "stt-sherpa")]
         {
@@ -760,43 +500,6 @@ impl SherpaTranscriber {
 
             let start = Instant::now();
 
-            // Check cache first
-            {
-                let cache = MODEL_CACHE.read().map_err(|_| {
-                    LexiconFlutterError::TranscriptionFailed("Cache lock poisoned".to_string())
-                })?;
-
-                if let Some(ref c) = *cache {
-                    if let Some(ref cached) = c.sherpa_model {
-                        if cached.path == model_dir {
-                            // Cache hit - use cached model
-                            let mut inner = self.inner.lock().map_err(|_| {
-                                LexiconFlutterError::TranscriptionFailed(
-                                    "Lock poisoned".to_string(),
-                                )
-                            })?;
-                            *inner = Some(Arc::clone(&cached.model));
-
-                            let mut path = self.model_path.lock().map_err(|_| {
-                                LexiconFlutterError::TranscriptionFailed(
-                                    "Lock poisoned".to_string(),
-                                )
-                            })?;
-                            *path = Some(model_dir.clone());
-
-                            // Update last used time
-                            if let Ok(mut last_used) = cached.last_used.write() {
-                                *last_used = Instant::now();
-                            }
-
-                            tracing::info!("Sherpa model loaded from cache: {}", model_dir);
-                            return Ok(0);
-                        }
-                    }
-                }
-            }
-
-            // Cache miss - load from disk
             let path = PathBuf::from(&model_dir);
             if !path.exists() {
                 return Err(LexiconFlutterError::ModelNotFound(model_dir));
@@ -809,14 +512,12 @@ impl SherpaTranscriber {
                 .load_model(&path)
                 .map_err(|e| LexiconFlutterError::ModelLoadFailed(e.to_string()))?;
 
-            let model_arc = Arc::new(Mutex::new(transcriber));
-
             // Store in instance
             {
                 let mut inner = self.inner.lock().map_err(|_| {
                     LexiconFlutterError::TranscriptionFailed("Lock poisoned".to_string())
                 })?;
-                *inner = Some(Arc::clone(&model_arc));
+                *inner = Some(transcriber);
             }
 
             {
@@ -826,30 +527,8 @@ impl SherpaTranscriber {
                 *model_path = Some(model_dir.clone());
             }
 
-            // Also store in cache for future use
-            {
-                let mut cache = get_cache();
-                let cache = cache.as_mut().unwrap();
-
-                // Estimate memory size (~150MB for typical Sherpa model)
-                let size_bytes = 150 * 1024 * 1024;
-
-                cache.sherpa_model = Some(CachedSherpaModel {
-                    model: model_arc,
-                    path: model_dir.clone(),
-                    size_bytes,
-                    last_used: RwLock::new(Instant::now()),
-                });
-
-                cache.evict_if_needed();
-            }
-
             let elapsed_ms = start.elapsed().as_millis() as i64;
-            tracing::info!(
-                elapsed_ms = elapsed_ms,
-                "Sherpa model loaded and cached: {}",
-                model_dir
-            );
+            tracing::info!(elapsed_ms = elapsed_ms, "Sherpa model loaded: {}", model_dir);
             Ok(elapsed_ms)
         }
 
@@ -862,17 +541,14 @@ impl SherpaTranscriber {
         }
     }
 
-    /// Unload the current model from this instance.
-    ///
-    /// Note: The model may still be cached for future use by other instances.
+    /// Unload the current model.
     #[frb(sync)]
     pub fn unload_model(&self) {
         #[cfg(feature = "stt-sherpa")]
         {
             if let Ok(mut inner) = self.inner.lock() {
-                // Just drop the Arc reference; model stays in cache
                 *inner = None;
-                tracing::info!("Sherpa model unloaded from instance");
+                tracing::info!("Sherpa model unloaded");
             }
             if let Ok(mut path) = self.model_path.lock() {
                 *path = None;
@@ -902,12 +578,8 @@ impl SherpaTranscriber {
                 LexiconFlutterError::TranscriptionFailed("Lock poisoned".to_string())
             })?;
 
-            let model_arc = inner.as_ref().ok_or_else(|| {
+            let transcriber = inner.as_ref().ok_or_else(|| {
                 LexiconFlutterError::TranscriptionFailed("No model loaded".to_string())
-            })?;
-
-            let transcriber = model_arc.lock().map_err(|_| {
-                LexiconFlutterError::TranscriptionFailed("Model lock poisoned".to_string())
             })?;
 
             transcriber
@@ -965,18 +637,13 @@ impl SherpaTranscriber {
                 tx_config = tx_config.with_threads(config.num_threads);
             }
 
-            // Get the model Arc
+            // Get the model
             let inner = self.inner.lock().map_err(|_| {
                 LexiconFlutterError::TranscriptionFailed("Lock poisoned".to_string())
             })?;
 
-            let model_arc = inner.as_ref().ok_or_else(|| {
+            let transcriber = inner.as_ref().ok_or_else(|| {
                 LexiconFlutterError::TranscriptionFailed("No model loaded".to_string())
-            })?;
-
-            // Lock the actual transcriber
-            let transcriber = model_arc.lock().map_err(|_| {
-                LexiconFlutterError::TranscriptionFailed("Model lock poisoned".to_string())
             })?;
 
             let result = transcriber
@@ -999,23 +666,6 @@ impl SherpaTranscriber {
                     speaker_id: s.speaker_id,
                 })
                 .collect();
-
-            // Update last_used time in cache
-            if let Ok(path) = self.model_path.lock() {
-                if let Some(ref model_path) = *path {
-                    if let Ok(cache) = MODEL_CACHE.read() {
-                        if let Some(ref c) = *cache {
-                            if let Some(ref cached) = c.sherpa_model {
-                                if &cached.path == model_path {
-                                    if let Ok(mut last_used) = cached.last_used.write() {
-                                        *last_used = Instant::now();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
 
             Ok(TranscriptionResult {
                 segments,

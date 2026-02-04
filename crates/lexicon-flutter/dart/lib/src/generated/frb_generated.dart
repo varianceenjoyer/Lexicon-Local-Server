@@ -73,7 +73,7 @@ class LexiconFlutter extends BaseEntrypoint<LexiconFlutterApi,
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -909916132;
+  int get rustContentHash => -428748360;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -101,7 +101,7 @@ abstract class LexiconFlutterApi extends BaseApi {
   bool crateApiSherpaTranscriberIsModelLoaded(
       {required SherpaTranscriber that});
 
-  Future<void> crateApiSherpaTranscriberLoadModel(
+  Future<PlatformInt64> crateApiSherpaTranscriberLoadModel(
       {required SherpaTranscriber that, required String modelDir});
 
   Future<SherpaTranscriber> crateApiSherpaTranscriberNew();
@@ -187,8 +187,12 @@ abstract class LexiconFlutterApi extends BaseApi {
 
   Future<PlatformInt64> crateApiTranscriberWarmUp({required Transcriber that});
 
+  void crateApiClearModelCache();
+
   Future<void> crateApiDeleteModel(
       {required String modelDir, required String modelId});
+
+  CacheStats crateApiGetCacheStats();
 
   PlatformInfo crateApiGetPlatformInfo();
 
@@ -198,10 +202,18 @@ abstract class LexiconFlutterApi extends BaseApi {
 
   void crateApiInitLexicon({required String dataDir});
 
+  bool crateApiIsModelCached({required String modelType});
+
   bool crateApiIsModelDownloaded(
       {required String modelDir, required String modelId});
 
   Future<List<ModelInfo>> crateApiListModels({required String modelDir});
+
+  void crateApiOnLowMemory();
+
+  Future<PlatformInt64> crateApiPreloadSherpaModel({required String modelPath});
+
+  void crateApiSetCacheMaxMemory({required BigInt maxBytes});
 
   RustArcIncrementStrongCountFnType
       get rust_arc_increment_strong_count_ModelDownloader;
@@ -446,7 +458,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       );
 
   @override
-  Future<void> crateApiSherpaTranscriberLoadModel(
+  Future<PlatformInt64> crateApiSherpaTranscriberLoadModel(
       {required SherpaTranscriber that, required String modelDir}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
@@ -458,7 +470,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
             funcId: 8, port: port_);
       },
       codec: SseCodec(
-        decodeSuccessData: sse_decode_unit,
+        decodeSuccessData: sse_decode_i_64,
         decodeErrorData: sse_decode_lexicon_flutter_error,
       ),
       constMeta: kCrateApiSherpaTranscriberLoadModelConstMeta,
@@ -1223,6 +1235,28 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       );
 
   @override
+  void crateApiClearModelCache() {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 37)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiClearModelCacheConstMeta,
+      argValues: [],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiClearModelCacheConstMeta => const TaskConstMeta(
+        debugName: "clear_model_cache",
+        argNames: [],
+      );
+
+  @override
   Future<void> crateApiDeleteModel(
       {required String modelDir, required String modelId}) {
     return handler.executeNormal(NormalTask(
@@ -1231,7 +1265,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         sse_encode_String(modelDir, serializer);
         sse_encode_String(modelId, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 37, port: port_);
+            funcId: 38, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1249,11 +1283,33 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       );
 
   @override
+  CacheStats crateApiGetCacheStats() {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 39)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_cache_stats,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiGetCacheStatsConstMeta,
+      argValues: [],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiGetCacheStatsConstMeta => const TaskConstMeta(
+        debugName: "get_cache_stats",
+        argNames: [],
+      );
+
+  @override
   PlatformInfo crateApiGetPlatformInfo() {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 38)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 40)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_platform_info,
@@ -1275,7 +1331,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 39)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 41)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -1298,7 +1354,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 40, port: port_);
+            funcId: 42, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1321,7 +1377,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(dataDir, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 41)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 43)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1339,6 +1395,29 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
       );
 
   @override
+  bool crateApiIsModelCached({required String modelType}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(modelType, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 44)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_bool,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiIsModelCachedConstMeta,
+      argValues: [modelType],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiIsModelCachedConstMeta => const TaskConstMeta(
+        debugName: "is_model_cached",
+        argNames: ["modelType"],
+      );
+
+  @override
   bool crateApiIsModelDownloaded(
       {required String modelDir, required String modelId}) {
     return handler.executeSync(SyncTask(
@@ -1346,7 +1425,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(modelDir, serializer);
         sse_encode_String(modelId, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 42)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 45)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -1370,7 +1449,7 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(modelDir, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 43, port: port_);
+            funcId: 46, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_model_info,
@@ -1385,6 +1464,76 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
   TaskConstMeta get kCrateApiListModelsConstMeta => const TaskConstMeta(
         debugName: "list_models",
         argNames: ["modelDir"],
+      );
+
+  @override
+  void crateApiOnLowMemory() {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 47)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiOnLowMemoryConstMeta,
+      argValues: [],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiOnLowMemoryConstMeta => const TaskConstMeta(
+        debugName: "on_low_memory",
+        argNames: [],
+      );
+
+  @override
+  Future<PlatformInt64> crateApiPreloadSherpaModel(
+      {required String modelPath}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(modelPath, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 48, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_i_64,
+        decodeErrorData: sse_decode_lexicon_flutter_error,
+      ),
+      constMeta: kCrateApiPreloadSherpaModelConstMeta,
+      argValues: [modelPath],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiPreloadSherpaModelConstMeta => const TaskConstMeta(
+        debugName: "preload_sherpa_model",
+        argNames: ["modelPath"],
+      );
+
+  @override
+  void crateApiSetCacheMaxMemory({required BigInt maxBytes}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_u_64(maxBytes, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 49)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiSetCacheMaxMemoryConstMeta,
+      argValues: [maxBytes],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiSetCacheMaxMemoryConstMeta => const TaskConstMeta(
+        debugName: "set_cache_max_memory",
+        argNames: ["maxBytes"],
       );
 
   RustArcIncrementStrongCountFnType
@@ -1644,6 +1793,22 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
   BigInt dco_decode_box_autoadd_u_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_u_64(raw);
+  }
+
+  @protected
+  CacheStats dco_decode_cache_stats(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return CacheStats(
+      totalBytes: dco_decode_u_64(arr[0]),
+      maxBytes: dco_decode_u_64(arr[1]),
+      sherpaCached: dco_decode_bool(arr[2]),
+      ttsCached: dco_decode_bool(arr[3]),
+      sherpaBytes: dco_decode_u_64(arr[4]),
+      ttsBytes: dco_decode_u_64(arr[5]),
+    );
   }
 
   @protected
@@ -2192,6 +2357,24 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_u_64(deserializer));
+  }
+
+  @protected
+  CacheStats sse_decode_cache_stats(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_totalBytes = sse_decode_u_64(deserializer);
+    var var_maxBytes = sse_decode_u_64(deserializer);
+    var var_sherpaCached = sse_decode_bool(deserializer);
+    var var_ttsCached = sse_decode_bool(deserializer);
+    var var_sherpaBytes = sse_decode_u_64(deserializer);
+    var var_ttsBytes = sse_decode_u_64(deserializer);
+    return CacheStats(
+        totalBytes: var_totalBytes,
+        maxBytes: var_maxBytes,
+        sherpaCached: var_sherpaCached,
+        ttsCached: var_ttsCached,
+        sherpaBytes: var_sherpaBytes,
+        ttsBytes: var_ttsBytes);
   }
 
   @protected
@@ -2816,6 +2999,17 @@ class LexiconFlutterApiImpl extends LexiconFlutterApiImplPlatform
   }
 
   @protected
+  void sse_encode_cache_stats(CacheStats self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_64(self.totalBytes, serializer);
+    sse_encode_u_64(self.maxBytes, serializer);
+    sse_encode_bool(self.sherpaCached, serializer);
+    sse_encode_bool(self.ttsCached, serializer);
+    sse_encode_u_64(self.sherpaBytes, serializer);
+    sse_encode_u_64(self.ttsBytes, serializer);
+  }
+
+  @protected
   void sse_encode_download_event(DownloadEvent self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     switch (self) {
@@ -3202,8 +3396,9 @@ class SherpaTranscriberImpl extends RustOpaque implements SherpaTranscriber {
 
   /// Load a Sherpa model from a directory.
   ///
+  /// If the model is already cached, returns immediately (0ms load time).
   /// The directory should contain encoder, decoder, joiner, and tokens files.
-  Future<void> loadModel({required String modelDir}) =>
+  Future<PlatformInt64> loadModel({required String modelDir}) =>
       LexiconFlutter.instance.api
           .crateApiSherpaTranscriberLoadModel(that: this, modelDir: modelDir);
 
@@ -3216,7 +3411,9 @@ class SherpaTranscriberImpl extends RustOpaque implements SherpaTranscriber {
       LexiconFlutter.instance.api.crateApiSherpaTranscriberTranscribe(
           that: this, audioData: audioData, config: config);
 
-  /// Unload the current model.
+  /// Unload the current model from this instance.
+  ///
+  /// Note: The model may still be cached for future use by other instances.
   void unloadModel() =>
       LexiconFlutter.instance.api.crateApiSherpaTranscriberUnloadModel(
         that: this,

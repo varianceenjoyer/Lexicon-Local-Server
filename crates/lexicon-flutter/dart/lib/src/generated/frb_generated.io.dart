@@ -166,6 +166,9 @@ abstract class LexiconFlutterApiImplPlatform
   BigInt dco_decode_box_autoadd_u_64(dynamic raw);
 
   @protected
+  CacheStats dco_decode_cache_stats(dynamic raw);
+
+  @protected
   DownloadEvent dco_decode_download_event(dynamic raw);
 
   @protected
@@ -373,6 +376,9 @@ abstract class LexiconFlutterApiImplPlatform
 
   @protected
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  CacheStats sse_decode_cache_stats(SseDeserializer deserializer);
 
   @protected
   DownloadEvent sse_decode_download_event(SseDeserializer deserializer);
@@ -594,6 +600,9 @@ abstract class LexiconFlutterApiImplPlatform
 
   @protected
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_cache_stats(CacheStats self, SseSerializer serializer);
 
   @protected
   void sse_encode_download_event(DownloadEvent self, SseSerializer serializer);

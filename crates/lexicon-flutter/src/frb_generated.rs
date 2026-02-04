@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -909916132;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -428748360;
 
 // Section: executor
 
@@ -1746,6 +1746,37 @@ fn wire__crate__api__Transcriber_warm_up_impl(
         },
     )
 }
+fn wire__crate__api__clear_model_cache_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "clear_model_cache",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Result::<_, ()>::Ok({
+                    crate::api::clear_model_cache();
+                })?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__delete_model_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1777,6 +1808,35 @@ fn wire__crate__api__delete_model_impl(
                     Ok(output_ok)
                 })())
             }
+        },
+    )
+}
+fn wire__crate__api__get_cache_stats_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_cache_stats",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Result::<_, ()>::Ok(crate::api::get_cache_stats())?;
+                Ok(output_ok)
+            })())
         },
     )
 }
@@ -1902,6 +1962,36 @@ fn wire__crate__api__init_lexicon_impl(
         },
     )
 }
+fn wire__crate__api__is_model_cached_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "is_model_cached",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_model_type = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Result::<_, ()>::Ok(crate::api::is_model_cached(api_model_type))?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__is_model_downloaded_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -1966,6 +2056,102 @@ fn wire__crate__api__list_models_impl(
                     Ok(output_ok)
                 })())
             }
+        },
+    )
+}
+fn wire__crate__api__on_low_memory_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "on_low_memory",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Result::<_, ()>::Ok({
+                    crate::api::on_low_memory();
+                })?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__preload_sherpa_model_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "preload_sherpa_model",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_model_path = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::error::LexiconFlutterError>((move || {
+                    let output_ok = crate::api::preload_sherpa_model(api_model_path)?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__set_cache_max_memory_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "set_cache_max_memory",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_max_bytes = <u64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Result::<_, ()>::Ok({
+                    crate::api::set_cache_max_memory(api_max_bytes);
+                })?;
+                Ok(output_ok)
+            })())
         },
     )
 }
@@ -2139,6 +2325,26 @@ impl SseDecode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         deserializer.cursor.read_u8().unwrap() != 0
+    }
+}
+
+impl SseDecode for crate::types::CacheStats {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_totalBytes = <u64>::sse_decode(deserializer);
+        let mut var_maxBytes = <u64>::sse_decode(deserializer);
+        let mut var_sherpaCached = <bool>::sse_decode(deserializer);
+        let mut var_ttsCached = <bool>::sse_decode(deserializer);
+        let mut var_sherpaBytes = <u64>::sse_decode(deserializer);
+        let mut var_ttsBytes = <u64>::sse_decode(deserializer);
+        return crate::types::CacheStats {
+            total_bytes: var_totalBytes,
+            max_bytes: var_maxBytes,
+            sherpa_cached: var_sherpaCached,
+            tts_cached: var_ttsCached,
+            sherpa_bytes: var_sherpaBytes,
+            tts_bytes: var_ttsBytes,
+        };
     }
 }
 
@@ -2612,9 +2818,10 @@ fn pde_ffi_dispatcher_primary_impl(
         33 => wire__crate__api__Transcriber_transcribe_impl(port, ptr, rust_vec_len, data_len),
         34 => wire__crate__api__Transcriber_translate_impl(port, ptr, rust_vec_len, data_len),
         36 => wire__crate__api__Transcriber_warm_up_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__delete_model_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__list_models_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__delete_model_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__list_models_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__preload_sherpa_model_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2646,10 +2853,15 @@ fn pde_ffi_dispatcher_sync_impl(
         29 => wire__crate__api__Transcriber_get_model_name_impl(ptr, rust_vec_len, data_len),
         30 => wire__crate__api__Transcriber_is_model_loaded_impl(ptr, rust_vec_len, data_len),
         35 => wire__crate__api__Transcriber_unload_model_impl(ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__get_platform_info_impl(ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__get_version_impl(ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__init_lexicon_impl(ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__is_model_downloaded_impl(ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__clear_model_cache_impl(ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__get_cache_stats_impl(ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__get_platform_info_impl(ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__get_version_impl(ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__init_lexicon_impl(ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__is_model_cached_impl(ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__is_model_downloaded_impl(ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__on_low_memory_impl(ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__set_cache_max_memory_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2766,6 +2978,26 @@ impl flutter_rust_bridge::IntoDart for crate::api::AudioChunk {
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::AudioChunk {}
 impl flutter_rust_bridge::IntoIntoDart<crate::api::AudioChunk> for crate::api::AudioChunk {
     fn into_into_dart(self) -> crate::api::AudioChunk {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::types::CacheStats {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.total_bytes.into_into_dart().into_dart(),
+            self.max_bytes.into_into_dart().into_dart(),
+            self.sherpa_cached.into_into_dart().into_dart(),
+            self.tts_cached.into_into_dart().into_dart(),
+            self.sherpa_bytes.into_into_dart().into_dart(),
+            self.tts_bytes.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::types::CacheStats {}
+impl flutter_rust_bridge::IntoIntoDart<crate::types::CacheStats> for crate::types::CacheStats {
+    fn into_into_dart(self) -> crate::types::CacheStats {
         self
     }
 }
@@ -3183,6 +3415,18 @@ impl SseEncode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_u8(self as _).unwrap();
+    }
+}
+
+impl SseEncode for crate::types::CacheStats {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u64>::sse_encode(self.total_bytes, serializer);
+        <u64>::sse_encode(self.max_bytes, serializer);
+        <bool>::sse_encode(self.sherpa_cached, serializer);
+        <bool>::sse_encode(self.tts_cached, serializer);
+        <u64>::sse_encode(self.sherpa_bytes, serializer);
+        <u64>::sse_encode(self.tts_bytes, serializer);
     }
 }
 
