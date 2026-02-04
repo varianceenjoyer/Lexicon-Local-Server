@@ -307,7 +307,7 @@ impl Transcriber {
     ) -> Result<TranscriptionResult, LexiconFlutterError> {
         #[cfg(feature = "stt")]
         {
-            use lexicon_core::stt::Transcriber as _;
+            use lexicon_core::stt::{PostProcessor, Transcriber as _};
 
             // Convert bytes to f32 samples
             let samples: Vec<f32> = audio_data
@@ -356,6 +356,9 @@ impl Transcriber {
                 .transcribe(&samples, &tx_config)
                 .map_err(|e| LexiconFlutterError::TranscriptionFailed(e.to_string()))?;
 
+            // Apply post-processing to improve transcription quality
+            let post_processor = PostProcessor::new(Default::default());
+
             // Convert to FFI result
             let segments: Vec<TranscriptionSegment> = result
                 .segments
@@ -363,7 +366,7 @@ impl Transcriber {
                 .map(|s| TranscriptionSegment {
                     start_ms: s.start_ms,
                     end_ms: s.end_ms,
-                    text: s.text.clone(),
+                    text: post_processor.process(&s.text),
                     confidence: s.confidence,
                     language: s.language.clone(),
                     speaker_id: s.speaker_id,
@@ -546,7 +549,7 @@ impl SherpaTranscriber {
     ) -> Result<TranscriptionResult, LexiconFlutterError> {
         #[cfg(feature = "stt-sherpa")]
         {
-            use lexicon_core::stt::Transcriber as _;
+            use lexicon_core::stt::{PostProcessor, Transcriber as _};
 
             // Convert bytes to f32 samples
             let samples: Vec<f32> = audio_data
@@ -588,6 +591,9 @@ impl SherpaTranscriber {
                 .transcribe(&samples, &tx_config)
                 .map_err(|e| LexiconFlutterError::TranscriptionFailed(e.to_string()))?;
 
+            // Apply post-processing to improve transcription quality
+            let post_processor = PostProcessor::new(Default::default());
+
             // Convert to FFI result
             let segments: Vec<TranscriptionSegment> = result
                 .segments
@@ -595,7 +601,7 @@ impl SherpaTranscriber {
                 .map(|s| TranscriptionSegment {
                     start_ms: s.start_ms,
                     end_ms: s.end_ms,
-                    text: s.text.clone(),
+                    text: post_processor.process(&s.text),
                     confidence: s.confidence,
                     language: s.language.clone(),
                     speaker_id: s.speaker_id,
@@ -912,7 +918,7 @@ impl StreamingTranscriber {
         #[cfg(feature = "stt")]
         {
             use lexicon_core::audio::{should_process, ProcessingDecision};
-            use lexicon_core::stt::Transcriber as _;
+            use lexicon_core::stt::{PostProcessor, Transcriber as _};
 
             // Convert bytes to f32 samples
             let samples: Vec<f32> = chunk
@@ -962,6 +968,9 @@ impl StreamingTranscriber {
                 .transcribe(&samples, &tx_config)
                 .map_err(|e| LexiconFlutterError::TranscriptionFailed(e.to_string()))?;
 
+            // Apply post-processing to improve transcription quality
+            let post_processor = PostProcessor::new(Default::default());
+
             // Convert segments with timestamp offset
             let segments: Vec<TranscriptionSegment> = result
                 .segments
@@ -969,7 +978,7 @@ impl StreamingTranscriber {
                 .map(|s| TranscriptionSegment {
                     start_ms: s.start_ms + chunk.timestamp_ms,
                     end_ms: s.end_ms + chunk.timestamp_ms,
-                    text: s.text.clone(),
+                    text: post_processor.process(&s.text),
                     confidence: s.confidence,
                     language: s.language.clone(),
                     speaker_id: s.speaker_id,

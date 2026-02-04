@@ -45,6 +45,7 @@
 //! GPU support is enabled at compile time via whisper-rs features.
 
 mod diarization;
+mod postprocess;
 #[cfg(feature = "stt-sherpa")]
 mod sherpa;
 mod types;
@@ -52,6 +53,7 @@ mod types;
 mod whisper;
 
 pub use diarization::{assign_speakers, DiarizationConfig, DEFAULT_MAX_SPEAKERS};
+pub use postprocess::{PostProcessConfig, PostProcessor};
 #[cfg(feature = "stt-sherpa")]
 pub use sherpa::{SherpaConfig, SherpaTranscriber};
 pub use types::{Segment, TranscriptionConfig, TranscriptionResult};
