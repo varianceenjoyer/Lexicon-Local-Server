@@ -172,7 +172,7 @@ impl SherpaTranscriber {
 
     /// Finds a file matching a pattern in a directory.
     ///
-    /// Prefers int8 quantized models for mobile efficiency.
+    /// Prefers .ort (optimized) over .onnx, and int8 quantized for efficiency.
     fn find_file(dir: &Path, prefixes: &[&str], suffix: &str) -> Result<String> {
         let mut candidates = Vec::new();
 
@@ -180,7 +180,13 @@ impl SherpaTranscriber {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().to_string();
                 for prefix in prefixes {
-                    if name.starts_with(prefix) && name.ends_with(suffix) {
+                    // Match both .onnx and .ort files when looking for .onnx
+                    let matches = if suffix == ".onnx" {
+                        name.ends_with(".onnx") || name.ends_with(".ort")
+                    } else {
+                        name.ends_with(suffix)
+                    };
+                    if name.starts_with(prefix) && matches {
                         candidates.push(entry.path().to_string_lossy().to_string());
                     }
                 }
@@ -198,9 +204,15 @@ impl SherpaTranscriber {
             }));
         }
 
-        // Prefer int8 quantized models for mobile efficiency
-        if let Some(int8_path) = candidates.iter().find(|p| p.contains("int8")) {
-            return Ok(int8_path.clone());
+        // Priority: int8.ort > int8.onnx > .ort > .onnx
+        if let Some(path) = candidates.iter().find(|p| p.contains("int8") && p.ends_with(".ort")) {
+            return Ok(path.clone());
+        }
+        if let Some(path) = candidates.iter().find(|p| p.contains("int8")) {
+            return Ok(path.clone());
+        }
+        if let Some(path) = candidates.iter().find(|p| p.ends_with(".ort")) {
+            return Ok(path.clone());
         }
 
         // Fall back to first match

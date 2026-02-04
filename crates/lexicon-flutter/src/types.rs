@@ -146,6 +146,23 @@ pub struct PlatformInfo {
     pub has_gpu: bool,
 }
 
+/// Model cache statistics.
+#[derive(Debug, Clone, Default)]
+pub struct CacheStats {
+    /// Total bytes used by cached models.
+    pub total_bytes: u64,
+    /// Maximum allowed cache size in bytes.
+    pub max_bytes: u64,
+    /// Whether Sherpa STT model is cached.
+    pub sherpa_cached: bool,
+    /// Whether TTS model is cached.
+    pub tts_cached: bool,
+    /// Memory used by cached Sherpa model (0 if not cached).
+    pub sherpa_bytes: u64,
+    /// Memory used by cached TTS model (0 if not cached).
+    pub tts_bytes: u64,
+}
+
 // ============================================================================
 // Streaming Types (re-exported from api.rs for convenience)
 // ============================================================================
