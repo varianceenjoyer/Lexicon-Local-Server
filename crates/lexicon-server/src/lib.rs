@@ -54,6 +54,9 @@ use lexicon_core::{LexiconConfig, ModelRegistry};
 #[cfg(feature = "stt")]
 use lexicon_core::stt::{Transcriber, WhisperTranscriber};
 
+#[cfg(feature = "stt-parakeet")]
+use lexicon_core::stt::ParakeetTranscriber;
+
 #[cfg(feature = "tts")]
 use lexicon_core::tts::TtsManager;
 
@@ -175,6 +178,9 @@ pub struct AppState {
     /// STT transcriber (lazily loaded).
     #[cfg(feature = "stt")]
     pub transcriber: RwLock<Option<WhisperTranscriber>>,
+    /// Parakeet STT transcriber (lazily loaded).
+    #[cfg(feature = "stt-parakeet")]
+    pub parakeet_transcriber: RwLock<Option<ParakeetTranscriber>>,
     /// TTS manager (lazily loaded).
     #[cfg(feature = "tts")]
     pub tts: RwLock<Option<TtsManager>>,
@@ -193,6 +199,8 @@ impl AppState {
             registry: RwLock::new(registry),
             #[cfg(feature = "stt")]
             transcriber: RwLock::new(None),
+            #[cfg(feature = "stt-parakeet")]
+            parakeet_transcriber: RwLock::new(None),
             #[cfg(feature = "tts")]
             tts: RwLock::new(None),
             #[cfg(feature = "storage")]
@@ -223,6 +231,24 @@ impl AppState {
         transcriber.load_model(&model_path)?;
         *self.transcriber.write().await = Some(transcriber);
         info!("STT model loaded: {}", model_name);
+        Ok(())
+    }
+
+    /// Loads a Parakeet STT model from a directory.
+    #[cfg(feature = "stt-parakeet")]
+    pub async fn load_parakeet_model(&self, model_dir: &str) -> anyhow::Result<()> {
+        use lexicon_core::stt::Transcriber as _;
+
+        let model_path = std::path::Path::new(model_dir);
+
+        if !model_path.exists() {
+            anyhow::bail!("Parakeet model directory not found: {}", model_path.display());
+        }
+
+        let mut transcriber = ParakeetTranscriber::new()?;
+        transcriber.load_model(model_path)?;
+        *self.parakeet_transcriber.write().await = Some(transcriber);
+        info!("Parakeet STT model loaded: {}", model_dir);
         Ok(())
     }
 

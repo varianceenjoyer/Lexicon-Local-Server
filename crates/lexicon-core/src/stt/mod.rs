@@ -46,6 +46,8 @@
 
 mod diarization;
 mod postprocess;
+#[cfg(feature = "stt-parakeet")]
+mod parakeet;
 #[cfg(feature = "stt-sherpa")]
 mod sherpa;
 mod types;
@@ -53,6 +55,8 @@ mod types;
 mod whisper;
 
 pub use diarization::{assign_speakers, DiarizationConfig, DEFAULT_MAX_SPEAKERS};
+#[cfg(feature = "stt-parakeet")]
+pub use parakeet::{ParakeetConfig, ParakeetTranscriber, ParakeetVariant};
 pub use postprocess::{PostProcessConfig, PostProcessor};
 #[cfg(feature = "stt-sherpa")]
 pub use sherpa::{SherpaConfig, SherpaTranscriber};

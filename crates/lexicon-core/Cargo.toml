@@ -11,7 +11,8 @@ rust-version.workspace = true
 default = ["stt", "tts", "storage", "audio", "audio-convert", "system-profile"]
 stt = ["dep:whisper-rs"]
 stt-sherpa = ["dep:sherpa-rs"]
-stt-all = ["stt", "stt-sherpa"]
+stt-parakeet = ["dep:parakeet-rs", "dep:ort", "dep:ndarray"]
+stt-all = ["stt", "stt-sherpa", "stt-parakeet"]
 tts = ["dep:ort", "dep:ndarray", "dep:tts", "dep:misaki-rs"]
 storage = ["dep:rusqlite"]
 audio = ["dep:cpal", "dep:rubato", "dep:webrtc-vad", "dep:ringbuf"]
@@ -71,6 +72,9 @@ whisper-rs = { workspace = true, optional = true }
 # Speech-to-Text (sherpa-onnx) - streaming architecture for low latency
 sherpa-rs = { workspace = true, optional = true }
 
+# Speech-to-Text (parakeet-rs) - NVIDIA Parakeet CTC/TDT via ONNX Runtime
+parakeet-rs = { workspace = true, optional = true }
+
 # Text-to-Speech
 ort = { workspace = true, optional = true }
 ndarray = { workspace = true, optional = true }
@@ -85,6 +89,7 @@ tracing-subscriber.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }
 tempfile.workspace = true
 criterion = { workspace = true }
+hound.workspace = true
 
 [[bench]]
 name = "audio_pipeline"

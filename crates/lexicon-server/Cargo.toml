@@ -10,6 +10,7 @@ rust-version.workspace = true
 [features]
 default = ["stt", "tts", "storage"]
 stt = ["lexicon-core/stt"]
+stt-parakeet = ["lexicon-core/stt-parakeet"]
 tts = ["lexicon-core/tts"]
 storage = ["lexicon-core/storage"]
 

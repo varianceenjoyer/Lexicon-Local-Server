@@ -686,6 +686,276 @@ impl SherpaTranscriber {
 }
 
 // ============================================================================
+// Parakeet Transcriber (NVIDIA Parakeet CTC/TDT via ONNX Runtime)
+// ============================================================================
+
+/// Parakeet-based transcriber using NVIDIA Parakeet ONNX models.
+///
+/// Supports CTC (English, built-in punctuation) and TDT (25 languages).
+/// Shares the ONNX Runtime with TTS for efficient resource usage.
+///
+/// # Model Format
+///
+/// Requires a model directory containing:
+/// - `model.onnx` or `encoder.onnx` - ONNX model
+/// - `tokenizer.json` - HuggingFace tokenizer
+/// - `config.json` / `preprocessor_config.json` - Configuration
+///
+/// CTC models output punctuated/capitalized text (no post-processing needed).
+/// TDT models support 25 languages with auto-detection.
+#[frb(opaque)]
+pub struct ParakeetTranscriber {
+    #[cfg(feature = "stt-parakeet")]
+    inner: Mutex<Option<lexicon_core::stt::ParakeetTranscriber>>,
+    #[cfg(feature = "stt-parakeet")]
+    model_path: Mutex<Option<String>>,
+    #[cfg(not(feature = "stt-parakeet"))]
+    _marker: std::marker::PhantomData<()>,
+}
+
+impl ParakeetTranscriber {
+    /// Create a new Parakeet transcriber.
+    pub fn new() -> Result<ParakeetTranscriber, LexiconFlutterError> {
+        Ok(Self {
+            #[cfg(feature = "stt-parakeet")]
+            inner: Mutex::new(None),
+            #[cfg(feature = "stt-parakeet")]
+            model_path: Mutex::new(None),
+            #[cfg(not(feature = "stt-parakeet"))]
+            _marker: std::marker::PhantomData,
+        })
+    }
+
+    /// Load a Parakeet model from a directory.
+    ///
+    /// Auto-detects model variant (CTC or TDT) from directory contents.
+    pub fn load_model(&self, model_dir: String) -> Result<i64, LexiconFlutterError> {
+        #[cfg(feature = "stt-parakeet")]
+        {
+            use lexicon_core::stt::Transcriber as _;
+
+            let start = Instant::now();
+
+            let path = PathBuf::from(&model_dir);
+            if !path.exists() {
+                return Err(LexiconFlutterError::ModelNotFound(model_dir));
+            }
+
+            let mut transcriber = lexicon_core::stt::ParakeetTranscriber::new()
+                .map_err(|e| LexiconFlutterError::ModelLoadFailed(e.to_string()))?;
+
+            transcriber
+                .load_model(&path)
+                .map_err(|e| LexiconFlutterError::ModelLoadFailed(e.to_string()))?;
+
+            {
+                let mut inner = self.inner.lock().map_err(|_| {
+                    LexiconFlutterError::TranscriptionFailed("Lock poisoned".to_string())
+                })?;
+                *inner = Some(transcriber);
+            }
+
+            {
+                let mut model_path = self.model_path.lock().map_err(|_| {
+                    LexiconFlutterError::TranscriptionFailed("Lock poisoned".to_string())
+                })?;
+                *model_path = Some(model_dir.clone());
+            }
+
+            let elapsed_ms = start.elapsed().as_millis() as i64;
+            tracing::info!(elapsed_ms = elapsed_ms, "Parakeet model loaded: {}", model_dir);
+            Ok(elapsed_ms)
+        }
+
+        #[cfg(not(feature = "stt-parakeet"))]
+        {
+            let _ = model_dir;
+            Err(LexiconFlutterError::TranscriptionFailed(
+                "stt-parakeet feature not enabled".to_string(),
+            ))
+        }
+    }
+
+    /// Unload the current model.
+    #[frb(sync)]
+    pub fn unload_model(&self) {
+        #[cfg(feature = "stt-parakeet")]
+        {
+            if let Ok(mut inner) = self.inner.lock() {
+                *inner = None;
+                tracing::info!("Parakeet model unloaded");
+            }
+            if let Ok(mut path) = self.model_path.lock() {
+                *path = None;
+            }
+        }
+    }
+
+    /// Check if a model is loaded.
+    #[frb(sync)]
+    pub fn is_model_loaded(&self) -> bool {
+        #[cfg(feature = "stt-parakeet")]
+        {
+            self.inner.lock().map(|i| i.is_some()).unwrap_or(false)
+        }
+
+        #[cfg(not(feature = "stt-parakeet"))]
+        false
+    }
+
+    /// Returns true if the loaded model has built-in punctuation (CTC variant).
+    ///
+    /// When true, post-processing should be skipped to preserve the model's
+    /// punctuation and capitalization.
+    #[frb(sync)]
+    pub fn has_builtin_punctuation(&self) -> bool {
+        #[cfg(feature = "stt-parakeet")]
+        {
+            self.inner
+                .lock()
+                .ok()
+                .and_then(|inner| inner.as_ref().map(|t| t.has_builtin_punctuation()))
+                .unwrap_or(false)
+        }
+
+        #[cfg(not(feature = "stt-parakeet"))]
+        false
+    }
+
+    /// Warm up the model for optimal first-inference latency.
+    pub fn warm_up(&self) -> Result<i64, LexiconFlutterError> {
+        #[cfg(feature = "stt-parakeet")]
+        {
+            let start = Instant::now();
+
+            let inner = self.inner.lock().map_err(|_| {
+                LexiconFlutterError::TranscriptionFailed("Lock poisoned".to_string())
+            })?;
+
+            let transcriber = inner.as_ref().ok_or_else(|| {
+                LexiconFlutterError::TranscriptionFailed("No model loaded".to_string())
+            })?;
+
+            transcriber
+                .warm_up()
+                .map_err(|e| LexiconFlutterError::TranscriptionFailed(e.to_string()))?;
+
+            let elapsed_ms = start.elapsed().as_millis() as i64;
+            tracing::info!(elapsed_ms = elapsed_ms, "Parakeet model warm-up complete");
+
+            Ok(elapsed_ms)
+        }
+
+        #[cfg(not(feature = "stt-parakeet"))]
+        Err(LexiconFlutterError::TranscriptionFailed(
+            "stt-parakeet feature not enabled".to_string(),
+        ))
+    }
+
+    /// Transcribe audio data (batch mode).
+    ///
+    /// Audio should be raw PCM f32 samples at 16kHz mono, packed as bytes.
+    /// CTC models return punctuated text; TDT models need post-processing.
+    pub fn transcribe(
+        &self,
+        audio_data: Vec<u8>,
+        config: TranscriptionConfig,
+    ) -> Result<TranscriptionResult, LexiconFlutterError> {
+        #[cfg(feature = "stt-parakeet")]
+        {
+            use lexicon_core::stt::{PostProcessor, Transcriber as _};
+
+            // Convert bytes to f32 samples
+            let samples: Vec<f32> = audio_data
+                .chunks(4)
+                .filter_map(|chunk| {
+                    if chunk.len() == 4 {
+                        Some(f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            if samples.is_empty() {
+                return Err(LexiconFlutterError::InvalidInput(
+                    "Empty audio data".to_string(),
+                ));
+            }
+
+            // Build config
+            let mut tx_config = lexicon_core::stt::TranscriptionConfig::new();
+            if let Some(lang) = config.language {
+                tx_config = tx_config.with_language(lang);
+            }
+            if config.num_threads > 0 {
+                tx_config = tx_config.with_threads(config.num_threads);
+            }
+
+            let inner = self.inner.lock().map_err(|_| {
+                LexiconFlutterError::TranscriptionFailed("Lock poisoned".to_string())
+            })?;
+
+            let transcriber = inner.as_ref().ok_or_else(|| {
+                LexiconFlutterError::TranscriptionFailed("No model loaded".to_string())
+            })?;
+
+            let result = transcriber
+                .transcribe(&samples, &tx_config)
+                .map_err(|e| LexiconFlutterError::TranscriptionFailed(e.to_string()))?;
+
+            // CTC models have built-in punctuation — skip post-processing
+            // TDT models need post-processing like Whisper/Sherpa
+            let use_postprocess = !transcriber.has_builtin_punctuation();
+
+            let segments: Vec<TranscriptionSegment> = if use_postprocess {
+                let post_processor = PostProcessor::new(Default::default());
+                result
+                    .segments
+                    .iter()
+                    .map(|s| TranscriptionSegment {
+                        start_ms: s.start_ms,
+                        end_ms: s.end_ms,
+                        text: post_processor.process(&s.text),
+                        confidence: s.confidence,
+                        language: s.language.clone(),
+                        speaker_id: s.speaker_id,
+                    })
+                    .collect()
+            } else {
+                result
+                    .segments
+                    .iter()
+                    .map(|s| TranscriptionSegment {
+                        start_ms: s.start_ms,
+                        end_ms: s.end_ms,
+                        text: s.text.clone(),
+                        confidence: s.confidence,
+                        language: s.language.clone(),
+                        speaker_id: s.speaker_id,
+                    })
+                    .collect()
+            };
+
+            Ok(TranscriptionResult {
+                segments,
+                detected_language: result.detected_language,
+                audio_duration_ms: result.audio_duration_ms,
+                processing_time_ms: result.processing_time_ms,
+            })
+        }
+
+        #[cfg(not(feature = "stt-parakeet"))]
+        {
+            let _ = (audio_data, config);
+            Err(LexiconFlutterError::TranscriptionFailed(
+                "stt-parakeet feature not enabled".to_string(),
+            ))
+        }
+    }
+}
+
+// ============================================================================
 // Synthesizer
 // ============================================================================
 

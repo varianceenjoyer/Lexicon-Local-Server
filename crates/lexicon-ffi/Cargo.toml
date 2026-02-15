@@ -18,6 +18,7 @@ path = "src/bin/uniffi-bindgen.rs"
 [features]
 default = ["stt", "tts"]
 stt = ["lexicon-core/stt"]
+stt-parakeet = ["lexicon-core/stt-parakeet"]
 tts = ["lexicon-core/tts"]
 
 [dependencies]
