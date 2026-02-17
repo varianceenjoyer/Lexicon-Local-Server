@@ -160,6 +160,43 @@ impl ParakeetTranscriber {
         }
         ParakeetVariant::Ctc
     }
+
+    /// Finds the best model file in a directory.
+    ///
+    /// Prefers .ort (optimized ORT format) over .onnx for faster loading.
+    /// Priority: int8*.ort > *.ort > int8*.onnx > *.onnx
+    fn find_model_file(dir: &Path) -> Option<PathBuf> {
+        let mut ort_files = Vec::new();
+        let mut onnx_files = Vec::new();
+
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_lowercase();
+                let path = entry.path();
+                if name.ends_with(".ort") && !name.contains("runtime_opt") {
+                    ort_files.push(path);
+                } else if name.ends_with(".onnx") && !name.ends_with(".onnx_data") {
+                    onnx_files.push(path);
+                }
+            }
+        }
+
+        // Prefer .ort files, then .onnx
+        if !ort_files.is_empty() {
+            // Prefer int8 variant
+            if let Some(p) = ort_files.iter().find(|p| {
+                p.file_name()
+                    .map(|n| n.to_string_lossy().contains("int8"))
+                    .unwrap_or(false)
+            }) {
+                return Some(p.clone());
+            }
+            return Some(ort_files.remove(0));
+        }
+
+        // Fall back to .onnx (parakeet-rs handles these natively via directory)
+        None
+    }
 }
 
 impl Default for ParakeetTranscriber {
@@ -188,7 +225,19 @@ impl Transcriber for ParakeetTranscriber {
         let variant = Self::detect_variant(path);
         info!(variant = ?variant, "Detected Parakeet model variant");
 
-        let path_str = path.to_string_lossy().to_string();
+        // Resolve model file: prefer .ort (faster loading) over .onnx
+        // parakeet-rs only searches for *.onnx in directories, so we resolve
+        // .ort files explicitly and pass the file path directly.
+        let path_str = if path.is_dir() {
+            if let Some(ort_file) = Self::find_model_file(path) {
+                info!("Using optimized model: {}", ort_file.display());
+                ort_file.to_string_lossy().to_string()
+            } else {
+                path.to_string_lossy().to_string()
+            }
+        } else {
+            path.to_string_lossy().to_string()
+        };
         let model = match variant {
             ParakeetVariant::Ctc => {
                 let m = parakeet_rs::Parakeet::from_pretrained(&path_str, None).map_err(|e| {
