@@ -77,6 +77,9 @@ sherpa-rs = { version = "0.6", features = ["download-binaries"] }
 # Shares ort 2.0.0-rc.11 with TTS. Supports CTC (English, built-in punctuation) and TDT (25 languages).
 parakeet-rs = "0.3"
 
+# Noise reduction (RNNoise) - optional preprocessing for noisy environments
+nnnoiseless = "0.5"
+
 # Text-to-Speech
 ort = { version = "2.0.0-rc.11", default-features = false, features = ["std", "ndarray", "download-binaries", "tls-rustls"] }
 ndarray = "0.17"

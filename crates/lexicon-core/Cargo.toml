@@ -18,6 +18,7 @@ storage = ["dep:rusqlite"]
 audio = ["dep:cpal", "dep:rubato", "dep:webrtc-vad", "dep:ringbuf"]
 audio-convert = ["dep:symphonia"]
 system-profile = ["dep:sysinfo", "dep:dirs"]
+noise-reduction = ["dep:nnnoiseless"]
 server = []
 ffi = []
 # Feature for test utilities (exposes functions useful for testing)
@@ -83,6 +84,9 @@ misaki-rs = { version = "0.1", optional = true }
 
 # Audio format conversion
 symphonia = { workspace = true, optional = true }
+
+# Noise reduction (RNNoise via nnnoiseless)
+nnnoiseless = { workspace = true, optional = true }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true

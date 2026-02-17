@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -428748360;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 2003478950;
 
 // Section: executor
 
@@ -328,6 +328,439 @@ fn wire__crate__api__ModelDownloader_reset_impl(
                 })?;
                 Ok(output_ok)
             })())
+        },
+    )
+}
+fn wire__crate__api__ParakeetTranscriber_has_builtin_punctuation_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ParakeetTranscriber_has_builtin_punctuation",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let mut api_that_guard = None;
+                let decode_indices_ =
+                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                            &api_that, 0, false,
+                        ),
+                    ]);
+                for i in decode_indices_ {
+                    match i {
+                        0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                        _ => unreachable!(),
+                    }
+                }
+                let api_that_guard = api_that_guard.unwrap();
+                let output_ok = Result::<_, ()>::Ok(
+                    crate::api::ParakeetTranscriber::has_builtin_punctuation(&*api_that_guard),
+                )?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__ParakeetTranscriber_is_model_loaded_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ParakeetTranscriber_is_model_loaded",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let mut api_that_guard = None;
+                let decode_indices_ =
+                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                            &api_that, 0, false,
+                        ),
+                    ]);
+                for i in decode_indices_ {
+                    match i {
+                        0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                        _ => unreachable!(),
+                    }
+                }
+                let api_that_guard = api_that_guard.unwrap();
+                let output_ok = Result::<_, ()>::Ok(
+                    crate::api::ParakeetTranscriber::is_model_loaded(&*api_that_guard),
+                )?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__ParakeetTranscriber_is_noise_reduction_enabled_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ParakeetTranscriber_is_noise_reduction_enabled",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let mut api_that_guard = None;
+                let decode_indices_ =
+                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                            &api_that, 0, false,
+                        ),
+                    ]);
+                for i in decode_indices_ {
+                    match i {
+                        0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                        _ => unreachable!(),
+                    }
+                }
+                let api_that_guard = api_that_guard.unwrap();
+                let output_ok = Result::<_, ()>::Ok(
+                    crate::api::ParakeetTranscriber::is_noise_reduction_enabled(&*api_that_guard),
+                )?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__ParakeetTranscriber_load_model_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ParakeetTranscriber_load_model",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>,
+            >>::sse_decode(&mut deserializer);
+            let api_model_dir = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::error::LexiconFlutterError>((move || {
+                    let mut api_that_guard = None;
+                    let decode_indices_ =
+                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                &api_that, 0, false,
+                            ),
+                        ]);
+                    for i in decode_indices_ {
+                        match i {
+                            0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                            _ => unreachable!(),
+                        }
+                    }
+                    let api_that_guard = api_that_guard.unwrap();
+                    let output_ok = crate::api::ParakeetTranscriber::load_model(
+                        &*api_that_guard,
+                        api_model_dir,
+                    )?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__ParakeetTranscriber_new_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ParakeetTranscriber_new",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::error::LexiconFlutterError>((move || {
+                    let output_ok = crate::api::ParakeetTranscriber::new()?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__ParakeetTranscriber_set_noise_reduction_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ParakeetTranscriber_set_noise_reduction",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>,
+            >>::sse_decode(&mut deserializer);
+            let api_enabled = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let mut api_that_guard = None;
+                let decode_indices_ =
+                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                            &api_that, 0, false,
+                        ),
+                    ]);
+                for i in decode_indices_ {
+                    match i {
+                        0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                        _ => unreachable!(),
+                    }
+                }
+                let api_that_guard = api_that_guard.unwrap();
+                let output_ok = Result::<_, ()>::Ok({
+                    crate::api::ParakeetTranscriber::set_noise_reduction(
+                        &*api_that_guard,
+                        api_enabled,
+                    );
+                })?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__ParakeetTranscriber_transcribe_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ParakeetTranscriber_transcribe",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>,
+            >>::sse_decode(&mut deserializer);
+            let api_audio_data = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_config = <crate::types::TranscriptionConfig>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::error::LexiconFlutterError>((move || {
+                    let mut api_that_guard = None;
+                    let decode_indices_ =
+                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                &api_that, 0, false,
+                            ),
+                        ]);
+                    for i in decode_indices_ {
+                        match i {
+                            0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                            _ => unreachable!(),
+                        }
+                    }
+                    let api_that_guard = api_that_guard.unwrap();
+                    let output_ok = crate::api::ParakeetTranscriber::transcribe(
+                        &*api_that_guard,
+                        api_audio_data,
+                        api_config,
+                    )?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__ParakeetTranscriber_unload_model_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ParakeetTranscriber_unload_model",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let mut api_that_guard = None;
+                let decode_indices_ =
+                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                            &api_that, 0, false,
+                        ),
+                    ]);
+                for i in decode_indices_ {
+                    match i {
+                        0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                        _ => unreachable!(),
+                    }
+                }
+                let api_that_guard = api_that_guard.unwrap();
+                let output_ok = Result::<_, ()>::Ok({
+                    crate::api::ParakeetTranscriber::unload_model(&*api_that_guard);
+                })?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__ParakeetTranscriber_warm_up_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ParakeetTranscriber_warm_up",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::error::LexiconFlutterError>((move || {
+                    let mut api_that_guard = None;
+                    let decode_indices_ =
+                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                &api_that, 0, false,
+                            ),
+                        ]);
+                    for i in decode_indices_ {
+                        match i {
+                            0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                            _ => unreachable!(),
+                        }
+                    }
+                    let api_that_guard = api_that_guard.unwrap();
+                    let output_ok = crate::api::ParakeetTranscriber::warm_up(&*api_that_guard)?;
+                    Ok(output_ok)
+                })())
+            }
         },
     )
 }
@@ -1983,10 +2416,10 @@ fn wire__crate__api__is_model_cached_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_model_type = <String>::sse_decode(&mut deserializer);
+            let api__model_type = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
-                let output_ok = Result::<_, ()>::Ok(crate::api::is_model_cached(api_model_type))?;
+                let output_ok = Result::<_, ()>::Ok(crate::api::is_model_cached(api__model_type))?;
                 Ok(output_ok)
             })())
         },
@@ -2112,11 +2545,11 @@ fn wire__crate__api__preload_sherpa_model_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_model_path = <String>::sse_decode(&mut deserializer);
+            let api__model_path = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::error::LexiconFlutterError>((move || {
-                    let output_ok = crate::api::preload_sherpa_model(api_model_path)?;
+                    let output_ok = crate::api::preload_sherpa_model(api__model_path)?;
                     Ok(output_ok)
                 })())
             }
@@ -2144,11 +2577,11 @@ fn wire__crate__api__set_cache_max_memory_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_max_bytes = <u64>::sse_decode(&mut deserializer);
+            let api__max_bytes = <u64>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
                 let output_ok = Result::<_, ()>::Ok({
-                    crate::api::set_cache_max_memory(api_max_bytes);
+                    crate::api::set_cache_max_memory(api__max_bytes);
                 })?;
                 Ok(output_ok)
             })())
@@ -2160,6 +2593,9 @@ fn wire__crate__api__set_cache_max_memory_impl(
 
 flutter_rust_bridge::frb_generated_moi_arc_impl_value!(
     flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ModelDownloader>
+);
+flutter_rust_bridge::frb_generated_moi_arc_impl_value!(
+    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>
 );
 flutter_rust_bridge::frb_generated_moi_arc_impl_value!(
     flutter_rust_bridge::for_generated::RustAutoOpaqueInner<SherpaTranscriber>
@@ -2184,6 +2620,16 @@ impl SseDecode for ModelDownloader {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <RustOpaqueMoi<
             flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ModelDownloader>,
+        >>::sse_decode(deserializer);
+        return flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(inner);
+    }
+}
+
+impl SseDecode for ParakeetTranscriber {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <RustOpaqueMoi<
+            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>,
         >>::sse_decode(deserializer);
         return flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(inner);
     }
@@ -2241,6 +2687,16 @@ impl SseDecode for Transcriber {
 
 impl SseDecode
     for RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ModelDownloader>>
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <usize>::sse_decode(deserializer);
+        return decode_rust_opaque_moi(inner);
+    }
+}
+
+impl SseDecode
+    for RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>>
 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2782,46 +3238,56 @@ fn pde_ffi_dispatcher_primary_impl(
             wire__crate__api__ModelDownloader_download_model_impl(port, ptr, rust_vec_len, data_len)
         }
         5 => wire__crate__api__ModelDownloader_new_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__SherpaTranscriber_load_model_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__SherpaTranscriber_new_impl(port, ptr, rust_vec_len, data_len),
         10 => {
+            wire__crate__api__ParakeetTranscriber_load_model_impl(port, ptr, rust_vec_len, data_len)
+        }
+        11 => wire__crate__api__ParakeetTranscriber_new_impl(port, ptr, rust_vec_len, data_len),
+        13 => {
+            wire__crate__api__ParakeetTranscriber_transcribe_impl(port, ptr, rust_vec_len, data_len)
+        }
+        15 => wire__crate__api__ParakeetTranscriber_warm_up_impl(port, ptr, rust_vec_len, data_len),
+        17 => {
+            wire__crate__api__SherpaTranscriber_load_model_impl(port, ptr, rust_vec_len, data_len)
+        }
+        18 => wire__crate__api__SherpaTranscriber_new_impl(port, ptr, rust_vec_len, data_len),
+        19 => {
             wire__crate__api__SherpaTranscriber_transcribe_impl(port, ptr, rust_vec_len, data_len)
         }
-        12 => wire__crate__api__SherpaTranscriber_warm_up_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__StreamingSynthesizer_new_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__StreamingSynthesizer_synthesize_chunked_impl(
+        21 => wire__crate__api__SherpaTranscriber_warm_up_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__StreamingSynthesizer_new_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__StreamingSynthesizer_synthesize_chunked_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        20 => wire__crate__api__StreamingTranscriber_load_model_impl(
+        29 => wire__crate__api__StreamingTranscriber_load_model_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        21 => wire__crate__api__StreamingTranscriber_new_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__StreamingTranscriber_process_chunk_impl(
+        30 => wire__crate__api__StreamingTranscriber_new_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__StreamingTranscriber_process_chunk_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        24 => {
+        33 => {
             wire__crate__api__StreamingTranscriber_warm_up_impl(port, ptr, rust_vec_len, data_len)
         }
-        27 => wire__crate__api__Synthesizer_new_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__Synthesizer_synthesize_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__Transcriber_load_model_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__Transcriber_new_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__Transcriber_transcribe_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__Transcriber_translate_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__Transcriber_warm_up_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__delete_model_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__list_models_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__preload_sherpa_model_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__Synthesizer_new_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__Synthesizer_synthesize_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__Transcriber_load_model_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__Transcriber_new_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__Transcriber_transcribe_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__Transcriber_translate_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__Transcriber_warm_up_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__delete_model_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__list_models_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__preload_sherpa_model_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2838,30 +3304,49 @@ fn pde_ffi_dispatcher_sync_impl(
         3 => wire__crate__api__ModelDownloader_get_model_dir_impl(ptr, rust_vec_len, data_len),
         4 => wire__crate__api__ModelDownloader_is_cancelled_impl(ptr, rust_vec_len, data_len),
         6 => wire__crate__api__ModelDownloader_reset_impl(ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__SherpaTranscriber_is_model_loaded_impl(ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__SherpaTranscriber_unload_model_impl(ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__StreamingSynthesizer_is_ready_impl(ptr, rust_vec_len, data_len),
-        14 => {
+        7 => wire__crate__api__ParakeetTranscriber_has_builtin_punctuation_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        8 => {
+            wire__crate__api__ParakeetTranscriber_is_model_loaded_impl(ptr, rust_vec_len, data_len)
+        }
+        9 => wire__crate__api__ParakeetTranscriber_is_noise_reduction_enabled_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        12 => wire__crate__api__ParakeetTranscriber_set_noise_reduction_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        14 => wire__crate__api__ParakeetTranscriber_unload_model_impl(ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__SherpaTranscriber_is_model_loaded_impl(ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__SherpaTranscriber_unload_model_impl(ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__StreamingSynthesizer_is_ready_impl(ptr, rust_vec_len, data_len),
+        23 => {
             wire__crate__api__StreamingSynthesizer_is_synthesizing_impl(ptr, rust_vec_len, data_len)
         }
-        16 => wire__crate__api__StreamingSynthesizer_stop_impl(ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__StreamingTranscriber_is_ready_impl(ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__StreamingTranscriber_is_streaming_impl(ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__StreamingTranscriber_stop_impl(ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__Synthesizer_is_ready_impl(ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__Synthesizer_list_voices_impl(ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__Transcriber_get_model_name_impl(ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__Transcriber_is_model_loaded_impl(ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__Transcriber_unload_model_impl(ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__clear_model_cache_impl(ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__get_cache_stats_impl(ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__get_platform_info_impl(ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__get_version_impl(ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__init_lexicon_impl(ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__is_model_cached_impl(ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__is_model_downloaded_impl(ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__on_low_memory_impl(ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__set_cache_max_memory_impl(ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__StreamingSynthesizer_stop_impl(ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__StreamingTranscriber_is_ready_impl(ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__StreamingTranscriber_is_streaming_impl(ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__StreamingTranscriber_stop_impl(ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__Synthesizer_is_ready_impl(ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__Synthesizer_list_voices_impl(ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__Transcriber_get_model_name_impl(ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__Transcriber_is_model_loaded_impl(ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__Transcriber_unload_model_impl(ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__clear_model_cache_impl(ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__get_cache_stats_impl(ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__get_platform_info_impl(ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__get_version_impl(ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__init_lexicon_impl(ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__is_model_cached_impl(ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__is_model_downloaded_impl(ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__on_low_memory_impl(ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__set_cache_max_memory_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2879,6 +3364,24 @@ impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for FrbWrapper<
 
 impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<ModelDownloader>> for ModelDownloader {
     fn into_into_dart(self) -> FrbWrapper<ModelDownloader> {
+        self.into()
+    }
+}
+
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for FrbWrapper<ParakeetTranscriber> {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, MoiArc<_>>(self.0)
+            .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for FrbWrapper<ParakeetTranscriber>
+{
+}
+
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<ParakeetTranscriber>> for ParakeetTranscriber {
+    fn into_into_dart(self) -> FrbWrapper<ParakeetTranscriber> {
         self.into()
     }
 }
@@ -3284,6 +3787,13 @@ impl SseEncode for ModelDownloader {
     }
 }
 
+impl SseEncode for ParakeetTranscriber {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>>>::sse_encode(flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, MoiArc<_>>(self), serializer);
+    }
+}
+
 impl SseEncode for SherpaTranscriber {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3331,6 +3841,17 @@ impl SseEncode for Transcriber {
 
 impl SseEncode
     for RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ModelDownloader>>
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        let (ptr, size) = self.sse_encode_raw();
+        <usize>::sse_encode(ptr, serializer);
+        <i32>::sse_encode(size, serializer);
+    }
+}
+
+impl SseEncode
+    for RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>>
 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3798,6 +4319,20 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_lexicon_flutter_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerParakeetTranscriber(
+        ptr: *const std::ffi::c_void,
+    ) {
+        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>>::increment_strong_count(ptr as _);
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_lexicon_flutter_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerParakeetTranscriber(
+        ptr: *const std::ffi::c_void,
+    ) {
+        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>>::decrement_strong_count(ptr as _);
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_lexicon_flutter_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerSherpaTranscriber(
         ptr: *const std::ffi::c_void,
     ) {
@@ -3904,6 +4439,20 @@ mod web {
         ptr: *const std::ffi::c_void,
     ) {
         MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ModelDownloader>>::decrement_strong_count(ptr as _);
+    }
+
+    #[wasm_bindgen]
+    pub fn rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerParakeetTranscriber(
+        ptr: *const std::ffi::c_void,
+    ) {
+        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>>::increment_strong_count(ptr as _);
+    }
+
+    #[wasm_bindgen]
+    pub fn rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerParakeetTranscriber(
+        ptr: *const std::ffi::c_void,
+    ) {
+        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>>::decrement_strong_count(ptr as _);
     }
 
     #[wasm_bindgen]

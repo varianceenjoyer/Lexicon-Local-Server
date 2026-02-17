@@ -33,6 +33,9 @@ pub mod storage;
 #[cfg(feature = "audio")]
 pub mod audio;
 
+#[cfg(feature = "noise-reduction")]
+pub mod denoise;
+
 #[cfg(any(feature = "stt", feature = "stt-sherpa", feature = "stt-parakeet"))]
 pub mod stt;
 

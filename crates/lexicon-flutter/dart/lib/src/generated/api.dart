@@ -10,7 +10,6 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'types.dart';
 part 'api.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `get_cache`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `TranscriptionEvent`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`
 
@@ -28,36 +27,26 @@ String getVersion() => LexiconFlutter.instance.api.crateApiGetVersion();
 PlatformInfo getPlatformInfo() =>
     LexiconFlutter.instance.api.crateApiGetPlatformInfo();
 
-/// Preload Sherpa STT model into cache for faster first use.
-///
-/// Call this at app startup to eliminate model load delay on first transcription.
-/// Returns the load time in milliseconds, or 0 if already cached.
+/// Legacy: Preload was removed. Model loads directly in SherpaTranscriber.
 Future<PlatformInt64> preloadSherpaModel({required String modelPath}) =>
     LexiconFlutter.instance.api
         .crateApiPreloadSherpaModel(modelPath: modelPath);
 
-/// Set maximum cache memory in bytes.
-///
-/// Default is 500MB. When exceeded, least-recently-used model is evicted.
+/// Legacy: Cache removed.
 void setCacheMaxMemory({required BigInt maxBytes}) =>
     LexiconFlutter.instance.api.crateApiSetCacheMaxMemory(maxBytes: maxBytes);
 
-/// Clear all cached models to free memory.
-///
-/// Call this when the OS signals low memory or when backgrounding the app.
+/// Legacy: Cache removed.
 void clearModelCache() => LexiconFlutter.instance.api.crateApiClearModelCache();
 
-/// Handle low memory warning from OS.
-///
-/// Clears the entire model cache to free RAM immediately.
-/// Call this from Flutter's `didHaveMemoryPressure` callback.
+/// Legacy: Cache removed.
 void onLowMemory() => LexiconFlutter.instance.api.crateApiOnLowMemory();
 
-/// Get current cache statistics.
+/// Legacy: Returns empty stats.
 CacheStats getCacheStats() =>
     LexiconFlutter.instance.api.crateApiGetCacheStats();
 
-/// Check if a specific model type is cached.
+/// Legacy: Always returns false.
 bool isModelCached({required String modelType}) =>
     LexiconFlutter.instance.api.crateApiIsModelCached(modelType: modelType);
 
@@ -104,6 +93,52 @@ abstract class ModelDownloader implements RustOpaqueInterface {
   void reset();
 }
 
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>>
+abstract class ParakeetTranscriber implements RustOpaqueInterface {
+  /// Returns true if the loaded model has built-in punctuation (CTC variant).
+  ///
+  /// When true, post-processing should be skipped to preserve the model's
+  /// punctuation and capitalization.
+  bool hasBuiltinPunctuation();
+
+  /// Check if a model is loaded.
+  bool isModelLoaded();
+
+  /// Check if noise reduction is currently enabled.
+  bool isNoiseReductionEnabled();
+
+  /// Load a Parakeet model from a directory.
+  ///
+  /// Auto-detects model variant (CTC or TDT) from directory contents.
+  Future<PlatformInt64> loadModel({required String modelDir});
+
+  // HINT: Make it `#[frb(sync)]` to let it become the default constructor of Dart class.
+  /// Create a new Parakeet transcriber.
+  static Future<ParakeetTranscriber> newInstance() =>
+      LexiconFlutter.instance.api.crateApiParakeetTranscriberNew();
+
+  /// Enable or disable noise reduction preprocessing.
+  ///
+  /// When enabled, audio is denoised using RNNoise before transcription.
+  /// Off by default. Enable in noisy environments (wind, traffic, industrial).
+  /// May slightly affect accuracy in quiet settings.
+  void setNoiseReduction({required bool enabled});
+
+  /// Transcribe audio data (batch mode).
+  ///
+  /// Audio should be raw PCM f32 samples at 16kHz mono, packed as bytes.
+  /// CTC models return punctuated text; TDT models need post-processing.
+  /// When noise reduction is enabled, audio is denoised before transcription.
+  Future<TranscriptionResult> transcribe(
+      {required List<int> audioData, required TranscriptionConfig config});
+
+  /// Unload the current model.
+  void unloadModel();
+
+  /// Warm up the model for optimal first-inference latency.
+  Future<PlatformInt64> warmUp();
+}
+
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<SherpaTranscriber>>
 abstract class SherpaTranscriber implements RustOpaqueInterface {
   /// Check if a model is loaded.
@@ -111,8 +146,8 @@ abstract class SherpaTranscriber implements RustOpaqueInterface {
 
   /// Load a Sherpa model from a directory.
   ///
-  /// If the model is already cached, returns immediately (0ms load time).
   /// The directory should contain encoder, decoder, joiner, and tokens files.
+  /// Prefers .ort files (optimized) over .onnx files for faster loading.
   Future<PlatformInt64> loadModel({required String modelDir});
 
   // HINT: Make it `#[frb(sync)]` to let it become the default constructor of Dart class.
@@ -126,9 +161,7 @@ abstract class SherpaTranscriber implements RustOpaqueInterface {
   Future<TranscriptionResult> transcribe(
       {required List<int> audioData, required TranscriptionConfig config});
 
-  /// Unload the current model from this instance.
-  ///
-  /// Note: The model may still be cached for future use by other instances.
+  /// Unload the current model.
   void unloadModel();
 
   /// Warm up the model for optimal first-inference latency.

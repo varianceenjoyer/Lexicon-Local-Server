@@ -709,6 +709,9 @@ pub struct ParakeetTranscriber {
     inner: Mutex<Option<lexicon_core::stt::ParakeetTranscriber>>,
     #[cfg(feature = "stt-parakeet")]
     model_path: Mutex<Option<String>>,
+    #[cfg(feature = "noise-reduction")]
+    denoiser: Mutex<lexicon_core::denoise::Denoiser>,
+    noise_reduction_enabled: AtomicBool,
     #[cfg(not(feature = "stt-parakeet"))]
     _marker: std::marker::PhantomData<()>,
 }
@@ -721,6 +724,9 @@ impl ParakeetTranscriber {
             inner: Mutex::new(None),
             #[cfg(feature = "stt-parakeet")]
             model_path: Mutex::new(None),
+            #[cfg(feature = "noise-reduction")]
+            denoiser: Mutex::new(lexicon_core::denoise::Denoiser::new()),
+            noise_reduction_enabled: AtomicBool::new(false),
             #[cfg(not(feature = "stt-parakeet"))]
             _marker: std::marker::PhantomData,
         })
@@ -822,6 +828,23 @@ impl ParakeetTranscriber {
         false
     }
 
+    /// Enable or disable noise reduction preprocessing.
+    ///
+    /// When enabled, audio is denoised using RNNoise before transcription.
+    /// Off by default. Enable in noisy environments (wind, traffic, industrial).
+    /// May slightly affect accuracy in quiet settings.
+    #[frb(sync)]
+    pub fn set_noise_reduction(&self, enabled: bool) {
+        self.noise_reduction_enabled.store(enabled, Ordering::SeqCst);
+        tracing::info!(enabled = enabled, "Noise reduction toggled");
+    }
+
+    /// Check if noise reduction is currently enabled.
+    #[frb(sync)]
+    pub fn is_noise_reduction_enabled(&self) -> bool {
+        self.noise_reduction_enabled.load(Ordering::SeqCst)
+    }
+
     /// Warm up the model for optimal first-inference latency.
     pub fn warm_up(&self) -> Result<i64, LexiconFlutterError> {
         #[cfg(feature = "stt-parakeet")]
@@ -856,6 +879,7 @@ impl ParakeetTranscriber {
     ///
     /// Audio should be raw PCM f32 samples at 16kHz mono, packed as bytes.
     /// CTC models return punctuated text; TDT models need post-processing.
+    /// When noise reduction is enabled, audio is denoised before transcription.
     pub fn transcribe(
         &self,
         audio_data: Vec<u8>,
@@ -866,7 +890,7 @@ impl ParakeetTranscriber {
             use lexicon_core::stt::{PostProcessor, Transcriber as _};
 
             // Convert bytes to f32 samples
-            let samples: Vec<f32> = audio_data
+            let mut samples: Vec<f32> = audio_data
                 .chunks(4)
                 .filter_map(|chunk| {
                     if chunk.len() == 4 {
@@ -881,6 +905,20 @@ impl ParakeetTranscriber {
                 return Err(LexiconFlutterError::InvalidInput(
                     "Empty audio data".to_string(),
                 ));
+            }
+
+            // Apply noise reduction if enabled
+            #[cfg(feature = "noise-reduction")]
+            if self.noise_reduction_enabled.load(Ordering::SeqCst) {
+                let mut denoiser = self.denoiser.lock().map_err(|_| {
+                    LexiconFlutterError::TranscriptionFailed("Denoiser lock poisoned".to_string())
+                })?;
+                samples = denoiser.process(&samples);
+                if samples.is_empty() {
+                    return Err(LexiconFlutterError::InvalidInput(
+                        "Audio too short for denoising".to_string(),
+                    ));
+                }
             }
 
             // Build config

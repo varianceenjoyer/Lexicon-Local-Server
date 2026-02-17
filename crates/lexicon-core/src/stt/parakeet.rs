@@ -40,8 +40,8 @@
 //! # Ok::<(), lexicon_core::error::LexiconError>(())
 //! ```
 
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::path::Path;
 use std::time::Instant;
 
 use parakeet_rs::{self, TimestampMode, Transcriber as ParakeetTranscriberTrait};

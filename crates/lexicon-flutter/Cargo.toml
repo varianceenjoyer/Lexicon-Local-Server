@@ -16,6 +16,7 @@ stt = ["lexicon-core/stt", "lexicon-core/audio"]
 stt-sherpa = ["lexicon-core/stt-sherpa", "lexicon-core/audio"]
 stt-parakeet = ["lexicon-core/stt-parakeet", "lexicon-core/audio"]
 stt-all = ["stt", "stt-sherpa", "stt-parakeet"]
+noise-reduction = ["lexicon-core/noise-reduction"]
 tts = ["lexicon-core/tts"]
 
 [dependencies]
