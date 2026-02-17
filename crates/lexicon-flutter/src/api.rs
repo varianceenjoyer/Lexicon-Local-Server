@@ -12,7 +12,7 @@
 //! Streaming uses `StreamSink` to send data from Rust to Dart asynchronously.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 
@@ -712,6 +712,9 @@ pub struct ParakeetTranscriber {
     #[cfg(feature = "noise-reduction")]
     denoiser: Mutex<lexicon_core::denoise::Denoiser>,
     noise_reduction_enabled: AtomicBool,
+    /// Noise reduction strength stored as f32 bits for lock-free access.
+    #[cfg(feature = "noise-reduction")]
+    noise_reduction_strength: AtomicU32,
     #[cfg(not(feature = "stt-parakeet"))]
     _marker: std::marker::PhantomData<()>,
 }
@@ -727,6 +730,8 @@ impl ParakeetTranscriber {
             #[cfg(feature = "noise-reduction")]
             denoiser: Mutex::new(lexicon_core::denoise::Denoiser::new()),
             noise_reduction_enabled: AtomicBool::new(false),
+            #[cfg(feature = "noise-reduction")]
+            noise_reduction_strength: AtomicU32::new(f32::to_bits(1.0)),
             #[cfg(not(feature = "stt-parakeet"))]
             _marker: std::marker::PhantomData,
         })
@@ -835,7 +840,14 @@ impl ParakeetTranscriber {
     /// May slightly affect accuracy in quiet settings.
     #[frb(sync)]
     pub fn set_noise_reduction(&self, enabled: bool) {
-        self.noise_reduction_enabled.store(enabled, Ordering::SeqCst);
+        let was_enabled = self.noise_reduction_enabled.swap(enabled, Ordering::SeqCst);
+        // Reset denoiser state when toggling back on to clear stale RNN state
+        #[cfg(feature = "noise-reduction")]
+        if enabled && !was_enabled {
+            if let Ok(mut denoiser) = self.denoiser.lock() {
+                denoiser.reset();
+            }
+        }
         tracing::info!(enabled = enabled, "Noise reduction toggled");
     }
 
@@ -843,6 +855,35 @@ impl ParakeetTranscriber {
     #[frb(sync)]
     pub fn is_noise_reduction_enabled(&self) -> bool {
         self.noise_reduction_enabled.load(Ordering::SeqCst)
+    }
+
+    /// Set noise reduction strength (0.0 = light, 1.0 = maximum).
+    ///
+    /// Controls the dry/wet mix of denoising. Lower values preserve more
+    /// of the original signal. Default is 1.0 (maximum denoising).
+    #[frb(sync)]
+    pub fn set_noise_reduction_strength(&self, strength: f64) {
+        #[cfg(feature = "noise-reduction")]
+        {
+            let s = (strength as f32).clamp(0.0, 1.0);
+            self.noise_reduction_strength.store(f32::to_bits(s), Ordering::SeqCst);
+            tracing::info!(strength = s, "Noise reduction strength set");
+        }
+        #[cfg(not(feature = "noise-reduction"))]
+        {
+            let _ = strength;
+        }
+    }
+
+    /// Get current noise reduction strength (0.0–1.0).
+    #[frb(sync)]
+    pub fn get_noise_reduction_strength(&self) -> f64 {
+        #[cfg(feature = "noise-reduction")]
+        {
+            f32::from_bits(self.noise_reduction_strength.load(Ordering::SeqCst)) as f64
+        }
+        #[cfg(not(feature = "noise-reduction"))]
+        1.0
     }
 
     /// Warm up the model for optimal first-inference latency.
@@ -910,9 +951,13 @@ impl ParakeetTranscriber {
             // Apply noise reduction if enabled
             #[cfg(feature = "noise-reduction")]
             if self.noise_reduction_enabled.load(Ordering::SeqCst) {
+                let strength = f32::from_bits(
+                    self.noise_reduction_strength.load(Ordering::SeqCst),
+                );
                 let mut denoiser = self.denoiser.lock().map_err(|_| {
                     LexiconFlutterError::TranscriptionFailed("Denoiser lock poisoned".to_string())
                 })?;
+                denoiser.set_strength(strength);
                 samples = denoiser.process(&samples);
                 if samples.is_empty() {
                     return Err(LexiconFlutterError::InvalidInput(

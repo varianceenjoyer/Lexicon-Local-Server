@@ -95,6 +95,9 @@ abstract class ModelDownloader implements RustOpaqueInterface {
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ParakeetTranscriber>>
 abstract class ParakeetTranscriber implements RustOpaqueInterface {
+  /// Get current noise reduction strength (0.0–1.0).
+  double getNoiseReductionStrength();
+
   /// Returns true if the loaded model has built-in punctuation (CTC variant).
   ///
   /// When true, post-processing should be skipped to preserve the model's
@@ -123,6 +126,12 @@ abstract class ParakeetTranscriber implements RustOpaqueInterface {
   /// Off by default. Enable in noisy environments (wind, traffic, industrial).
   /// May slightly affect accuracy in quiet settings.
   void setNoiseReduction({required bool enabled});
+
+  /// Set noise reduction strength (0.0 = light, 1.0 = maximum).
+  ///
+  /// Controls the dry/wet mix of denoising. Lower values preserve more
+  /// of the original signal. Default is 1.0 (maximum denoising).
+  void setNoiseReductionStrength({required double strength});
 
   /// Transcribe audio data (batch mode).
   ///

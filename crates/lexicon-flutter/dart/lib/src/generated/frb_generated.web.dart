@@ -112,6 +112,8 @@ CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_TranscriberPtr => 
 
 @protected double dco_decode_f_32(dynamic raw);
 
+@protected double dco_decode_f_64(dynamic raw);
+
 @protected PlatformInt64 dco_decode_i_64(dynamic raw);
 
 @protected LexiconFlutterError dco_decode_lexicon_flutter_error(dynamic raw);
@@ -233,6 +235,8 @@ CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_TranscriberPtr => 
 @protected DownloadProgress sse_decode_download_progress(SseDeserializer deserializer);
 
 @protected double sse_decode_f_32(SseDeserializer deserializer);
+
+@protected double sse_decode_f_64(SseDeserializer deserializer);
 
 @protected PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
 
@@ -357,6 +361,8 @@ CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_TranscriberPtr => 
 @protected void sse_encode_download_progress(DownloadProgress self, SseSerializer serializer);
 
 @protected void sse_encode_f_32(double self, SseSerializer serializer);
+
+@protected void sse_encode_f_64(double self, SseSerializer serializer);
 
 @protected void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
 
