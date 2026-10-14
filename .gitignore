@@ -68,3 +68,17 @@ tmpclaude
 !.vscode/extensions.json
 *.code-workspace
 nul
+
+# Local secrets / machine config
+.env
+.env.*
+.claude/settings.local.json
+*.jks
+*.keystore
+*.pem
+*.p12
+key.properties
+local.properties
+
+# Downloaded model weights (manifest.json stays tracked)
+/models/*/

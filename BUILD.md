@@ -69,7 +69,7 @@ $env:LIBCLANG_PATH = "C:\Program Files\LLVM\bin"
 
 ```bash
 # Clone repository
-git clone https://github.com/intemporalis/Lexicon-Local-Server.git
+git clone https://github.com/varianceenjoyer/Lexicon-Local-Server.git
 cd Lexicon-Local-Server
 
 # Build all crates
