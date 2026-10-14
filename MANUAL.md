@@ -26,8 +26,8 @@ Requirements:
 
 ```bash
 # Clone the repository
-git clone https://github.com/example/lexicon-local-server
-cd lexicon-local-server
+git clone https://github.com/varianceenjoyer/Lexicon-Local-Server
+cd Lexicon-Local-Server
 
 # Build in release mode
 cargo build --release
