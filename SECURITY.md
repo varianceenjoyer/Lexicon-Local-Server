@@ -4,9 +4,7 @@ This document describes the security measures and threat model for Lexicon Local
 
 ## Project Status
 
-This project is published as-is and is not maintained. There are no supported versions, and security issues will not be triaged or fixed. Use it at your own risk; see [LICENSE](LICENSE).
-
-If you find a vulnerability, you're welcome to open an issue so other users are aware of it, but no response or fix should be expected.
+This project is published as-is and is not maintained, and the repository is archived. There are no supported versions, and security issues will not be triaged or fixed. Use it at your own risk; see [LICENSE](LICENSE).
 
 ---
 
