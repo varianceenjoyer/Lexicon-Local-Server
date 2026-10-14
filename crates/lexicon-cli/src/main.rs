@@ -27,7 +27,7 @@ use lexicon_core::{
 
 #[derive(Parser)]
 #[command(name = "lexicon")]
-#[command(author, version, about = "Real-time STT, translation, and TTS", long_about = None)]
+#[command(author, version, about = "Real-time STT and TTS", long_about = None)]
 struct Cli {
     /// Configuration file path
     #[arg(short, long, global = true)]

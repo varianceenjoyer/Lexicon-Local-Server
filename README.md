@@ -1,6 +1,6 @@
 # Lexicon Local Server
 
-A local-first speech-to-text (STT), text-to-speech (TTS), and translation server. Runs entirely on your machine with no cloud dependencies.
+A local-first speech-to-text (STT) and text-to-speech (TTS) server. Runs entirely on your machine with no cloud dependencies.
 
 ## Features
 

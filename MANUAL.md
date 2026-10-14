@@ -1,6 +1,6 @@
 # Lexicon Local Server - User Manual
 
-Lexicon is a local speech-to-text (STT), text-to-speech (TTS), and translation server. It runs entirely on your machine with no cloud dependencies, providing privacy-focused speech processing via CLI tools and HTTP/WebSocket APIs.
+Lexicon is a local speech-to-text (STT) and text-to-speech (TTS) server. It runs entirely on your machine with no cloud dependencies, providing privacy-focused speech processing via CLI tools and HTTP/WebSocket APIs.
 
 ## Table of Contents
 

@@ -1,6 +1,6 @@
 //! Lexicon Core Library
 //!
-//! Core library for Lexicon Local Server providing STT, translation, and TTS capabilities.
+//! Core library for Lexicon Local Server providing STT and TTS capabilities.
 //! This crate exposes a C ABI-compatible interface for cross-platform integration.
 //!
 //! # Quick Start

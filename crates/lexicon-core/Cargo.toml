@@ -1,6 +1,6 @@
 [package]
 name = "lexicon-core"
-description = "Core library for Lexicon Local Server - STT, translation, and TTS"
+description = "Core library for Lexicon Local Server - STT and TTS"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
