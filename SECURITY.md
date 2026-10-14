@@ -1,40 +1,12 @@
 # Security Policy
 
-This document describes security policies, vulnerability disclosure procedures, and security measures for Lexicon Local Server.
+This document describes the security measures and threat model for Lexicon Local Server.
 
-## Supported Versions
+## Project Status
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
+This project is published as-is and is not maintained. There are no supported versions, and security issues will not be triaged or fixed. Use it at your own risk; see [LICENSE](LICENSE).
 
-Security updates will be provided for the latest minor version. Older versions may receive critical security fixes on a case-by-case basis.
-
-## Reporting a Vulnerability
-
-We take security vulnerabilities seriously. If you discover a security issue, please report it responsibly.
-
-### Reporting Process
-
-1. **Do NOT** open a public GitHub issue for security vulnerabilities
-2. Email security concerns to the maintainers via the repository's security advisory feature
-3. Include:
-   - Description of the vulnerability
-   - Steps to reproduce
-   - Potential impact assessment
-   - Any suggested fixes (optional)
-
-### Response Timeline
-
-- **Initial Response**: Within 48 hours
-- **Status Update**: Within 7 days
-- **Fix Timeline**: Critical issues within 30 days, others within 90 days
-
-### Disclosure Policy
-
-- We follow coordinated disclosure practices
-- Security advisories will be published after fixes are available
-- Credit will be given to reporters (unless anonymity is requested)
+If you find a vulnerability, you're welcome to open an issue so other users are aware of it, but no response or fix should be expected.
 
 ---
 
@@ -232,10 +204,4 @@ Model verification is automatic and cannot be disabled. All downloaded models mu
 
 ---
 
-## Security Contacts
-
-For security issues, please use GitHub's security advisory feature or contact the maintainers directly through the repository.
-
----
-
-*Last updated: January 2025*
+*Last updated: October 2026*
