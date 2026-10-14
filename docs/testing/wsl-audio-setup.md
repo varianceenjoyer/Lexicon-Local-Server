@@ -304,6 +304,6 @@ arecord -d 5 test.wav        # Record test
 
 ## See Also
 
-- [TUI User Guide](../TUI.md)
-- [Building on Linux](../BUILD-LINUX.md)
+- [TUI User Guide](../../MANUAL.md#lexicon-tui)
+- [Building on Linux](../../BUILD.md#linux-ubuntudebian)
 - [WSL2 Documentation](https://docs.microsoft.com/en-us/windows/wsl/)

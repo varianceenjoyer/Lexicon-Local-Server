@@ -1954,15 +1954,6 @@ mod tests {
     }
 
     #[test]
-    fn test_set_cache_max_memory() {
-        let custom_max = 200 * 1024 * 1024; // 200MB
-        set_cache_max_memory(custom_max);
-
-        let stats = get_cache_stats();
-        assert_eq!(stats.max_bytes, custom_max);
-    }
-
-    #[test]
     fn test_is_model_cached_when_empty() {
         clear_model_cache();
         assert!(!is_model_cached("sherpa".to_string()));

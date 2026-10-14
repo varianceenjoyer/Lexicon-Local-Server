@@ -13,7 +13,7 @@
 //! # Example
 //!
 //! ```
-//! use lexicon_core::stt::postprocess::{PostProcessor, PostProcessConfig};
+//! use lexicon_core::stt::{PostProcessConfig, PostProcessor};
 //!
 //! let processor = PostProcessor::new(PostProcessConfig::default());
 //! let result = processor.process("um i think your going to the store");
